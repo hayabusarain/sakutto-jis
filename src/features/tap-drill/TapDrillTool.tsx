@@ -143,7 +143,7 @@ export function TapDrillTool() {
   ]
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-6">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-6">
       <Card title="条件" index="01" icon={ClipboardList}>
         <div className="grid gap-4">
           <SelectField
