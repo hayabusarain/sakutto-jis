@@ -31,7 +31,7 @@ export const GROUPS = {
   P3_5: { d2: 3.5, d2Tol: 0.1, dDiff: 6, widths: [4.7, 6.0, 7.8], rMax: 0.8, eMax: 0.08, diaTol: 0.08, flatDepth: 2.7, flatWidth: 4.7, flatOffset: 6 },
   P5_7: { d2: 5.7, d2Tol: 0.13, dDiff: 10, widths: [7.5, 9.0, 11.5], rMax: 0.8, eMax: 0.1, diaTol: 0.1, flatDepth: 4.6, flatWidth: 7.5, flatOffset: 10 },
   P8_4: { d2: 8.4, d2Tol: 0.15, dDiff: 15, widths: [11.0, 13.0, 17.0], rMax: 1.2, eMax: 0.12, diaTol: 0.1, flatDepth: 6.9, flatWidth: 11.0, flatOffset: 15 },
-  G3_1: { d2: 3.1, d2Tol: 0.1, dDiff: 5, widths: [4.1, 5.6, 7.3], rMax: 0.7, eMax: 0.08, diaTol: null, flatDepth: 2.4, flatWidth: 4.1, flatOffset: 5 },
+  G3_1: { d2: 3.1, d2Tol: 0.1, dDiff: 5, widths: [4.1, 5.6, 7.3], rMax: 0.7, eMax: 0.08, diaTol: 0.1, flatDepth: 2.4, flatWidth: 4.1, flatOffset: 5 },
   G5_7: { d2: 5.7, d2Tol: 0.13, dDiff: 10, widths: [7.5, 9.0, 11.5], rMax: 0.8, eMax: 0.1, diaTol: 0.1, flatDepth: 4.6, flatWidth: 7.5, flatOffset: 10 },
 } as const satisfies Record<string, CrossSectionGroup>
 

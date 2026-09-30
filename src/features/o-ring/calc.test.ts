@@ -105,6 +105,7 @@ describe('JIS の表に載っているつぶし率の範囲を再現する', () 
     ['P', 'P22A', 9.4, 16.7],
     ['P', 'P48A', 8.4, 14.2],
     ['P', 'P150A', 7.9, 12.3],
+    ['G', 'G25', 13.3, 21.9],
     ['G', 'G150', 8.4, 14.2],
   ] as const)('円筒面 %s %s: %s〜%s%%', (series, no, min, max) => {
     const range = squeezeRange(findORing(series, no)!)!
