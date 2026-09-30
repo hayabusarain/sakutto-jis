@@ -1,6 +1,31 @@
 import { describe, expect, it } from 'vitest'
-import { boltLength, findFlange, protrusionThreads, roundLength, type BoltLengthInput } from './calc'
-import { COARSE_PITCH, FLANGES, NUT_HEIGHT, PIPE_OD, PRESSURE_CLASSES, WASHER_THICKNESS } from './data'
+import {
+  boltLength,
+  compareClasses,
+  findFlange,
+  flangeBoltLength,
+  identifyFlange,
+  isRowUnverified,
+  isUnverified,
+  nearestSize,
+  pcdFromPitch,
+  protrusionThreads,
+  roundLength,
+  sameBoltPattern,
+  spannerSize,
+  type BoltConditions,
+  type BoltLengthInput,
+  type IdentifyQuery,
+} from './calc'
+import {
+  COARSE_PITCH,
+  FLANGES,
+  NUT_HEIGHT,
+  PIPE_OD,
+  PRESSURE_CLASSES,
+  UNVERIFIED,
+  WASHER_THICKNESS,
+} from './data'
 
 const base: BoltLengthInput = {
   bolt: 16,
@@ -96,5 +121,196 @@ describe('フランジデータの整合性', () => {
   it('確認できた 10K の寸法', () => {
     expect(findFlange('10K', '50A')).toEqual({ size: '50A', D: 155, C: 120, n: 4, h: 19, bolt: 16, t: 16 })
     expect(findFlange('10K', '100A')).toEqual({ size: '100A', D: 210, C: 175, n: 8, h: 19, bolt: 16, t: 18 })
+  })
+})
+
+describe('規格原文で未確認の値（UNVERIFIED）', () => {
+  it('UNVERIFIED に書いた呼び径は、すべてデータにある', () => {
+    for (const [pressure, spec] of Object.entries(UNVERIFIED)) {
+      const sizes = FLANGES[pressure as keyof typeof FLANGES].map((row) => row.size)
+      for (const size of spec.rows ?? []) expect(sizes, `${pressure} ${size}`).toContain(size)
+      if (Array.isArray(spec.t)) for (const size of spec.t) expect(sizes, `${pressure} ${size}`).toContain(size)
+    }
+  })
+
+  it('docs/data-verification.md の △ と同じ: 16K の厚さ全部、5K 50A の厚さ、5K・10K の 90A・175A・225A の行', () => {
+    for (const row of FLANGES['16K']) {
+      expect(isUnverified('16K', row.size, 't')).toBe(true)
+      expect(isUnverified('16K', row.size, 'D')).toBe(false)
+    }
+    expect(isUnverified('5K', '50A', 't')).toBe(true)
+    expect(isUnverified('5K', '50A', 'C')).toBe(false)
+    expect(isUnverified('5K', '65A', 't')).toBe(false)
+    for (const pressure of ['5K', '10K'] as const) {
+      for (const size of ['90A', '175A', '225A']) {
+        expect(isRowUnverified(pressure, size)).toBe(true)
+        expect(isUnverified(pressure, size, 'D')).toBe(true)
+        expect(isUnverified(pressure, size, 't')).toBe(true)
+      }
+    }
+    expect(isUnverified('10K', '50A', 't')).toBe(false)
+    expect(isUnverified('20K', '50A', 't')).toBe(false)
+  })
+})
+
+const conditions: BoltConditions = {
+  type: 'hex',
+  gasket: 3,
+  washers: 0,
+  nut: 'style1',
+  threads: 3,
+  rounding: '5mm',
+  t2: null,
+}
+
+describe('flangeBoltLength', () => {
+  it('相手側が空欄なら同じ厚さ、入力があればその厚さ', () => {
+    const row = findFlange('10K', '50A')!
+    expect(flangeBoltLength(row, conditions).length).toBe(60)
+    // 16 + 20 + 3 + 14.8 + 6 = 59.8 → 60
+    expect(flangeBoltLength(row, { ...conditions, t2: 20 }).required).toBe(59.8)
+    // 16 + 22 + 3 + 14.8 + 6 = 61.8 → 65
+    expect(flangeBoltLength(row, { ...conditions, t2: 22 }).length).toBe(65)
+  })
+})
+
+describe('spannerSize', () => {
+  it('JIS本体ナットは本体、旧JIS 1種は附属書JA の二面幅', () => {
+    expect(spannerSize(16, 'style1')).toBe(24)
+    expect(spannerSize(16, 'ja1')).toBe(24)
+    expect(spannerSize(10, 'style1')).toBe(16)
+    expect(spannerSize(10, 'ja1')).toBe(17)
+    expect(spannerSize(12, 'style1')).toBe(18)
+    expect(spannerSize(12, 'ja1')).toBe(19)
+    expect(spannerSize(22, 'style1')).toBe(34)
+    expect(spannerSize(22, 'ja1')).toBe(32)
+    expect(spannerSize(7, 'style1')).toBeUndefined()
+  })
+
+  it('フランジに使うボルトはすべて二面幅がわかる', () => {
+    for (const pressure of PRESSURE_CLASSES) {
+      for (const row of FLANGES[pressure]) {
+        expect(spannerSize(row.bolt, 'style1'), `${pressure} ${row.size}`).toBeDefined()
+        expect(spannerSize(row.bolt, 'ja1'), `${pressure} ${row.size}`).toBeDefined()
+      }
+    }
+  })
+})
+
+describe('compareClasses', () => {
+  it('50A: 4クラスとも有り、今の条件のボルト長さ', () => {
+    const rows = compareClasses('50A', conditions)
+    expect(rows.map((r) => r.pressure)).toEqual(['5K', '10K', '16K', '20K'])
+    // 5K: 14+14+3+10.8+5.25 = 47.05 → 50 / 10K・16K: 60 / 20K: 18+18+3+14.8+6 = 59.8 → 60
+    expect(rows.map((r) => r.bolt?.length)).toEqual([50, 60, 60, 60])
+    expect(rows[0].row?.bolt).toBe(12)
+  })
+
+  it('条件が入力エラー（null）のときは寸法だけ', () => {
+    const rows = compareClasses('50A', null)
+    expect(rows.every((r) => r.row !== undefined && r.bolt === undefined)).toBe(true)
+  })
+
+  it('175A: 16K・20K には無い', () => {
+    const rows = compareClasses('175A', conditions)
+    expect(rows.map((r) => r.row === undefined)).toEqual([false, false, true, true])
+    expect(rows[2].bolt).toBeUndefined()
+  })
+})
+
+describe('sameBoltPattern', () => {
+  it('10K・16K・20K の 25A は PCD・穴が同じ、50A は穴数だけ違う、16K と 20K は同じ', () => {
+    expect(sameBoltPattern(findFlange('10K', '25A')!, findFlange('16K', '25A')!)).toBe(true)
+    expect(sameBoltPattern(findFlange('10K', '25A')!, findFlange('20K', '25A')!)).toBe(true)
+    expect(sameBoltPattern(findFlange('10K', '50A')!, findFlange('16K', '50A')!)).toBe(false)
+    expect(sameBoltPattern(findFlange('5K', '50A')!, findFlange('10K', '50A')!)).toBe(false)
+    for (const row of FLANGES['16K']) {
+      expect(sameBoltPattern(row, findFlange('20K', row.size)!), row.size).toBe(true)
+    }
+  })
+})
+
+describe('nearestSize', () => {
+  it('そのクラスに無い呼び径は、最も近い呼び径（同じ近さなら大きい方）', () => {
+    expect(nearestSize('16K', '50A')).toBe('50A')
+    expect(nearestSize('16K', '90A')).toBe('100A')
+    expect(nearestSize('16K', '175A')).toBe('200A')
+    expect(nearestSize('20K', '225A')).toBe('250A')
+    expect(nearestSize('10K', '8A')).toBe('10A')
+    expect(nearestSize('10K', '350A')).toBe('300A')
+    expect(nearestSize('10K', 'abc')).toBe('50A')
+  })
+})
+
+describe('pcdFromPitch', () => {
+  it('PCD = s ÷ sin(π/n)。4穴は s × √2', () => {
+    expect(pcdFromPitch(84.9, 4)).toBeCloseTo(84.9 * Math.SQRT2, 9)
+    // 10K 100A（PCD 175・8穴）の隣の穴の間隔は 175 × sin(22.5°) = 66.97
+    expect(pcdFromPitch(175 * Math.sin(Math.PI / 8), 8)).toBeCloseTo(175, 9)
+    expect(pcdFromPitch(66.97, 8)).toBeCloseTo(175, 1)
+  })
+})
+
+describe('identifyFlange', () => {
+  const query = (q: Partial<IdentifyQuery>): IdentifyQuery => ({ n: 4, D: null, pcd: null, h: null, t: null, ...q })
+  const labels = (group: { candidates: { pressure: string; row: { size: string } }[] }) =>
+    group.candidates.map((c) => `${c.pressure} ${c.row.size}`)
+
+  it('外径 155・4穴・隣の穴の間隔 84.9 → 10K 50A だけ', () => {
+    const groups = identifyFlange(query({ D: 155, pcd: pcdFromPitch(84.9, 4) }))
+    expect(labels(groups[0])).toEqual(['10K 50A'])
+    expect(groups[0].close).toBe(true)
+    expect(groups[0].candidates[0].dD).toBe(0)
+    // PCD = 84.9 × √2 = 120.067 → 表の 120 との差 −0.067
+    expect(groups[0].candidates[0].dC).toBe(-0.067)
+    // 次に近いのは外径の同じ 5K 65A（PCD 130）
+    expect(labels(groups[1])).toEqual(['5K 65A'])
+    expect(groups[1].close).toBe(false)
+  })
+
+  it('同じ外径・PCD で8穴 → 16K 50A と 20K 50A（厚さでしか区別できない）', () => {
+    const groups = identifyFlange(query({ n: 8, D: 155, pcd: pcdFromPitch(45.9, 8) }))
+    expect(labels(groups[0])).toEqual(['16K 50A', '20K 50A'])
+    expect(groups[0].candidates.map((c) => c.row.t)).toEqual([16, 18])
+  })
+
+  it('厚さを入れると、グループの中で厚さの近い順', () => {
+    const groups = identifyFlange(query({ n: 8, D: 155, pcd: 120, t: 18 }))
+    expect(labels(groups[0])).toEqual(['20K 50A', '16K 50A'])
+    expect(groups[0].candidates[0].dT).toBe(0)
+  })
+
+  it('10K・16K・20K の 25A は D・PCD・穴が同じ → 1つのグループ', () => {
+    const groups = identifyFlange(query({ D: 125, pcd: 90, h: 19 }))
+    expect(labels(groups[0])).toEqual(['10K 25A', '16K 25A', '20K 25A'])
+    expect(groups[0].score).toBe(0)
+  })
+
+  it('外径だけでは決まらないときは、同じ近さのグループを両方出す（外径 95・4穴）', () => {
+    const groups = identifyFlange(query({ D: 95 }))
+    expect(groups[0].score).toBe(0)
+    expect(groups[1].score).toBe(0)
+    expect(groups.slice(0, 2).map(labels)).toEqual([['5K 25A'], ['10K 15A', '16K 15A', '20K 15A']])
+  })
+
+  it('穴数は完全一致だけ（16穴・PCD 430 → 16K・20K の 300A）', () => {
+    const groups = identifyFlange(query({ n: 16, pcd: 430 }))
+    expect(labels(groups[0])).toEqual(['16K 300A', '20K 300A'])
+    expect(groups.every((g) => g.candidates.every((c) => c.row.n === 16))).toBe(true)
+  })
+
+  it('外径も PCD も無いときは探さない。該当する穴数が無ければ空', () => {
+    expect(identifyFlange(query({ h: 19 }))).toEqual([])
+    expect(identifyFlange(query({ n: 6, D: 155 }))).toEqual([])
+  })
+
+  it('差が大きいときは close = false', () => {
+    const groups = identifyFlange(query({ D: 160, pcd: 127 }))
+    expect(groups[0].close).toBe(false)
+  })
+
+  it('件数の上限', () => {
+    expect(identifyFlange(query({ D: 155 }), 5)).toHaveLength(5)
+    expect(identifyFlange(query({ D: 155 }))).toHaveLength(3)
   })
 })
