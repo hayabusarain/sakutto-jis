@@ -5,17 +5,22 @@ const memory = new Map<string, string>()
 const listeners = new Set<() => void>()
 
 function read(key: string): string | null {
+  // 書き込みに失敗してメモリに退避した値があれば、そちらが最新
+  const fallback = memory.get(key)
+  if (fallback !== undefined) return fallback
   try {
     return window.localStorage.getItem(key)
   } catch {
-    return memory.get(key) ?? null
+    return null
   }
 }
 
 function write(key: string, value: string) {
   try {
     window.localStorage.setItem(key, value)
+    memory.delete(key)
   } catch {
+    // 容量オーバーやプライベートモードなど
     memory.set(key, value)
   }
   listeners.forEach((listener) => listener())

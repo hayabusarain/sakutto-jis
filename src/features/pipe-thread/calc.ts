@@ -36,7 +36,7 @@ export function gRecommendedDrill(thread: PipeThreadSize): number {
 
 /**
  * Rc の有効ねじ部の奥端でのめねじ内径 = D1 − l/16。
- * テーパめねじは奥ほど細くなるので、下穴がこれより大きいと奥のねじ山が欠ける。
+ * テーパめねじは奥ほど細くなる。テーパリーマで下穴を仕上げるときの径の目安になる。
  */
 export function rcInnerMinorDiameter(thread: PipeThreadSize): number | null {
   if (thread.usefulInternalRc === null) return null

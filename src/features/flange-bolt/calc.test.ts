@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boltLength, findFlange, roundLength, type BoltLengthInput } from './calc'
+import { boltLength, findFlange, protrusionThreads, roundLength, type BoltLengthInput } from './calc'
 import { COARSE_PITCH, FLANGES, NUT_HEIGHT, PIPE_OD, PRESSURE_CLASSES, WASHER_THICKNESS } from './data'
 
 const base: BoltLengthInput = {
@@ -44,6 +44,14 @@ describe('boltLength', () => {
     expect(roundLength(70.1, '5mm')).toBe(75)
     expect(roundLength(60, '5mm')).toBe(60)
     expect(roundLength(301, 'jis')).toBeNull()
+  })
+})
+
+describe('protrusionThreads', () => {
+  it('6.6mm ÷ ピッチ1.5 = 4.4山（浮動小数の誤差で 4.3 にならない）', () => {
+    expect(protrusionThreads(6.6, 1.5)).toBe(4.4)
+    expect(protrusionThreads(9.45, 1.75)).toBe(5.4)
+    expect(protrusionThreads(10.2, 2)).toBe(5.1)
   })
 })
 

@@ -41,7 +41,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     description:
       'JIS B 2220 鋼製管フランジの寸法（外径・PCD・ボルト穴・厚さ）と、ガスケット・ナット・座金から必要なボルト長さを計算します。',
     category: 'piping',
-    standards: ['JIS B 2220', 'JIS B 1180', 'JIS B 1181', 'JIS B 1256'],
+    standards: ['JIS B 2220', 'JIS B 1180', 'JIS B 1181', 'JIS B 1256', 'JIS B 0205-2'],
     icon: Disc3,
     component: FlangeBoltTool,
   },
@@ -58,10 +58,10 @@ export const TOOLS: readonly ToolDefinition[] = [
   },
   {
     path: '/pipe-thread',
-    name: '管用ねじ（R・Rc・G）寸法と下穴径',
+    name: '管用ねじ（R・Rc・Rp・G）寸法と下穴径',
     navLabel: '管用ねじ',
     description:
-      '管用テーパねじ（R・Rc・Rp）と管用平行ねじ（G）の基準径・山数・ピッチと、タップの下穴径を調べられます。旧JIS（PT・PS・PF）表記にも対応。',
+      '管用テーパねじ（R・Rc・Rp）と管用平行ねじ（G）の基準径・山数・ピッチ、G の推奨下穴径と Rc の奥端内径（下穴の目安）を調べられます。旧JIS（PT・PS・PF）表記にも対応。',
     category: 'piping',
     standards: ['JIS B 0203', 'JIS B 0202'],
     icon: Wrench,

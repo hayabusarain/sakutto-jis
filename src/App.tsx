@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { SiteFooter } from './components/layout/SiteFooter'
 import { SiteHeader } from './components/layout/SiteHeader'
 import { ToolNav } from './components/layout/ToolNav'
@@ -19,6 +19,17 @@ export default function App({ initialPath }: { initialPath: string }) {
 function Shell() {
   const { pathname } = useRouter()
   const page = findPage(pathname)
+  const mainRef = useRef<HTMLElement>(null)
+  const isFirstRender = useRef(true)
+
+  // 画面内でページを切り替えたら、読み上げソフトやキーボード操作のために本文へフォーカスを移す
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    if (!window.location.hash) mainRef.current?.focus({ preventScroll: true })
+  }, [pathname])
 
   // 画面内でページを切り替えたときも、タブの題名と説明文を合わせる
   useEffect(() => {
@@ -36,7 +47,14 @@ function Shell() {
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
       <ToolNav />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 sm:pt-8">{content}</main>
+      <main
+        ref={mainRef}
+        tabIndex={-1}
+        aria-label={page?.title ?? NOT_FOUND_PAGE.title}
+        className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 outline-none sm:pt-8"
+      >
+        {content}
+      </main>
       <SiteFooter />
     </div>
   )

@@ -75,3 +75,8 @@ export function roundLength(required: number, rounding: Rounding): number | null
   if (rounding === '5mm') return Math.ceil(required / 5 - 1e-9) * 5
   return STANDARD_BOLT_LENGTHS.find((length) => length >= required - 1e-9) ?? null
 }
+
+/** 突き出し長さをねじ山の数にする（小数1桁で切り捨て。浮動小数の誤差で 4.4 → 4.3 にならないよう補正） */
+export function protrusionThreads(protrusion: number, pitch: number): number {
+  return Math.floor((protrusion / pitch) * 10 + 1e-9) / 10
+}

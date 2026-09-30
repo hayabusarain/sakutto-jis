@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { normalizePath, RouterContext } from './context'
 
 interface RouterProviderProps {
@@ -23,9 +24,11 @@ export function RouterProvider({ initialPath, children }: RouterProviderProps) {
   const navigate = useCallback((to: string) => {
     const url = new URL(to, window.location.href)
     window.history.pushState(null, '', url)
-    setPathname(normalizePath(url.pathname))
-    if (url.hash) {
-      document.getElementById(url.hash.slice(1))?.scrollIntoView()
+    // 新しいページを描画し終えてから、見出し（#contact など）を探してスクロールする
+    flushSync(() => setPathname(normalizePath(url.pathname)))
+    const target = url.hash ? document.getElementById(decodeURIComponent(url.hash.slice(1))) : null
+    if (target) {
+      target.scrollIntoView()
     } else {
       window.scrollTo(0, 0)
     }

@@ -11,9 +11,17 @@ import { SelectField } from '../../components/ui/SelectField'
 import { usePersistentState } from '../../hooks/usePersistentState'
 import { downloadText } from '../../lib/download'
 import { parseNumber, trim } from '../../lib/format'
-import { boltLength, findFlange, type BoltType, type NutKind, type Rounding } from './calc'
+import { standardLabel, type StandardCode } from '../../standards'
+import {
+  boltLength,
+  findFlange,
+  protrusionThreads,
+  type BoltType,
+  type NutKind,
+  type Rounding,
+} from './calc'
 import { FLANGES, PIPE_OD, PRESSURE_CLASSES, type FlangeRow, type PressureClass } from './data'
-import { boltHolePositions, flangeDxf } from './drawing'
+import { boltHolePositions, flangeDxf, isDrawableBore } from './drawing'
 
 interface FlangeInput {
   pressure: PressureClass
@@ -94,7 +102,7 @@ function FlangePreview({ row, bore }: { row: FlangeRow; bore: number }) {
       aria-label={`フランジ正面図: 外径${row.D}、PCD${row.C}、ボルト穴${row.n}-φ${row.h}`}
     >
       <circle r={r} className="fill-zinc-100 stroke-zinc-900" strokeWidth={r / 90} />
-      {bore > 0 && bore < row.C - row.h && (
+      {isDrawableBore(row, bore) && (
         <circle r={bore / 2} className="fill-white stroke-zinc-900" strokeWidth={r / 90} />
       )}
       <circle
@@ -119,13 +127,21 @@ export function FlangeBoltTool() {
   const sizes = FLANGES[input.pressure]
 
   const gasket = parseNumber(input.gasket)
-  const t2Input = parseNumber(input.t2)
-  const t2 = t2Input !== null && t2Input > 0 ? t2Input : row.t
-  const boreInput = parseNumber(input.bore)
-  const bore = input.bore.trim() === '' ? PIPE_OD[row.size] : boreInput ?? 0
   const gasketValid = gasket !== null && gasket >= 0 && gasket < 50
 
-  const result = gasketValid
+  // 相手側の厚さは「空欄なら同じフランジ」。入力があるのに読めないときは計算しない（黙って置き換えると短いボルトになる）
+  const t2Blank = input.t2.trim() === ''
+  const t2Input = parseNumber(input.t2)
+  const t2Valid = t2Blank || (t2Input !== null && t2Input > 0 && t2Input < 200)
+  const t2 = t2Blank || t2Input === null ? row.t : t2Input
+
+  // 図面の内径は「空欄なら管外径、0 なら穴なし」。それ以外で描けない値はエラーにする
+  const boreBlank = input.bore.trim() === ''
+  const boreInput = parseNumber(input.bore)
+  const bore = boreBlank ? PIPE_OD[row.size] : (boreInput ?? 0)
+  const boreValid = boreBlank || boreInput === 0 || (boreInput !== null && isDrawableBore(row, boreInput))
+
+  const result = gasketValid && t2Valid
     ? boltLength({
         bolt: row.bolt,
         t1: row.t,
@@ -140,6 +156,13 @@ export function FlangeBoltTool() {
     : null
 
   const nuts = input.type === 'stud' ? 2 : 1
+  const citedStandards: StandardCode[] = [
+    'JIS B 2220',
+    'JIS B 1181',
+    'JIS B 0205-2',
+    ...(input.washers > 0 ? (['JIS B 1256'] as const) : []),
+    ...(input.rounding === 'jis' ? (['JIS B 1180'] as const) : []),
+  ]
   const boltName = input.type === 'stud' ? 'スタッドボルト' : '六角ボルト'
   const spec = result?.length ? `M${row.bolt} × ${result.length}` : `M${row.bolt}`
 
@@ -154,7 +177,7 @@ export function FlangeBoltTool() {
     `${boltName} ${spec}　${row.n}本（ナット ${row.n * nuts}個${input.washers ? `・座金 ${row.n * input.washers}枚` : ''}）`,
     result ? `必要長さ ${trim(result.required)} mm（ガスケット ${trim(gasket ?? 0)} mm・突き出し ${input.threads}山）` : '',
     `外径 ${row.D} / PCD ${row.C} / 穴 ${row.n}-φ${row.h} / 厚さ ${row.t}`,
-    '典拠: JIS B 2220:2012 / JIS B 1181:2014',
+    `典拠: ${citedStandards.map(standardLabel).join(' / ')}`,
     '（サクッとJIS）',
   ]
     .filter(Boolean)
@@ -231,6 +254,7 @@ export function FlangeBoltTool() {
             onChange={(value) => setInput({ ...input, t2: value })}
             placeholder={`空欄なら同じ ${row.t}`}
             unit="mm"
+            error={t2Valid ? undefined : '正の数値で入力してください（空欄なら同じ厚さ）'}
             hint="バルブや機器のフランジと組むときなど、相手の厚さが違う場合に入力します。"
           />
           <SegmentedControl
@@ -249,7 +273,11 @@ export function FlangeBoltTool() {
           unit="mm"
         >
           {!result ? (
-            'ガスケットの厚さを数値で入力してください。'
+            !gasketValid ? (
+              'ガスケットの厚さを数値で入力してください。'
+            ) : (
+              '相手側フランジの厚さを正の数値で入力してください（空欄なら同じ厚さ）。'
+            )
           ) : result.length === null ? (
             'JIS標準長さ（300mmまで）を超えています。5mm刻みに切り替えてください。'
           ) : (
@@ -272,7 +300,7 @@ export function FlangeBoltTool() {
             unit="mm"
             note={
               result?.actualProtrusion != null
-                ? `約 ${trim(Math.floor((result.actualProtrusion / result.pitch) * 10) / 10)} 山（ピッチ ${trim(result.pitch)} mm）`
+                ? `約 ${trim(protrusionThreads(result.actualProtrusion, result.pitch))} 山（ピッチ ${trim(result.pitch)} mm）`
                 : undefined
             }
           />
@@ -286,7 +314,13 @@ export function FlangeBoltTool() {
           <Citation code="JIS B 2220" detail={`${input.pressure}（並形）`} suffix="のフランジ寸法" />
           <Citation code="JIS B 1181" suffix="のナット高さ" />
           {input.washers > 0 && <Citation code="JIS B 1256" suffix="の座金厚さ（並形）" />}
-          {input.rounding === 'jis' && <Citation code="JIS B 1180" suffix="の呼び長さの系列" />}
+          <Citation code="JIS B 0205-2" suffix="の並目ピッチ（突き出しの計算）" />
+          {input.rounding === 'jis' && (
+            <Citation
+              code="JIS B 1180"
+              suffix={input.type === 'stud' ? 'の六角ボルトの呼び長さの系列を準用' : 'の呼び長さの系列'}
+            />
+          )}
         </div>
 
         {result && (
@@ -318,7 +352,10 @@ export function FlangeBoltTool() {
                 ]}
               />
               <p>
-                計算値を{input.rounding === '5mm' ? '5mm刻み' : 'JIS B 1180 の呼び長さの系列（70mmまでは5mm、80mmからは10mm刻み）'}
+                計算値を
+                {input.rounding === '5mm'
+                  ? '5mm刻み'
+                  : `JIS B 1180 の${input.type === 'stud' ? '六角ボルトの' : ''}呼び長さの系列（70mmまでは5mm、80〜160mmは10mm、160mmを超えると20mm刻み）`}
                 に切り上げています。市販品の長さはメーカーによって異なるので、在庫の長さも確認してください。
               </p>
               <p>
@@ -348,11 +385,13 @@ export function FlangeBoltTool() {
               placeholder={`空欄なら管外径 ${PIPE_OD[row.size]}`}
               unit="mm"
               hint="0 を入れると、穴なし（閉止フランジ）の図になります。"
+              error={boreValid ? undefined : `0 または ${row.C - row.h} mm 未満の数値で入力してください（ボルト穴にかからない大きさ）`}
             />
             <button
               type="button"
               onClick={downloadDxf}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-zinc-900 text-sm font-semibold text-white hover:bg-zinc-700"
+              disabled={!boreValid}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-zinc-900 text-sm font-semibold text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-300"
             >
               <Download className="size-4" aria-hidden />
               DXF をダウンロード（2D・正面図）

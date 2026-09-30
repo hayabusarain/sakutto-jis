@@ -65,12 +65,12 @@ export function PipeThreadTool() {
     }
   } else if (input.kind === 'Rc') {
     primary = {
-      label: `下穴径の上限の目安（${name}）`,
+      label: `有効ねじ部の奥端のめねじ内径（計算値・${name}）`,
       value: rcInner === null ? undefined : fixed(rcInner, 2),
       note:
         rcInner === null
           ? 'このサイズは有効ねじ部の長さを確認中のため、計算していません。'
-          : '有効ねじ部の奥端でのめねじ内径。これより大きい下穴だと奥のねじ山が欠けます。実際のドリル径はタップメーカーの推奨値を確認してください。',
+          : 'テーパリーマで下穴を仕上げるときの目安です。リーマを使わずにタップを立てる場合の下穴はこれより大きくなり（奥の数山は山頂が平らな不完全ねじになります）、タップメーカーの推奨値に従ってください。',
     }
   } else if (input.kind === 'Rp') {
     primary = {
@@ -108,7 +108,7 @@ export function PipeThreadTool() {
     { key: 'g', header: 'G 下穴', cell: (row) => fixed(gRecommendedDrill(row), 1) },
     {
       key: 'rc',
-      header: 'Rc 下穴上限',
+      header: 'Rc 奥端内径',
       cell: (row) => {
         const value = rcInnerMinorDiameter(row)
         return value === null ? '—' : fixed(value, 2)
@@ -136,7 +136,7 @@ export function PipeThreadTool() {
           <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-600">
             <p className="font-semibold text-zinc-800">旧JIS表記との対応</p>
             <p className="num mt-1">PT → R / Rc　PS → Rp　PF → G</p>
-            <p className="mt-1">テーパねじ（R・Rc）は、ねじ込むほど締まって気密を保ちます。</p>
+            <p className="mt-1">テーパねじ（R・Rc）は、シールテープや液状シール剤と併用し、ねじ込むほど締まって気密を保ちます。</p>
           </div>
         </div>
       </Card>

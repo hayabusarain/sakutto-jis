@@ -18,11 +18,17 @@ export function boltHolePositions(row: FlangeRow): HolePosition[] {
   })
 }
 
+/** 図に内径を描けるか（0 は穴なし。ボルト穴にかかる大きさは描かない） */
+export function isDrawableBore(row: FlangeRow, bore: number): boolean {
+  return bore > 0 && bore < row.C - row.h
+}
+
 /** フランジ正面図（外形・内径・ボルト穴・PCD・中心線）の DXF */
 export function flangeDxf(pressure: PressureClass, row: FlangeRow, bore: number): string {
   const drawing = new DxfDrawing()
+  const hasBore = isDrawableBore(row, bore)
   drawing.circle('OUTLINE', 0, 0, row.D / 2)
-  if (bore > 0 && bore < row.C - row.h) drawing.circle('OUTLINE', 0, 0, bore / 2)
+  if (hasBore) drawing.circle('OUTLINE', 0, 0, bore / 2)
   for (const hole of boltHolePositions(row)) drawing.circle('OUTLINE', hole.x, hole.y, row.h / 2)
   drawing.circle('CENTER', 0, 0, row.C / 2)
 
@@ -38,7 +44,7 @@ export function flangeDxf(pressure: PressureClass, row: FlangeRow, bore: number)
     -row.D / 2,
     y - textHeight * 1.8,
     textHeight,
-    `D${row.D}  PCD${row.C}  ${row.n}-${row.h}  M${row.bolt}  t${row.t}${bore > 0 ? `  ID${bore}` : ''}`,
+    `D${row.D}  PCD${row.C}  ${row.n}-${row.h}  M${row.bolt}  t${row.t}${hasBore ? `  ID${bore}` : ''}`,
   )
   return drawing.toString()
 }

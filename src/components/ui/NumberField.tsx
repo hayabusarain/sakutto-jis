@@ -8,11 +8,23 @@ interface NumberFieldProps {
   placeholder?: string
   unit?: string
   hint?: string
+  /** 入力が正しくないときのメッセージ */
+  error?: string
 }
 
-export function NumberField({ label, value, onChange, placeholder, unit, hint }: NumberFieldProps) {
+export function NumberField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  unit,
+  hint,
+  error,
+}: NumberFieldProps) {
   const id = useId()
   const hintId = `${id}-hint`
+  const errorId = `${id}-error`
+  const describedBy = [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(' ')
 
   return (
     <div>
@@ -28,8 +40,11 @@ export function NumberField({ label, value, onChange, placeholder, unit, hint }:
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          aria-describedby={hint ? hintId : undefined}
-          className="h-12 w-full rounded-md border border-zinc-300 bg-white px-3 pr-12 text-base text-zinc-900 tabular-nums placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-2 focus:outline-orange-500/40"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy || undefined}
+          className={`h-12 w-full rounded-md border bg-white px-3 pr-12 text-base text-zinc-900 tabular-nums placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-2 focus:outline-orange-500/40 ${
+            error ? 'border-red-500' : 'border-zinc-300'
+          }`}
         />
         {unit && (
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-zinc-500">
@@ -37,6 +52,11 @@ export function NumberField({ label, value, onChange, placeholder, unit, hint }:
           </span>
         )}
       </div>
+      {error && (
+        <p id={errorId} className="mt-1 text-xs font-semibold text-red-700">
+          {error}
+        </p>
+      )}
       {hint && (
         <p id={hintId} className="mt-1 text-xs text-zinc-500">
           {hint}

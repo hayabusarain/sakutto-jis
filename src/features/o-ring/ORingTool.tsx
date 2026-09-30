@@ -328,15 +328,24 @@ export function ORingTool() {
             <Formula>
               充てん率 = (π/4 × d2²) ÷ (b × 溝の深さ) × 100 = {fixed((Math.PI / 4) * group.d2 ** 2, 2)} ÷ ({trim(flat ? flat.width : group.widths[0])} × {trim(depth)}) × 100 = {fixed(fill, 1)}%
             </Formula>
-            <Formula>
-              伸び = (d − d1) ÷ d1 × 100 = ({trim(ring.d)} − {trim(ring.d1)}) ÷ {trim(ring.d1)} × 100 = {fixed(stretchValue, 1)}%
-            </Formula>
+            {input.groove !== 'flat-internal' && (
+              <Formula>
+                伸び = (d − d1) ÷ d1 × 100 = ({trim(ring.d)} − {trim(ring.d1)}) ÷ {trim(ring.d1)} × 100 = {fixed(stretchValue, 1)}%
+              </Formula>
+            )}
             <FormulaLegend
               items={[
                 ['d1', 'Oリングの内径'],
                 ['d2', 'Oリングの太さ'],
-                ['d, D', 'ハウジングの径（JIS B 2401-2）'],
-                ['b', '溝幅（バックアップリングの数で変わる）'],
+                ...(flat
+                  ? ([
+                      ['d', '外圧用の溝内径（呼び番号の数値）'],
+                      ['b', '溝幅'],
+                    ] as const)
+                  : ([
+                      ['d, D', 'ハウジングの径（JIS B 2401-2）'],
+                      ['b', '溝幅（バックアップリングの数で変わる）'],
+                    ] as const)),
               ]}
             />
             <p>
@@ -357,8 +366,9 @@ export function ORingTool() {
           単位: mm。{isFlat ? '平面溝は固定用。' : `溝幅はバックアップリング ${input.backup} 個の値。`}
           行をタップするとその番号を選べます。
         </p>
-        <div className="mt-2 max-h-[32rem] overflow-y-auto">
+        <div className="mt-2">
           <DataTable
+            maxHeightClass="max-h-[32rem]"
             columns={columns}
             rows={rows}
             rowKey={(row) => row.no}
