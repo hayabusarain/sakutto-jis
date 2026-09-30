@@ -22,9 +22,14 @@ export function ToolNav() {
       aria-label="計算ツール"
       className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur"
     >
+      {/* スマホで横にスクロールできることが分かるよう、右端を少しぼかす */}
+      <div
+        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-linear-to-l from-white to-transparent lg:hidden"
+        aria-hidden
+      />
       <ul
         ref={listRef}
-        className="no-scrollbar relative mx-auto flex max-w-5xl overflow-x-auto px-2 sm:px-4"
+        className="no-scrollbar relative mx-auto flex max-w-5xl overflow-x-auto px-2 pr-8 sm:px-4 lg:pr-4"
       >
         {TOOLS.map(({ path, navLabel, icon: Icon }) => {
           const active = path === pathname
