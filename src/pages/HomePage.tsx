@@ -1,4 +1,6 @@
 import { ArrowRight, BookOpen, Calculator, MessageSquareWarning, Smartphone } from 'lucide-react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { QuickSearch } from '../components/QuickSearch'
 import { Link } from '../router/Link'
 import { SITE } from '../site'
 import { standardLabel } from '../standards'
@@ -29,6 +31,38 @@ const FEATURES = [
   },
 ]
 
+const subscribeNothing = () => () => {}
+const readQueryFromUrl = () => new URLSearchParams(window.location.search).get('q') ?? ''
+
+/**
+ * トップページの検索欄。入力は URL の ?q= にも残す（ツールへ移ってから「戻る」で結果に戻れる・共有できる）。
+ * 事前レンダリングと食い違わないよう、URL の値は useSyncExternalStore で表示後に読む。
+ */
+function HomeSearch() {
+  const fromUrl = useSyncExternalStore(subscribeNothing, readQueryFromUrl, () => '')
+  // 入力するまでは URL の値を使う
+  const [edited, setEdited] = useState<string | null>(null)
+  const query = edited ?? fromUrl
+
+  useEffect(() => {
+    if (edited === null) return
+    const url = new URL(window.location.href)
+    if (url.pathname !== '/') return
+    const q = edited.trim()
+    if (q) url.searchParams.set('q', q)
+    else url.searchParams.delete('q')
+    const next = `${url.pathname}${url.search}${url.hash}`
+    if (next === `${window.location.pathname}${window.location.search}${window.location.hash}`) return
+    try {
+      window.history.replaceState(window.history.state, '', next)
+    } catch {
+      // 短時間に書き換えすぎたときなど。検索自体には影響しない
+    }
+  }, [edited])
+
+  return <QuickSearch query={query} onQueryChange={setEdited} />
+}
+
 export function HomePage() {
   return (
     <>
@@ -42,6 +76,9 @@ export function HomePage() {
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-600 sm:text-base">
           {SITE.description}
         </p>
+        <div className="mt-6 print:hidden">
+          <HomeSearch />
+        </div>
       </section>
 
       {CATEGORIES.map((category) => (
