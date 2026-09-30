@@ -1,6 +1,89 @@
 import { describe, expect, it } from 'vitest'
-import { findPipeThread, gMinorLimits, gRecommendedDrill, pitch, rcInnerMinorDiameter, threadHeight } from './calc'
+import {
+  findPipeThread,
+  gInternalCalloutWithDrill,
+  gMinorLimits,
+  gRecommendedDrill,
+  parsePipeThreadDesignation,
+  parsePipeThreadKind,
+  pipeThreadDesignation,
+  pitch,
+  rcInnerMinorDiameter,
+  rPipeEndDiameter,
+  rUsefulEndDiameter,
+  threadHeight,
+} from './calc'
 import { PIPE_THREAD_SIZES } from './data'
+
+describe('R おねじの管端・有効ねじ部の端の外径（テーパ 1/16）', () => {
+  it('R1/2: 管端 20.955 − 8.16/16 = 20.445、有効ねじ部の端 20.955 + (13.2 − 8.16)/16 = 21.270', () => {
+    const t = findPipeThread('1/2')!
+    expect(rPipeEndDiameter(t)).toBe(20.445)
+    expect(rUsefulEndDiameter(t)).toBe(21.27)
+  })
+
+  it('R1/8: 管端 9.728 − 3.97/16 = 9.480', () => {
+    expect(rPipeEndDiameter(findPipeThread('1/8')!)).toBe(9.48)
+  })
+
+  it('すべてのサイズで 管端 < 基準径 < 有効ねじ部の端', () => {
+    for (const t of PIPE_THREAD_SIZES) {
+      expect(rPipeEndDiameter(t), t.size).toBeLessThan(t.d)
+      expect(rUsefulEndDiameter(t), t.size).toBeGreaterThan(t.d)
+    }
+  })
+})
+
+describe('表記ゆれの読み取り', () => {
+  it.each([
+    ['1/2', '1/2', null],
+    ['1/2B', '1/2', null],
+    ['15A', '1/2', null],
+    ['R1/2', '1/2', 'R'],
+    ['Rc3/4', '3/4', 'Rc'],
+    ['rp 3/8', '3/8', 'Rp'],
+    ['PT1/2', '1/2', 'Rc'],
+    ['PS1/4', '1/4', 'Rp'],
+    ['PF1/2', '1/2', 'G'],
+    ['G1/2A', '1/2', 'G'],
+    ['G 1-1/4', '1 1/4', 'G'],
+    ['1.1/2', '1 1/2', null],
+    ['1 1/2', '1 1/2', null],
+    ['Ｇ１／２', '1/2', 'G'],
+    ['50A', '2', null],
+  ])('%s → %s %s', (text, size, kind) => {
+    expect(parsePipeThreadDesignation(text)).toEqual({ size, kind })
+  })
+
+  it.each(['', '7/8', 'M12', 'X1/2', '90A', 'R1/2A', '1/2A', 'abc'])('%s は読めない', (text) => {
+    expect(parsePipeThreadDesignation(text)).toBeNull()
+  })
+
+  it('種類の表記ゆれ', () => {
+    expect(parsePipeThreadKind('rc')).toBe('Rc')
+    expect(parsePipeThreadKind('PF')).toBe('G')
+    expect(parsePipeThreadKind('PS')).toBe('Rp')
+    expect(parsePipeThreadKind('PT')).toBe('Rc')
+    expect(parsePipeThreadKind('M')).toBeNull()
+  })
+})
+
+describe('図面指示', () => {
+  it('呼び', () => {
+    expect(pipeThreadDesignation('Rc', '1/2')).toBe('Rc1/2')
+    expect(pipeThreadDesignation('R', '1 1/4')).toBe('R1 1/4')
+    expect(pipeThreadDesignation('G', '1/2')).toBe('G1/2')
+    expect(pipeThreadDesignation('G', '1/2', 'A')).toBe('G1/2A')
+    expect(pipeThreadDesignation('G', '3/4', 'B')).toBe('G3/4B')
+    // 等級は G のおねじだけ
+    expect(pipeThreadDesignation('R', '1/2', 'A')).toBe('R1/2')
+  })
+
+  it('G めねじの下穴の注記は推奨下穴径の計算値', () => {
+    expect(gInternalCalloutWithDrill(findPipeThread('1/2')!)).toBe('G1/2 下穴φ18.9')
+    expect(gInternalCalloutWithDrill(findPipeThread('2')!)).toBe('G2 下穴φ57.0')
+  })
+})
 
 describe('基準寸法の整合性', () => {
   it('有効径・谷径は外径から山の高さ h を引いた値（±0.002mm）', () => {
