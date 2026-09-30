@@ -19,7 +19,7 @@ export function SiteFooter() {
           </span>
         </p>
 
-        <div className="mt-8 grid grid-cols-2 gap-8 sm:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
           {CATEGORIES.map((category) => (
             <div key={category}>
               <h2 className="text-xs font-semibold tracking-wider text-zinc-500">

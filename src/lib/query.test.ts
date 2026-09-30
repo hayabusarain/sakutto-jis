@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fromQuery, toQuery } from './query'
+import { fromQuery, toolHref, toQuery } from './query'
 
 const defaults = { d: 10, p: 1.5, grade: 6, drill: '' }
 
@@ -11,8 +11,11 @@ describe('toQuery / fromQuery', () => {
   })
 
   it('クエリから復元し、型を既定値に合わせる', () => {
-    expect(fromQuery('?d=12&p=1.75', defaults)).toEqual({ d: 12, p: 1.75, grade: 6, drill: '' })
-    expect(fromQuery('drill=8.5', defaults)).toEqual({ ...defaults, drill: '8.5' })
+    expect(fromQuery('?d=12&p=1.75', defaults)).toEqual({
+      state: { d: 12, p: 1.75, grade: 6, drill: '' },
+      keys: ['d', 'p'],
+    })
+    expect(fromQuery('drill=8.5', defaults)?.state).toEqual({ ...defaults, drill: '8.5' })
   })
 
   it('知らないキーだけなら null、数値にならない値も null', () => {
@@ -24,6 +27,14 @@ describe('toQuery / fromQuery', () => {
 
   it('往復で元に戻る', () => {
     const state = { d: 3, p: 0.5, grade: 5, drill: '2.5' }
-    expect(fromQuery(toQuery(state, defaults), defaults)).toEqual(state)
+    expect(fromQuery(toQuery(state, defaults), defaults)?.state).toEqual(state)
+  })
+})
+
+describe('toolHref', () => {
+  it('条件付きのリンクを作る', () => {
+    expect(toolHref('/tap-drill')).toBe('/tap-drill')
+    expect(toolHref('/tap-drill', { d: 12, p: 1.75 })).toBe('/tap-drill?d=12&p=1.75')
+    expect(toolHref('/pipe-thread', { size: '1 1/2' })).toBe('/pipe-thread?size=1+1%2F2')
   })
 })

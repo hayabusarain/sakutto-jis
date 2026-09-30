@@ -11,16 +11,20 @@ interface SourceNoteProps {
 export function SourceNote({ standards }: SourceNoteProps) {
   return (
     <aside className="rounded-md border border-zinc-300 border-dashed bg-white/60 p-4 text-sm">
-      <h2 className="text-xs font-bold tracking-wider text-zinc-500">参照規格</h2>
-      <ul className="mt-2 space-y-1">
-        {standards.map((code) => (
-          <li key={code} className="flex flex-wrap gap-x-2">
-            <span className="num font-semibold text-zinc-800">{standardLabel(code)}</span>
-            <span className="text-zinc-600">{STANDARDS[code].title}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+      {standards.length > 0 && (
+        <>
+          <h2 className="text-xs font-bold tracking-wider text-zinc-500">参照規格</h2>
+          <ul className="mt-2 mb-3 space-y-1">
+            {standards.map((code) => (
+              <li key={code} className="flex flex-wrap gap-x-2">
+                <span className="num font-semibold text-zinc-800">{standardLabel(code)}</span>
+                <span className="text-zinc-600">{STANDARDS[code].title}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="text-xs leading-relaxed text-zinc-500">
         本ツールのデータはJIS規格に基づき万全を期して作成していますが、実業務でのご使用時は必要に応じて公式の規格書をご確認ください。規格原文は
         <a
           href={JISC_URL}

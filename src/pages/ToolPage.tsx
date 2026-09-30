@@ -5,7 +5,7 @@ import { standardLabel } from '../standards'
 import { CATEGORY_LABELS, type ToolDefinition } from '../tools/registry'
 
 export function ToolPage({ tool }: { tool: ToolDefinition }) {
-  const { component: ToolComponent, icon: Icon } = tool
+  const { component: ToolComponent, guide: Guide, icon: Icon } = tool
 
   return (
     <>
@@ -39,6 +39,12 @@ export function ToolPage({ tool }: { tool: ToolDefinition }) {
       </div>
 
       <ToolComponent />
+
+      {Guide && (
+        <div className="mt-6">
+          <Guide />
+        </div>
+      )}
 
       <div className="mt-6">
         <SourceNote standards={tool.standards} />

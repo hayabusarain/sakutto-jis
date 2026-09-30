@@ -1,15 +1,18 @@
 import { Check, Share2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { copyText } from '../../lib/clipboard'
 
 interface ShareButtonProps {
   title: string
+  /** 共有メニューに一緒に渡す文章（結果の要約など） */
+  text?: string
 }
 
 /**
  * いま表示している条件のURLを共有する。スマホでは共有メニュー（LINE など）、
  * パソコンなど共有メニューが無い環境ではURLをコピーする。
  */
-export function ShareButton({ title }: ShareButtonProps) {
+export function ShareButton({ title, text }: ShareButtonProps) {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -22,19 +25,14 @@ export function ShareButton({ title }: ShareButtonProps) {
     const url = window.location.href
     if (navigator.share) {
       try {
-        await navigator.share({ title, url })
+        await navigator.share(text ? { title, text, url } : { title, url })
         return
       } catch (error) {
         // 利用者がキャンセルしたときは何もしない
         if (error instanceof DOMException && error.name === 'AbortError') return
       }
     }
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-    } catch {
-      // クリップボードも使えない環境では何もしない
-    }
+    if (await copyText(text ? `${text}\n${url}` : url)) setCopied(true)
   }
 
   return (

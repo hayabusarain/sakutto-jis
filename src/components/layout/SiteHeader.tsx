@@ -1,6 +1,7 @@
 import { Link } from '../../router/Link'
 import { SITE } from '../../site'
 import { LogoMark } from './LogoMark'
+import { TextSizeToggle } from './TextSizeToggle'
 
 export function SiteHeader() {
   return (
@@ -15,9 +16,12 @@ export function SiteHeader() {
             </span>
           </span>
         </Link>
-        <span className="num ml-auto hidden text-[11px] tracking-[0.2em] text-zinc-500 sm:block">
+        <span className="num ml-auto hidden text-[11px] tracking-[0.2em] text-zinc-500 md:block">
           JIS CALC TOOLS
         </span>
+        <div className="ml-auto md:ml-3">
+          <TextSizeToggle />
+        </div>
       </div>
     </header>
   )

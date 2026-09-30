@@ -17,6 +17,18 @@
   body {
     @apply bg-zinc-100 text-zinc-900 antialiased;
   }
+
+  /* 画面下の結果バー（StickyResult）表示中は、最下部が隠れないよう余白をとる（スマホのみ） */
+  @media (width < 64rem) {
+    body.has-sticky-result {
+      padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+    }
+  }
+
+  /* 文字を大きく（ヘッダーの切り替え）。Tailwind は rem 基準なので全体が拡大される */
+  html[data-text-size='lg'] {
+    font-size: 112.5%;
+  }
 }
 
 @utility no-scrollbar {

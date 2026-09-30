@@ -32,7 +32,7 @@ export const PAGES: readonly PageDefinition[] = [
   },
   ...TOOLS.map((tool) => ({
     path: tool.path,
-    title: `${tool.name}｜${SITE.name}`,
+    title: `${tool.seoTitle ?? tool.name}｜${SITE.name}`,
     description: tool.description,
     tool,
   })),
