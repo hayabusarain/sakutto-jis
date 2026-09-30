@@ -262,11 +262,11 @@ export function TapDrillTool() {
         </dl>
 
         <div className="mt-3 space-y-1">
-          <Citation code="JIS B 0205-2" detail="表1" suffix="のピッチ" />
+          <Citation code="JIS B 0205-2" suffix="のピッチ" />
           <Citation code="JIS B 0205-4" suffix="の式でD1を計算" />
           <Citation code="JIS B 0209-1" suffix="のめねじ内径の公差（T_D1）を適用" />
           {recommendation?.basis === 'iso2306' && (
-            <Citation code="ISO 2306" detail="表1" suffix="の推奨ドリル径" />
+            <Citation code="ISO 2306" suffix="の推奨ドリル径" />
           )}
         </div>
 

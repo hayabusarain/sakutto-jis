@@ -1,0 +1,87 @@
+import { describe, expect, it } from 'vitest'
+import { fillRatio, findORing, grooveDepth, oRingNumbers, squeeze, squeezeRange, stretch } from './calc'
+
+describe('findORing', () => {
+  it('P20: 19.8 × 2.4、ハウジング d20 / D24、溝幅 3.2', () => {
+    const ring = findORing('P', 'P20')!
+    expect(ring.d1).toBe(19.8)
+    expect(ring.group.d2).toBe(2.4)
+    expect(ring.d).toBe(20)
+    expect(ring.D).toBe(24)
+    expect(ring.group.widths[0]).toBe(3.2)
+  })
+
+  it.each([
+    ['P10', 1.9, 10, 13],
+    ['P10A', 2.4, 10, 14],
+    ['P22', 2.4, 22, 26],
+    ['P22A', 3.5, 22, 28],
+    ['P50', 3.5, 50, 56],
+    ['P48A', 5.7, 48, 58],
+    ['P150', 5.7, 150, 160],
+    ['P150A', 8.4, 150, 165],
+    ['P11.2', 2.4, 11.2, 15.2],
+  ])('A サイズの境目 %s: 太さ %s・d %s・D %s', (no, d2, d, D) => {
+    const ring = findORing('P', no)!
+    expect(ring.group.d2).toBe(d2)
+    expect(ring.d).toBe(d)
+    expect(ring.D).toBe(D)
+  })
+
+  it('G25 は 24.4 × 3.1、d25 / D30。G150 から太さ 5.7', () => {
+    expect(findORing('G', 'G25')).toMatchObject({ d1: 24.4, d: 25, D: 30 })
+    expect(findORing('G', 'G145')!.group.d2).toBe(3.1)
+    expect(findORing('G', 'G150')!.group.d2).toBe(5.7)
+  })
+})
+
+describe('計算', () => {
+  it('P20 のつぶし率 = (2.4 − 2.0) ÷ 2.4 = 16.7%', () => {
+    const ring = findORing('P', 'P20')!
+    expect(grooveDepth(ring)).toBe(2)
+    expect(squeeze(2.4, 2)).toBeCloseTo(16.67, 2)
+    const range = squeezeRange(ring)!
+    expect(range.min).toBeLessThan(16.67)
+    expect(range.max).toBeGreaterThan(16.67)
+  })
+
+  it('P20 の充てん率（バックアップリングなし）= π/4×2.4² ÷ (3.2×2.0) = 70.7%', () => {
+    expect(fillRatio(findORing('P', 'P20')!, 0)).toBeCloseTo(70.69, 1)
+  })
+
+  it('P20 の伸び = (20 − 19.8) ÷ 19.8 = 1.0%', () => {
+    expect(stretch(findORing('P', 'P20')!)).toBeCloseTo(1.01, 2)
+  })
+})
+
+describe('データの整合性', () => {
+  it.each(['P', 'G'] as const)('%s: 内径は昇順で、溝底径 d より小さく、d1 公差は正', (series) => {
+    let previous = 0
+    for (const no of oRingNumbers(series)) {
+      const ring = findORing(series, no)!
+      expect(ring.d1, no).toBeLessThan(ring.d)
+      expect(ring.d1Tol, no).toBeGreaterThan(0)
+      // A サイズは同じ呼びの別の太さなので、内径が前より小さいことがある
+      if (!no.endsWith('A')) expect(ring.d1, no).toBeGreaterThan(previous - 0.001)
+      previous = ring.d1
+      // Oリングの外径は、ロッド型の溝底径 D より大きい（つぶしがある）
+      expect(ring.d1 + 2 * ring.group.d2, no).toBeGreaterThan(ring.D)
+    }
+  })
+
+  it('すべてのサイズでつぶし率が 5〜30% の範囲に収まる', () => {
+    for (const series of ['P', 'G'] as const) {
+      for (const no of oRingNumbers(series)) {
+        const ring = findORing(series, no)!
+        const value = squeeze(ring.group.d2, grooveDepth(ring))
+        expect(value, no).toBeGreaterThan(5)
+        expect(value, no).toBeLessThan(30)
+      }
+    }
+  })
+
+  it('サイズ数: P は 122、G は 46', () => {
+    expect(oRingNumbers('P')).toHaveLength(122)
+    expect(oRingNumbers('G')).toHaveLength(46)
+  })
+})

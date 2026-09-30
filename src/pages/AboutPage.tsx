@@ -9,8 +9,12 @@ export function AboutPage() {
         <dl className="mt-3 grid grid-cols-[7rem_1fr] gap-x-4 gap-y-2 border-t border-zinc-100 pt-3">
           <dt className="font-semibold text-zinc-900">サイト名</dt>
           <dd>{SITE.name}</dd>
-          <dt className="font-semibold text-zinc-900">URL</dt>
-          <dd className="num break-all">{SITE.url}</dd>
+          {SITE.url && (
+            <>
+              <dt className="font-semibold text-zinc-900">URL</dt>
+              <dd className="num break-all">{SITE.url}</dd>
+            </>
+          )}
           <dt className="font-semibold text-zinc-900">運営者</dt>
           <dd>{SITE.operator.name}</dd>
           <dt className="font-semibold text-zinc-900">所在地</dt>

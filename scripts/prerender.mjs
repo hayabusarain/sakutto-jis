@@ -14,19 +14,24 @@ const template = await readFile(join(dist, 'index.html'), 'utf8')
 const escapeHtml = (text) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+const pageUrl = (path) => (SITE.url ? SITE.url + (path === '/' ? '/' : path) : null)
+
 function headTags({ title, description, path, noindex }) {
-  const url = SITE.url + (path === '/' ? '/' : path)
+  const url = pageUrl(path)
   return [
     `<title>${escapeHtml(title)}</title>`,
     `<meta name="description" content="${escapeHtml(description)}" />`,
-    noindex ? '<meta name="robots" content="noindex" />' : `<link rel="canonical" href="${url}" />`,
+    noindex ? '<meta name="robots" content="noindex" />' : '',
+    !noindex && url ? `<link rel="canonical" href="${url}" />` : '',
     `<meta property="og:type" content="${path === '/' ? 'website' : 'article'}" />`,
     `<meta property="og:site_name" content="${escapeHtml(SITE.name)}" />`,
     `<meta property="og:title" content="${escapeHtml(title)}" />`,
     `<meta property="og:description" content="${escapeHtml(description)}" />`,
-    `<meta property="og:url" content="${url}" />`,
+    url ? `<meta property="og:url" content="${url}" />` : '',
     '<meta name="twitter:card" content="summary" />',
-  ].join('\n    ')
+  ]
+    .filter(Boolean)
+    .join('\n    ')
 }
 
 function page(path, rendered, noindex = false) {
@@ -51,16 +56,20 @@ for (const path of paths) {
 
 await writeFile(join(dist, '404.html'), page('/404', render('/404'), true))
 
-const today = new Date().toISOString().slice(0, 10)
-const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+// sitemap.xml は絶対URLが必要なので、公開URL（VITE_SITE_URL）が決まっているときだけ出力する
+if (SITE.url) {
+  const today = new Date().toISOString().slice(0, 10)
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${paths
-  .map((path) => `  <url><loc>${SITE.url}${path === '/' ? '/' : path}</loc><lastmod>${today}</lastmod></url>`)
-  .join('\n')}
+${paths.map((path) => `  <url><loc>${pageUrl(path)}</loc><lastmod>${today}</lastmod></url>`).join('\n')}
 </urlset>
 `
-await writeFile(join(dist, 'sitemap.xml'), sitemap)
-await writeFile(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${SITE.url}/sitemap.xml\n`)
+  await writeFile(join(dist, 'sitemap.xml'), sitemap)
+  await writeFile(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${SITE.url}/sitemap.xml\n`)
+} else {
+  await writeFile(join(dist, 'robots.txt'), 'User-agent: *\nAllow: /\n')
+  console.warn('VITE_SITE_URL が未設定のため、canonical と sitemap.xml を出力していません')
+}
 
 await rm(ssrDir, { recursive: true, force: true })
-console.log(`prerendered ${paths.length} pages + 404.html, sitemap.xml, robots.txt`)
+console.log(`prerendered ${paths.length} pages + 404.html${SITE.url ? ', sitemap.xml' : ''}, robots.txt`)
