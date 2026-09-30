@@ -4,14 +4,31 @@
   --font-sans:
     'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'BIZ UDPGothic', Meiryo,
     system-ui, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    scroll-padding-top: 4rem;
   }
 
   body {
-    @apply bg-slate-100 text-slate-900 antialiased;
+    @apply bg-zinc-100 text-zinc-900 antialiased;
   }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 数値は等幅・桁ぞろえで、計器のように読みやすく */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }

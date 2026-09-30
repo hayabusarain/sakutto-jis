@@ -1,36 +1,46 @@
+import type { ReactNode } from 'react'
+
 interface ResultItemProps {
   label: string
   /** 未計算のときは「—」を表示する */
-  value?: string
+  value?: ReactNode
   unit?: string
-  /** 一番見てほしい結果を大きく表示する */
-  primary?: boolean
-  note?: string
+  note?: ReactNode
 }
 
-export function ResultItem({ label, value, unit, primary = false, note }: ResultItemProps) {
-  const display = value ?? '—'
-
-  if (primary) {
-    return (
-      <div className="rounded-xl bg-blue-700 p-4 text-white">
-        <dt className="text-sm font-semibold text-blue-100">{label}</dt>
-        <dd className="mt-1 flex items-baseline gap-1.5">
-          <span className="text-4xl font-bold tabular-nums tracking-tight">{display}</span>
-          {unit && <span className="text-lg font-semibold text-blue-100">{unit}</span>}
-        </dd>
-        {note && <p className="mt-1 text-xs text-blue-100">{note}</p>}
-      </div>
-    )
-  }
-
+/** 結果の1行（ラベルと値）。dl の中で使う */
+export function ResultItem({ label, value, unit, note }: ResultItemProps) {
   return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-slate-100 py-2.5 last:border-b-0">
-      <dt className="text-sm text-slate-600">{label}</dt>
-      <dd className="flex items-baseline gap-1 text-right">
-        <span className="text-lg font-bold tabular-nums text-slate-900">{display}</span>
-        {unit && <span className="text-sm text-slate-500">{unit}</span>}
-      </dd>
+    <div className="border-b border-zinc-100 py-2.5 last:border-b-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <dt className="text-sm text-zinc-600">{label}</dt>
+        <dd className="flex shrink-0 items-baseline gap-1 text-right whitespace-nowrap">
+          <span className="num text-lg font-semibold text-zinc-900">{value ?? '—'}</span>
+          {unit && <span className="text-sm text-zinc-500">{unit}</span>}
+        </dd>
+      </div>
+      {note && <p className="mt-0.5 text-right text-xs text-zinc-500">{note}</p>}
+    </div>
+  )
+}
+
+interface PrimaryResultProps {
+  label: string
+  value?: ReactNode
+  unit?: string
+  children?: ReactNode
+}
+
+/** 一番見てほしい結果。暗いパネルに大きな数字で表示する */
+export function PrimaryResult({ label, value, unit, children }: PrimaryResultProps) {
+  return (
+    <div className="rounded-md bg-zinc-900 p-4 text-white">
+      <p className="text-xs font-semibold tracking-wider text-zinc-400">{label}</p>
+      <p className="mt-1 flex items-baseline gap-1.5">
+        <span className="num text-4xl font-bold sm:text-5xl">{value ?? '—'}</span>
+        {unit && <span className="text-lg font-semibold text-zinc-400">{unit}</span>}
+      </p>
+      {children && <div className="mt-2 text-xs leading-relaxed text-zinc-300">{children}</div>}
     </div>
   )
 }

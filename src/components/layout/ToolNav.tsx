@@ -1,0 +1,52 @@
+import { useEffect, useRef } from 'react'
+import { useRouter } from '../../router/context'
+import { Link } from '../../router/Link'
+import { TOOLS } from '../../tools/registry'
+
+/** 全ページ共通のツール切替バー。スクロールしても上部に残る */
+export function ToolNav() {
+  const { pathname } = useRouter()
+  const listRef = useRef<HTMLUListElement>(null)
+  const activeRef = useRef<HTMLAnchorElement>(null)
+
+  // スマホで選択中のツールが見切れないよう、バーの横スクロール位置だけを合わせる
+  useEffect(() => {
+    const list = listRef.current
+    const active = activeRef.current
+    if (!list || !active) return
+    list.scrollLeft = active.offsetLeft - (list.clientWidth - active.offsetWidth) / 2
+  }, [pathname])
+
+  return (
+    <nav
+      aria-label="計算ツール"
+      className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur"
+    >
+      <ul
+        ref={listRef}
+        className="no-scrollbar relative mx-auto flex max-w-5xl overflow-x-auto px-2 sm:px-4"
+      >
+        {TOOLS.map(({ path, navLabel, icon: Icon }) => {
+          const active = path === pathname
+          return (
+            <li key={path} className="shrink-0">
+              <Link
+                to={path}
+                ref={active ? activeRef : undefined}
+                aria-current={active ? 'page' : undefined}
+                className={`flex h-12 items-center gap-1.5 border-b-2 px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
+                  active
+                    ? 'border-orange-600 text-zinc-900'
+                    : 'border-transparent text-zinc-500 hover:border-zinc-300 hover:text-zinc-800'
+                }`}
+              >
+                <Icon className="size-4 shrink-0" aria-hidden />
+                {navLabel}
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
+  )
+}
