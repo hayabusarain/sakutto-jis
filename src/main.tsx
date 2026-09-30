@@ -17,3 +17,12 @@ if (container.firstElementChild) {
 } else {
   createRoot(container).render(app)
 }
+
+// オフラインでも使えるよう、本番だけ Service Worker を登録する（生成は scripts/prerender.mjs）
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // 登録できなくても、オンラインでは普通に使える
+    })
+  })
+}

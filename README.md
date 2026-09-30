@@ -17,6 +17,7 @@
 - 「計算ロジック」を開くと、式と、いま選んでいる値を入れた計算例を表示
 - 「結果をコピー」で、LINEやメモに貼りやすい文章をコピー
 - 前回の入力を端末に保存（サーバーには送信しない）
+- オフライン対応（PWA）：一度開けば電波の届かない現場でも使える。ホーム画面に追加も可能
 
 ## 技術スタック
 
@@ -27,6 +28,7 @@
 | スタイル | Tailwind CSS v4 | スマホ対応が書きやすい。グレー×白の工業系デザイン |
 | アイコン・フォント | lucide-react / JetBrains Mono（自前配信） | 軽い。外部フォント配信を使わない |
 | ページ生成 | 自作の事前レンダリング（`scripts/prerender.mjs`） | ページごとに静的HTML・タイトル・説明文を出力し、検索エンジンやAdSenseの審査に強くする |
+| オフライン | Workbox（Service Worker を事前レンダリング後に生成） | 全ページ・アセットを端末にキャッシュ |
 | テスト | Vitest | 計算ロジックとデータの整合性を自動で確認 |
 | 公開 | Cloudflare Workers（静的アセット） | 無料で商用利用（広告）可・転送量無制限 |
 
@@ -92,7 +94,8 @@ src/
 ├── router/                  最小限のルーター
 ├── hooks/usePersistentState.ts  入力の保存
 └── lib/                     数値の書式・DXF出力・ダウンロード
-scripts/prerender.mjs        ビルド後に全ページのHTML・sitemap・robots.txtを書き出す
+scripts/prerender.mjs        ビルド後に全ページのHTML・sitemap・robots.txt・Service Worker を書き出す
+public/                      ファビコン・アプリアイコン・manifest.webmanifest
 ```
 
 ### ツールを追加するには
@@ -105,5 +108,4 @@ scripts/prerender.mjs        ビルド後に全ページのHTML・sitemap・robo
 
 - CADデータ: フランジの 3D（STEP）、Oリング溝の断面図（DXF）
 - Oリングの平面溝（固定用・フランジ面）の寸法
-- オフライン対応（PWA）: 電波の弱い現場でも使えるように
 - 条件を URL に入れて共有できるようにする

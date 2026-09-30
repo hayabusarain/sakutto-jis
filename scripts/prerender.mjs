@@ -3,6 +3,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { generateSW } from 'workbox-build'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = join(root, 'dist')
@@ -70,6 +71,21 @@ ${paths.map((path) => `  <url><loc>${pageUrl(path)}</loc><lastmod>${today}</last
   await writeFile(join(dist, 'robots.txt'), 'User-agent: *\nAllow: /\n')
   console.warn('VITE_SITE_URL が未設定のため、canonical と sitemap.xml を出力していません')
 }
+
+// オフライン対応: 全ページとアセットをあらかじめキャッシュする Service Worker を作る。
+// /tap-drill のような拡張子なしのURLは、キャッシュ済みの tap-drill.html で表示される。
+const { count, size } = await generateSW({
+  globDirectory: dist,
+  globPatterns: ['**/*.{html,js,css,svg,png,woff2,webmanifest}'],
+  // 日本語ページで使わないフォントの文字セットはキャッシュしない
+  globIgnores: ['**/*-{cyrillic,cyrillic-ext,greek,vietnamese}-*.woff2'],
+  swDest: join(dist, 'sw.js'),
+  skipWaiting: true,
+  clientsClaim: true,
+  cleanupOutdatedCaches: true,
+  sourcemap: false,
+})
+console.log(`service worker: ${count} files, ${Math.round(size / 1024)} KiB precached`)
 
 await rm(ssrDir, { recursive: true, force: true })
 console.log(`prerendered ${paths.length} pages + 404.html${SITE.url ? ', sitemap.xml' : ''}, robots.txt`)

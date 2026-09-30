@@ -1,0 +1,16 @@
+{
+  "name": "サクッとJIS - 機械設計・配管計算ツール",
+  "short_name": "サクッとJIS",
+  "description": "ねじ下穴径・フランジのボルト長さ・Oリング溝・鋼管寸法・管用ねじなど、現場で使うJIS規格の計算ツール",
+  "lang": "ja",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f4f5",
+  "theme_color": "#18181b",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
