@@ -2,13 +2,24 @@ import { describe, expect, it } from 'vitest'
 import {
   availableGrade,
   basicMinorDiameter,
+  chartRow,
+  drawingCallout,
+  drillChart,
   engagementPercent,
   findSize,
+  formatHole,
+  formatSignificant,
   holeCandidates,
   judgeHole,
   minorDiameterLimits,
   pitchesOf,
   recommendHole,
+  stressArea,
+  suggestDrillFix,
+  threadBasics,
+  threadDesignation,
+  threadName,
+  threadsForDrill,
 } from './calc'
 import { ISO2306_COARSE_DRILL, METRIC_SIZES, TD1_UM } from './data'
 
@@ -175,5 +186,253 @@ describe('holeCandidates', () => {
     expect(rows.find((row) => row.hole === 8.5)?.fits[6]).toBe('ok')
     expect(rows.find((row) => row.hole === 8.7)?.fits[6]).toBe('large')
     expect(rows.find((row) => row.hole === 8.7)?.fits[7]).toBe('ok')
+  })
+})
+
+describe('threadBasics（JIS B 0205-4 の基準寸法・JIS B 1082 の d3）', () => {
+  it.each([
+    // d, P, D2, D1, d3, H
+    [3, 0.5, 2.675, 2.459, 2.387, 0.433],
+    [6, 1, 5.35, 4.917, 4.773, 0.866],
+    [8, 1.25, 7.188, 6.647, 6.466, 1.083],
+    [10, 1.5, 9.026, 8.376, 8.16, 1.299],
+    [12, 1.75, 10.863, 10.106, 9.853, 1.516],
+    [16, 2, 14.701, 13.835, 13.546, 1.732],
+    [20, 2.5, 18.376, 17.294, 16.933, 2.165],
+    [24, 3, 22.051, 20.752, 20.319, 2.598],
+    [12, 1.5, 11.026, 10.376, 10.16, 1.299],
+  ])('M%s×%s → D2 %s / D1 %s / d3 %s / H %s', (d, p, d2, d1, d3, h) => {
+    expect(threadBasics(d, p)).toMatchObject({ d, d2, d1, d3, h })
+  })
+
+  it('D1 は basicMinorDiameter と同じ値', () => {
+    for (const size of METRIC_SIZES) {
+      for (const p of pitchesOf(size)) {
+        expect(threadBasics(size.d, p).d1).toBe(basicMinorDiameter(size.d, p))
+      }
+    }
+  })
+})
+
+describe('stressArea（有効断面積 As、JIS B 1082）', () => {
+  // 規格の表（ISO 898-1 と同じ値。有効数字3桁）
+  it.each([
+    [3, 0.5, '5.03'],
+    [4, 0.7, '8.78'],
+    [5, 0.8, '14.2'],
+    [6, 1, '20.1'],
+    [8, 1.25, '36.6'],
+    [10, 1.5, '58.0'],
+    [12, 1.75, '84.3'],
+    [14, 2, '115'],
+    [16, 2, '157'],
+    [18, 2.5, '192'],
+    [20, 2.5, '245'],
+    [22, 2.5, '303'],
+    [24, 3, '353'],
+    [27, 3, '459'],
+    [30, 3.5, '561'],
+    [36, 4, '817'],
+    [8, 1, '39.2'],
+    [10, 1.25, '61.2'],
+    [12, 1.5, '88.1'],
+    [12, 1.25, '92.1'],
+    [16, 1.5, '167'],
+    [20, 1.5, '272'],
+    [24, 2, '384'],
+  ])('M%s×%s → %s mm²', (d, p, expected) => {
+    expect(formatSignificant(stressArea(d, p))).toBe(expected)
+  })
+
+  it('M12 は (10.863 + 9.853) ÷ 2 から計算した値とほぼ同じ', () => {
+    expect(stressArea(12, 1.75)).toBeCloseTo((Math.PI / 4) * ((10.863 + 9.853) / 2) ** 2, 2)
+  })
+
+  it('M24 は丸める前の d2・d3 で計算するので 353（丸めた値では 352.49）', () => {
+    expect(stressArea(24, 3)).toBeGreaterThan(352.5)
+    expect(stressArea(24, 3)).toBeLessThan(352.51)
+  })
+})
+
+describe('formatSignificant', () => {
+  it.each([
+    [57.99, '58.0'],
+    [84.267, '84.3'],
+    [156.668, '157'],
+    [2675.97, '2680'],
+    [0.4603, '0.460'],
+    [9.996, '10.0'],
+    [1120.91, '1120'],
+    [0, '0'],
+  ])('%s → %s', (value, expected) => {
+    expect(formatSignificant(value)).toBe(expected)
+  })
+})
+
+describe('formatHole', () => {
+  it.each([
+    [10.2, '10.2'],
+    [5, '5.0'],
+    [2.5, '2.5'],
+    [2.05, '2.05'],
+    [0.75, '0.75'],
+    [5.25, '5.25'],
+    [14, '14.0'],
+  ])('%s → %s', (hole, expected) => {
+    expect(formatHole(hole)).toBe(expected)
+  })
+})
+
+describe('drillChart（全サイズの早見表）', () => {
+  it('並目40サイズ・細目131種類で、規格のピッチをすべて含む', () => {
+    const total = METRIC_SIZES.reduce((sum, size) => sum + pitchesOf(size).length, 0)
+    expect(drillChart('coarse', 6)).toHaveLength(40)
+    expect(drillChart('fine', 6)).toHaveLength(131)
+    expect(40 + 131).toBe(total)
+  })
+
+  it('並目の既知の値（6H）', () => {
+    const rows = drillChart('coarse', 6)
+    const hole = (d: number) => rows.find((row) => row.d === d)?.hole
+    expect(hole(3)).toBe(2.5)
+    expect(hole(6)).toBe(5)
+    expect(hole(8)).toBe(6.8)
+    expect(hole(10)).toBe(8.5)
+    expect(hole(12)).toBe(10.2)
+    expect(hole(16)).toBe(14)
+    expect(hole(24)).toBe(21)
+  })
+
+  it('ISO 2306 に無い M9 は 呼び径 − ピッチ（7.75）に近い 7.8', () => {
+    expect(chartRow(9, 1.25, 6)).toMatchObject({ hole: 7.8, basis: 'rule', grade: 6 })
+  })
+
+  it('6H の規定が無い M1 は 5H で求める', () => {
+    expect(chartRow(1, 0.25, 6)).toMatchObject({ hole: 0.75, basis: 'iso2306', grade: 5 })
+  })
+
+  it('6H の規定が無いのは11種類（並目 M1〜M1.2、細目 0.2・0.25）', () => {
+    const all = [...drillChart('coarse', 6), ...drillChart('fine', 6)]
+    const fallback = all.filter((row) => row.grade !== 6)
+    expect(fallback).toHaveLength(11)
+    expect(fallback.every((row) => row.p <= 0.25)).toBe(true)
+  })
+
+  it('どの等級でも全行に推奨径があり、その等級の範囲に入る', () => {
+    for (const grade of [4, 5, 6, 7] as const) {
+      const rows = [...drillChart('coarse', grade), ...drillChart('fine', grade)]
+      expect(rows, `${grade}H`).toHaveLength(171)
+      for (const row of rows) {
+        expect(judgeHole(row.hole, row.limits), `M${row.d}×${row.p} ${grade}H`).toBe('ok')
+      }
+    }
+  })
+
+  it('規格に無いサイズ・ピッチは null', () => {
+    expect(chartRow(13, 1.5, 6)).toBeNull()
+    expect(chartRow(12, 2, 6)).toBeNull()
+  })
+
+  it('注記のあるピッチは note を持つ', () => {
+    expect(chartRow(14, 1.25, 6)?.note).toBe('内燃機関用点火プラグ専用')
+  })
+})
+
+describe('threadsForDrill（ドリル径から逆引き）', () => {
+  const names = (drill: number, grade: 4 | 5 | 6 | 7 = 6) =>
+    threadsForDrill(drill, grade).map((match) => threadName(match.d, match.p))
+
+  it('並目の代表的なドリル径', () => {
+    expect(names(8.5)).toEqual(['M10'])
+    expect(names(6.8)).toEqual(['M8'])
+    expect(names(3.3)).toEqual(['M4'])
+    expect(names(17.5)).toEqual(['M20'])
+  })
+
+  it('並目 → 細目、第1選択 → 第3選択の順', () => {
+    expect(names(10.2)).toEqual(['M12', 'M11×0.75'])
+    expect(names(5)).toEqual(['M6', 'M5.5×0.5'])
+    expect(names(21)).toEqual(['M24', 'M22×1'])
+  })
+
+  it('並目に無い径は細目で見つかる', () => {
+    expect(names(8)).toEqual(['M9×1'])
+    expect(names(8.7)).toEqual(['M10×1.25'])
+    expect(names(8.7, 7)).toEqual(['M10', 'M10×1.25'])
+  })
+
+  it('ひっかかり率と判定した等級を返す', () => {
+    const [m10] = threadsForDrill(8.5, 6)
+    expect(m10.grade).toBe(6)
+    expect(m10.engagement).toBeCloseTo(92.4, 1)
+    const [m1] = threadsForDrill(0.75, 6)
+    expect(m1).toMatchObject({ d: 1, p: 0.25, grade: 5 })
+  })
+
+  it('返すねじは、どれもその径が範囲に入る', () => {
+    for (let um = 500; um <= 70000; um += 50) {
+      const drill = um / 1000
+      for (const match of threadsForDrill(drill, 6)) {
+        expect(judgeHole(drill, match.limits), `φ${drill} M${match.d}×${match.p}`).toBe('ok')
+      }
+    }
+  })
+
+  it('範囲外・0以下は空', () => {
+    expect(threadsForDrill(100, 6)).toEqual([])
+    expect(threadsForDrill(0, 6)).toEqual([])
+    expect(threadsForDrill(-8.5, 6)).toEqual([])
+  })
+})
+
+describe('suggestDrillFix（打ち間違いの直し方）', () => {
+  it.each([
+    [10, 1.5, 85, 8.5],
+    [10, 1.5, 850, 8.5],
+    [10, 1.5, 0.85, 8.5],
+    [12, 1.75, 102, 10.2],
+    [8, 1.25, 68, 6.8],
+    [1, 0.25, 75, 0.75],
+  ])('M%s×%s に %s → %s', (d, p, drill, expected) => {
+    expect(suggestDrillFix(d, p, drill)).toBe(expected)
+  })
+
+  it('範囲内・範囲の近く・直しても入らないときは null', () => {
+    expect(suggestDrillFix(10, 1.5, 8.5)).toBeNull()
+    expect(suggestDrillFix(10, 1.5, 8.7)).toBeNull() // 7H なら範囲内
+    expect(suggestDrillFix(10, 1.5, 8.3)).toBeNull()
+    expect(suggestDrillFix(10, 1.5, 83)).toBeNull()
+    expect(suggestDrillFix(10, 1.5, 12)).toBeNull()
+    expect(suggestDrillFix(10, 1.5, 0)).toBeNull()
+  })
+})
+
+describe('図面指示（表記例）', () => {
+  it('ねじの呼び: 並目はピッチを省く', () => {
+    expect(threadName(12, 1.75)).toBe('M12')
+    expect(threadName(12, 1.5)).toBe('M12×1.5')
+    expect(threadName(15, 1.5)).toBe('M15×1.5')
+    expect(threadDesignation(12, 1.75, 6)).toBe('M12-6H')
+    expect(threadDesignation(10, 1.25, 5)).toBe('M10×1.25-5H')
+  })
+
+  it('深さなし', () => {
+    expect(drawingCallout({ d: 12, p: 1.75, grade: 6, hole: 10.2 })).toBe('M12-6H 下穴φ10.2')
+  })
+
+  it('ねじ深さ・下穴深さ付き', () => {
+    expect(
+      drawingCallout({ d: 10, p: 1.25, grade: 6, hole: 8.8, threadDepth: 15, holeDepth: 20 }),
+    ).toBe('M10×1.25-6H 深さ15 下穴φ8.8 深さ20')
+  })
+
+  it('片方だけの深さ・0 以下や null は書かない・下穴径の不要な0は落とす', () => {
+    expect(drawingCallout({ d: 6, p: 1, grade: 6, hole: 5, holeDepth: 12.5 })).toBe('M6-6H 下穴φ5 深さ12.5')
+    expect(drawingCallout({ d: 6, p: 1, grade: 6, hole: 5, threadDepth: 10, holeDepth: null })).toBe(
+      'M6-6H 深さ10 下穴φ5',
+    )
+    expect(drawingCallout({ d: 6, p: 1, grade: 6, hole: 5, threadDepth: 0, holeDepth: -3 })).toBe(
+      'M6-6H 下穴φ5',
+    )
   })
 })
