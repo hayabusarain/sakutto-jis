@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BOLT_SIZES } from './data'
+import { BOLT_SIZES, isUnverified, UNVERIFIED, UNVERIFIED_LEGEND } from './data'
 
 describe('ボルト寸法データの整合性', () => {
   it('呼び径は昇順', () => {
@@ -44,5 +44,34 @@ describe('ボルト寸法データの整合性', () => {
       expect(size.nutJa3, `M${size.d}`).toBeLessThan(size.nutJa1)
       expect(size.nutJa1, `M${size.d}`).toBeLessThanOrEqual(size.nutStyle1)
     }
+  })
+})
+
+describe('規格原文で未確認の値の一覧（UNVERIFIED）', () => {
+  it('挙げた呼び径はすべて表にあり、その項目に値がある', () => {
+    for (const entry of UNVERIFIED) {
+      if (entry.sizes === 'all') continue
+      for (const d of entry.sizes) {
+        const size = BOLT_SIZES.find((s) => s.d === d)
+        expect(size, `${entry.field} M${d}`).toBeDefined()
+        if (entry.field === 'hole4') expect(size!.holes[3], `M${d}`).not.toBeNull()
+      }
+    }
+  })
+
+  it('項目は重複しない', () => {
+    const fields = UNVERIFIED.map((entry) => entry.field)
+    expect(new Set(fields).size).toBe(fields.length)
+  })
+
+  it('未確認なのは 4級・ざぐり径の全サイズと、附属書JA の M3 二面幅（docs/data-verification.md）', () => {
+    expect(isUnverified('hole4', 10)).toBe(true)
+    expect(isUnverified('spotFace', 36)).toBe(true)
+    expect(isUnverified('sJa', 3)).toBe(true)
+    expect(isUnverified('sJa', 10)).toBe(false)
+  })
+
+  it('凡例', () => {
+    expect(UNVERIFIED_LEGEND).toBe('※ 規格原文で未確認の値')
   })
 })

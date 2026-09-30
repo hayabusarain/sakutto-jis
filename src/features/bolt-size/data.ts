@@ -53,3 +53,34 @@ export const BOLT_SIZES: readonly BoltSize[] = [
 
 export const HOLE_CLASSES = ['1級', '2級', '3級', '4級'] as const
 export type HoleClass = (typeof HOLE_CLASSES)[number]
+
+/** 確認状況を持たせる項目。hole4: ボルト穴径 4級（holes[3]） */
+export type CheckedField = 'sJa' | 'hole4' | 'spotFace'
+
+export interface UnverifiedEntry {
+  field: CheckedField
+  /** 対象の呼び径。'all' は全サイズ */
+  sizes: 'all' | readonly number[]
+  /** 何が未確認か（画面の注記に使う） */
+  note: string
+}
+
+/**
+ * 規格原文で確認できていない値（docs/data-verification.md の △・要確認）。
+ * 画面の表・結果・コピー・表の出力で ※ を付ける。確認できたらここから外す。
+ */
+export const UNVERIFIED: readonly UnverifiedEntry[] = [
+  { field: 'hole4', sizes: 'all', note: 'JIS B 1001 のボルト穴径 4級' },
+  { field: 'spotFace', sizes: 'all', note: "JIS B 1001 のざぐり径 D'" },
+  { field: 'sJa', sizes: [3], note: '附属書JA の M3 ナットの二面幅（資料により 5.5 と 5 がある）' },
+]
+
+/** ※ の凡例 */
+export const UNVERIFIED_LEGEND = '※ 規格原文で未確認の値'
+
+/** その値が規格原文で未確認か */
+export function isUnverified(field: CheckedField, d: number): boolean {
+  return UNVERIFIED.some(
+    (entry) => entry.field === field && (entry.sizes === 'all' || entry.sizes.includes(d)),
+  )
+}
