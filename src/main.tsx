@@ -18,6 +18,13 @@ if (container.firstElementChild) {
   createRoot(container).render(app)
 }
 
+// 印刷するときは「計算ロジック」などの開閉式の欄をすべて開いておく
+window.addEventListener('beforeprint', () => {
+  document.querySelectorAll('details').forEach((details) => {
+    details.open = true
+  })
+})
+
 // オフラインでも使えるよう、本番だけ Service Worker を登録する（生成は scripts/prerender.mjs）
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {

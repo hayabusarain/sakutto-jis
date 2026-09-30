@@ -7,7 +7,7 @@ import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/Formula
 import { PrimaryResult, ResultItem } from '../../components/ui/ResultItem'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { SelectField } from '../../components/ui/SelectField'
-import { usePersistentState } from '../../hooks/usePersistentState'
+import { useToolState } from '../../hooks/useToolState'
 import { fixed } from '../../lib/format'
 import { Link } from '../../router/Link'
 import {
@@ -46,7 +46,7 @@ const SIZE_OPTIONS = PIPE_THREAD_SIZES.map((t) => ({
 const KIND_OPTIONS = KIND_KEYS.map((kind) => ({ value: kind, label: kind }))
 
 export function PipeThreadTool() {
-  const [input, setInput] = usePersistentState('pipe-thread', DEFAULT_INPUT, isPipeThreadInput)
+  const [input, setInput] = useToolState('pipe-thread', DEFAULT_INPUT, isPipeThreadInput)
   const thread = findPipeThread(input.size) ?? PIPE_THREAD_SIZES[1]
   const kind = THREAD_KINDS[input.kind]
   const name = `${input.kind}${thread.size}`

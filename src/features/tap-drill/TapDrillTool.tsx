@@ -9,7 +9,7 @@ import { NumberField } from '../../components/ui/NumberField'
 import { PrimaryResult, ResultItem } from '../../components/ui/ResultItem'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { SelectField } from '../../components/ui/SelectField'
-import { usePersistentState } from '../../hooks/usePersistentState'
+import { useToolState } from '../../hooks/useToolState'
 import { fixed, parseNumber, trim } from '../../lib/format'
 import {
   availableGrade,
@@ -74,7 +74,7 @@ const FIT_TEXT: Record<HoleFit, string> = {
 }
 
 export function TapDrillTool() {
-  const [input, setInput] = usePersistentState('tap-drill', DEFAULT_INPUT, isTapDrillInput)
+  const [input, setInput] = useToolState('tap-drill', DEFAULT_INPUT, isTapDrillInput)
   const size = findSize(input.d) ?? METRIC_SIZES[0]
   const { d, p, grade } = input
   const threadName = `M${d}${p === size.coarse ? '' : `×${trim(p)}`}`

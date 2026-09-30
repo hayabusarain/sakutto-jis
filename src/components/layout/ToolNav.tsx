@@ -20,7 +20,7 @@ export function ToolNav() {
   return (
     <nav
       aria-label="計算ツール"
-      className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur"
+      className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur print:hidden"
     >
       {/* スマホで横にスクロールできることが分かるよう、右端を少しぼかす */}
       <div

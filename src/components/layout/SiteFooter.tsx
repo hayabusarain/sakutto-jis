@@ -7,7 +7,7 @@ const CATEGORIES = Object.keys(CATEGORY_LABELS) as ToolCategory[]
 
 export function SiteFooter() {
   return (
-    <footer className="mt-12 bg-zinc-900 text-zinc-400">
+    <footer className="mt-12 bg-zinc-900 text-zinc-400 print:hidden">
       <div className="mx-auto max-w-5xl px-4 py-8">
         <p className="flex gap-2 rounded-md border border-zinc-700 p-3 text-xs leading-relaxed text-zinc-300">
           <TriangleAlert className="size-4 shrink-0 text-orange-500" aria-hidden />

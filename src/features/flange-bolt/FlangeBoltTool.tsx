@@ -8,7 +8,7 @@ import { NumberField } from '../../components/ui/NumberField'
 import { PrimaryResult, ResultItem } from '../../components/ui/ResultItem'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { SelectField } from '../../components/ui/SelectField'
-import { usePersistentState } from '../../hooks/usePersistentState'
+import { useToolState } from '../../hooks/useToolState'
 import { downloadText } from '../../lib/download'
 import { parseNumber, trim } from '../../lib/format'
 import { standardLabel, type StandardCode } from '../../standards'
@@ -122,7 +122,7 @@ function FlangePreview({ row, bore }: { row: FlangeRow; bore: number }) {
 }
 
 export function FlangeBoltTool() {
-  const [input, setInput] = usePersistentState('flange-bolt', DEFAULT_INPUT, isFlangeInput)
+  const [input, setInput] = useToolState('flange-bolt', DEFAULT_INPUT, isFlangeInput)
   const row = findFlange(input.pressure, input.size) ?? FLANGES['10K'][6]
   const sizes = FLANGES[input.pressure]
 

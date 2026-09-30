@@ -2,7 +2,7 @@ import { Check, Copy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface CopyButtonProps {
-  /** コピーする文章（LINEやメモに貼り付けやすい形） */
+  /** コピーする文章（LINEやメモに貼り付けやすい形）。末尾に今の条件のURLを付ける */
   text: string
   label?: string
 }
@@ -18,7 +18,7 @@ export function CopyButton({ text, label = '結果をコピー' }: CopyButtonPro
 
   const handleClick = async () => {
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(`${text}\n${window.location.href}`)
       setCopied(true)
     } catch {
       // クリップボードが使えない環境では何もしない
@@ -29,7 +29,7 @@ export function CopyButton({ text, label = '結果をコピー' }: CopyButtonPro
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 hover:border-zinc-500 hover:text-zinc-900"
+      className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 hover:border-zinc-500 hover:text-zinc-900 print:hidden"
     >
       {copied ? (
         <Check className="size-3.5 text-emerald-600" aria-hidden />

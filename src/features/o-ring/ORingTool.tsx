@@ -7,7 +7,7 @@ import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/Formula
 import { PrimaryResult, ResultItem } from '../../components/ui/ResultItem'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { SelectField } from '../../components/ui/SelectField'
-import { usePersistentState } from '../../hooks/usePersistentState'
+import { useToolState } from '../../hooks/useToolState'
 import { fixed, trim } from '../../lib/format'
 import {
   FLAT_DEPTH_TOL,
@@ -114,7 +114,7 @@ function GrooveSketch({ ring, width, depth }: { ring: ORing; width: number; dept
 }
 
 export function ORingTool() {
-  const [input, setInput] = usePersistentState('o-ring', DEFAULT_INPUT, isORingInput)
+  const [input, setInput] = useToolState('o-ring', DEFAULT_INPUT, isORingInput)
   const ring = findORing(input.series, input.no) ?? findORing('P', 'P20')!
   const { group } = ring
   const isFlat = input.groove !== 'cylinder'

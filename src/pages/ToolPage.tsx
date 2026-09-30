@@ -1,5 +1,6 @@
 import { Breadcrumb } from '../components/layout/Breadcrumb'
 import { SourceNote } from '../components/SourceNote'
+import { ShareButton } from '../components/ui/ShareButton'
 import { standardLabel } from '../standards'
 import { CATEGORY_LABELS, type ToolDefinition } from '../tools/registry'
 
@@ -20,16 +21,21 @@ export function ToolPage({ tool }: { tool: ToolDefinition }) {
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-600 sm:text-base">
           {tool.description}
         </p>
-        <ul className="mt-3 flex flex-wrap gap-1.5" aria-label="参照規格">
-          {tool.standards.map((code) => (
-            <li
-              key={code}
-              className="num rounded-sm border border-zinc-300 bg-white px-2 py-0.5 text-xs text-zinc-700"
-            >
-              {standardLabel(code)}
-            </li>
-          ))}
-        </ul>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <ul className="flex flex-wrap gap-1.5" aria-label="参照規格">
+            {tool.standards.map((code) => (
+              <li
+                key={code}
+                className="num rounded-sm border border-zinc-300 bg-white px-2 py-0.5 text-xs text-zinc-700"
+              >
+                {standardLabel(code)}
+              </li>
+            ))}
+          </ul>
+          <div className="ml-auto">
+            <ShareButton title={tool.name} />
+          </div>
+        </div>
       </div>
 
       <ToolComponent />

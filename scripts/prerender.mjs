@@ -80,6 +80,8 @@ const { count, size } = await generateSW({
   // 日本語ページで使わないフォントの文字セットはキャッシュしない
   globIgnores: ['**/*-{cyrillic,cyrillic-ext,greek,vietnamese}-*.woff2'],
   swDest: join(dist, 'sw.js'),
+  // 条件付きのURL（/tap-drill?d=12 など）でも、オフライン時にキャッシュしたページを出す
+  ignoreURLParametersMatching: [/.*/],
   skipWaiting: true,
   clientsClaim: true,
   cleanupOutdatedCaches: true,

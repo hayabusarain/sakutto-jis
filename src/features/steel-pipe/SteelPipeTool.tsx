@@ -8,7 +8,7 @@ import { NumberField } from '../../components/ui/NumberField'
 import { PrimaryResult, ResultItem } from '../../components/ui/ResultItem'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { SelectField } from '../../components/ui/SelectField'
-import { usePersistentState } from '../../hooks/usePersistentState'
+import { useToolState } from '../../hooks/useToolState'
 import { fixed, parseNumber, trim } from '../../lib/format'
 import { MASS_FACTOR, pipeDimensions, sizesOf, type PipeDimensions } from './calc'
 import { PIPE_SPECS, type PipeSpec } from './data'
@@ -38,7 +38,7 @@ function isSteelPipeInput(value: unknown): value is SteelPipeInput {
 const SPEC_OPTIONS = SPEC_KEYS.map((key) => ({ value: key, label: PIPE_SPECS[key].label }))
 
 export function SteelPipeTool() {
-  const [input, setInput] = usePersistentState('steel-pipe', DEFAULT_INPUT, isSteelPipeInput)
+  const [input, setInput] = useToolState('steel-pipe', DEFAULT_INPUT, isSteelPipeInput)
   const spec = PIPE_SPECS[input.spec]
   const dims = pipeDimensions(input.spec, input.a) ?? pipeDimensions('sgp', '50A')!
   const sizes = sizesOf(input.spec)

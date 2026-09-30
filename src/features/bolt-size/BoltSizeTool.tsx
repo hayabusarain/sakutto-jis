@@ -8,7 +8,7 @@ import { FormulaInfo } from '../../components/ui/FormulaInfo'
 import { PrimaryResult, ResultItem } from '../../components/ui/ResultItem'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { SelectField } from '../../components/ui/SelectField'
-import { usePersistentState } from '../../hooks/usePersistentState'
+import { useToolState } from '../../hooks/useToolState'
 import { trim } from '../../lib/format'
 import { BOLT_SIZES, HOLE_CLASSES, type BoltSize, type HoleClass } from './data'
 
@@ -42,7 +42,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function BoltSizeTool() {
-  const [input, setInput] = usePersistentState('bolt-size', DEFAULT_INPUT, isBoltSizeInput)
+  const [input, setInput] = useToolState('bolt-size', DEFAULT_INPUT, isBoltSizeInput)
   const size = BOLT_SIZES.find((s) => s.d === input.d) ?? BOLT_SIZES[0]
   const classIndex = HOLE_CLASSES.indexOf(input.holeClass)
   const hole = size.holes[classIndex]
