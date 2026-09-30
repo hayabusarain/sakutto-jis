@@ -19,7 +19,7 @@ export function ResultItem({ label, value, unit, note }: ResultItemProps) {
           {unit && <span className="text-sm text-zinc-500">{unit}</span>}
         </dd>
       </div>
-      {note && <p className="mt-0.5 text-right text-xs text-zinc-500">{note}</p>}
+      {note && <p className="mt-0.5 text-right text-xs text-zinc-600">{note}</p>}
     </div>
   )
 }

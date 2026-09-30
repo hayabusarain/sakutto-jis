@@ -33,13 +33,13 @@ export function SegmentedControl<T extends string>({
               onChange={() => onChange(option.value)}
               className="peer sr-only"
             />
-            <span className="num flex h-10 cursor-pointer items-center justify-center rounded-sm text-base font-semibold text-zinc-500 transition-colors peer-checked:bg-zinc-900 peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-orange-500">
+            <span className="num flex h-10 cursor-pointer items-center justify-center rounded-sm text-base font-semibold text-zinc-600 transition-colors peer-checked:bg-zinc-900 peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-orange-500">
               {option.label}
             </span>
           </label>
         ))}
       </div>
-      {hint && <p className="mt-1 text-xs text-zinc-500">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-zinc-600">{hint}</p>}
     </fieldset>
   )
 }

@@ -12,7 +12,7 @@ interface CitationProps {
 /** 数値のすぐ近くに置く、典拠となったJIS規格の表示 */
 export function Citation({ code, detail, suffix = '準拠' }: CitationProps) {
   return (
-    <p className="flex items-start gap-1.5 text-xs leading-relaxed text-zinc-500">
+    <p className="flex items-start gap-1.5 text-xs leading-relaxed text-zinc-600">
       <BookOpen className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       <span>
         <span className="num font-semibold text-zinc-700">{standardLabel(code)}</span>

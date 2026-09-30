@@ -112,7 +112,7 @@ export function SelectField<T extends string>({
         </div>
       )}
       {hint && (
-        <p id={hintId} className="mt-1 text-xs text-zinc-500">
+        <p id={hintId} className="mt-1 text-xs text-zinc-600">
           {hint}
         </p>
       )}
