@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { fillRatio, findORing, grooveDepth, oRingNumbers, squeeze, squeezeRange, stretch } from './calc'
+import {
+  fillRatio,
+  findORing,
+  flatFillRatio,
+  flatGroove,
+  flatSqueezeRange,
+  grooveDepth,
+  oRingNumbers,
+  squeeze,
+  squeezeRange,
+  stretch,
+} from './calc'
 
 describe('findORing', () => {
   it('P20: 19.8 × 2.4、ハウジング d20 / D24、溝幅 3.2', () => {
@@ -83,5 +94,71 @@ describe('データの整合性', () => {
   it('サイズ数: P は 122、G は 46', () => {
     expect(oRingNumbers('P')).toHaveLength(122)
     expect(oRingNumbers('G')).toHaveLength(46)
+  })
+})
+
+describe('JIS の表に載っているつぶし率の範囲を再現する', () => {
+  // 円筒面（運動用・固定用）
+  it.each([
+    ['P', 'P3', 14.8, 24.2],
+    ['P', 'P10A', 10.8, 19.7],
+    ['P', 'P22A', 9.4, 16.7],
+    ['P', 'P48A', 8.4, 14.2],
+    ['P', 'P150A', 7.9, 12.3],
+    ['G', 'G150', 8.4, 14.2],
+  ] as const)('円筒面 %s %s: %s〜%s%%', (series, no, min, max) => {
+    const range = squeezeRange(findORing(series, no)!)!
+    expect(range.min).toBeCloseTo(min, 1)
+    expect(range.max).toBeCloseTo(max, 1)
+  })
+
+  // 平面（固定用）
+  it.each([
+    ['P', 'P3', 20.3, 31.8],
+    ['P', 'P10A', 19.9, 29.7],
+    ['P', 'P22A', 19.1, 26.4],
+    ['P', 'P48A', 16.5, 22.0],
+    ['P', 'P150A', 15.8, 19.9],
+    ['G', 'G25', 18.3, 26.6],
+    ['G', 'G150', 16.5, 22.0],
+  ] as const)('平面 %s %s: %s〜%s%%', (series, no, min, max) => {
+    const range = flatSqueezeRange(findORing(series, no)!)
+    expect(range.min).toBeCloseTo(min, 1)
+    expect(range.max).toBeCloseTo(max, 1)
+  })
+})
+
+describe('flatGroove', () => {
+  it('P3 内圧用: 溝外径 6.2、外圧用: 溝内径 3', () => {
+    const ring = findORing('P', 'P3')!
+    expect(flatGroove(ring, 'internal')).toMatchObject({ outer: 6.2, inner: 1.2, depth: 1.4, width: 2.5 })
+    expect(flatGroove(ring, 'external')).toMatchObject({ outer: 8, inner: 3 })
+  })
+
+  it('G25 内圧用: 溝外径 30、P22A 外圧用: 溝内径 22', () => {
+    expect(flatGroove(findORing('G', 'G25')!, 'internal').outer).toBe(30)
+    expect(flatGroove(findORing('P', 'P22A')!, 'external').inner).toBe(22)
+  })
+
+  it('内圧用はOリングの外周が溝の外壁に、外圧用は内周が溝の内壁に当たる', () => {
+    for (const series of ['P', 'G'] as const) {
+      for (const no of oRingNumbers(series)) {
+        const ring = findORing(series, no)!
+        const outerOfRing = ring.d1 + 2 * ring.group.d2
+        const internal = flatGroove(ring, 'internal')
+        const external = flatGroove(ring, 'external')
+        // 内圧用: Oリングの外径 ≧ 溝外径（外壁に押し付けて入れる）
+        expect(outerOfRing, no).toBeGreaterThanOrEqual(internal.outer)
+        // 外圧用: Oリングの内径 ≦ 溝内径（内壁に少し伸ばしてはめる）
+        expect(ring.d1, no).toBeLessThanOrEqual(external.inner)
+        // 反対側の壁とは当たらない
+        expect(ring.d1, no).toBeGreaterThan(internal.inner)
+        expect(outerOfRing, no).toBeLessThan(external.outer)
+      }
+    }
+  })
+
+  it('平面溝の充てん率（P20）= π/4×2.4² ÷ (3.2×1.8) = 78.5%', () => {
+    expect(flatFillRatio(findORing('P', 'P20')!)).toBeCloseTo(78.5, 1)
   })
 })

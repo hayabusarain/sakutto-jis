@@ -18,16 +18,21 @@ export interface CrossSectionGroup {
   eMax: number
   /** d・D の寸法許容差（d は 0/−、D は +/0）。未確認は null */
   diaTol: number | null
+  /** 平面溝（固定用）: 深さ h（±0.05）・溝幅 b（+0.25/0） */
+  flatDepth: number
+  flatWidth: number
+  /** 平面溝: 内圧用の溝外径 − 外圧用の溝内径 */
+  flatOffset: number
 }
 
 export const GROUPS = {
-  P1_9: { d2: 1.9, d2Tol: 0.08, dDiff: 3, widths: [2.5, 3.9, 5.4], rMax: 0.4, eMax: 0.05, diaTol: 0.05 },
-  P2_4: { d2: 2.4, d2Tol: 0.09, dDiff: 4, widths: [3.2, 4.4, 6.0], rMax: 0.4, eMax: 0.05, diaTol: 0.06 },
-  P3_5: { d2: 3.5, d2Tol: 0.1, dDiff: 6, widths: [4.7, 6.0, 7.8], rMax: 0.8, eMax: 0.08, diaTol: 0.08 },
-  P5_7: { d2: 5.7, d2Tol: 0.13, dDiff: 10, widths: [7.5, 9.0, 11.5], rMax: 0.8, eMax: 0.1, diaTol: 0.1 },
-  P8_4: { d2: 8.4, d2Tol: 0.15, dDiff: 15, widths: [11.0, 13.0, 17.0], rMax: 1.2, eMax: 0.12, diaTol: 0.1 },
-  G3_1: { d2: 3.1, d2Tol: 0.1, dDiff: 5, widths: [4.1, 5.6, 7.3], rMax: 0.7, eMax: 0.08, diaTol: null },
-  G5_7: { d2: 5.7, d2Tol: 0.13, dDiff: 10, widths: [7.5, 9.0, 11.5], rMax: 0.8, eMax: 0.1, diaTol: 0.1 },
+  P1_9: { d2: 1.9, d2Tol: 0.08, dDiff: 3, widths: [2.5, 3.9, 5.4], rMax: 0.4, eMax: 0.05, diaTol: 0.05, flatDepth: 1.4, flatWidth: 2.5, flatOffset: 3.2 },
+  P2_4: { d2: 2.4, d2Tol: 0.09, dDiff: 4, widths: [3.2, 4.4, 6.0], rMax: 0.4, eMax: 0.05, diaTol: 0.06, flatDepth: 1.8, flatWidth: 3.2, flatOffset: 4 },
+  P3_5: { d2: 3.5, d2Tol: 0.1, dDiff: 6, widths: [4.7, 6.0, 7.8], rMax: 0.8, eMax: 0.08, diaTol: 0.08, flatDepth: 2.7, flatWidth: 4.7, flatOffset: 6 },
+  P5_7: { d2: 5.7, d2Tol: 0.13, dDiff: 10, widths: [7.5, 9.0, 11.5], rMax: 0.8, eMax: 0.1, diaTol: 0.1, flatDepth: 4.6, flatWidth: 7.5, flatOffset: 10 },
+  P8_4: { d2: 8.4, d2Tol: 0.15, dDiff: 15, widths: [11.0, 13.0, 17.0], rMax: 1.2, eMax: 0.12, diaTol: 0.1, flatDepth: 6.9, flatWidth: 11.0, flatOffset: 15 },
+  G3_1: { d2: 3.1, d2Tol: 0.1, dDiff: 5, widths: [4.1, 5.6, 7.3], rMax: 0.7, eMax: 0.08, diaTol: null, flatDepth: 2.4, flatWidth: 4.1, flatOffset: 5 },
+  G5_7: { d2: 5.7, d2Tol: 0.13, dDiff: 10, widths: [7.5, 9.0, 11.5], rMax: 0.8, eMax: 0.1, diaTol: 0.1, flatDepth: 4.6, flatWidth: 7.5, flatOffset: 10 },
 } as const satisfies Record<string, CrossSectionGroup>
 
 export type GroupKey = keyof typeof GROUPS

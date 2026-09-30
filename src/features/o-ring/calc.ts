@@ -97,3 +97,45 @@ export function stretch(ring: ORing): number {
 export function outerDiameter(ring: ORing): number {
   return round3(ring.d1 + 2 * ring.group.d2)
 }
+
+/** 平面溝の深さ h の許容差 ± */
+export const FLAT_DEPTH_TOL = 0.05
+
+export type FlatPressure = 'internal' | 'external'
+
+export interface FlatGroove {
+  /** 溝の外径・内径（内圧用は外径が規格値、外圧用は内径が規格値。反対側は溝幅から求めた値） */
+  outer: number
+  inner: number
+  depth: number
+  width: number
+}
+
+/**
+ * 平面溝（固定用）。
+ * 内圧用: 溝外径 = 呼び番号の数値 + オフセット（Oリングの外周が溝の外壁に当たる）
+ * 外圧用: 溝内径 = 呼び番号の数値（Oリングの内周が溝の内壁に当たる）
+ */
+export function flatGroove(ring: ORing, pressure: FlatPressure): FlatGroove {
+  const { flatDepth: depth, flatWidth: width, flatOffset } = ring.group
+  if (pressure === 'internal') {
+    const outer = round3(ring.d + flatOffset)
+    return { outer, inner: round3(outer - 2 * width), depth, width }
+  }
+  return { outer: round3(ring.d + 2 * width), inner: ring.d, depth, width }
+}
+
+/** 平面溝のつぶし率の範囲（太さの許容差と溝の深さ h ±0.05 の両端） */
+export function flatSqueezeRange(ring: ORing): { min: number; max: number } {
+  const { d2, d2Tol, flatDepth } = ring.group
+  return {
+    min: squeeze(d2 - d2Tol, flatDepth + FLAT_DEPTH_TOL),
+    max: squeeze(d2 + d2Tol, flatDepth - FLAT_DEPTH_TOL),
+  }
+}
+
+/** 平面溝の充てん率 [%] */
+export function flatFillRatio(ring: ORing): number {
+  const area = (Math.PI / 4) * ring.group.d2 ** 2
+  return (area / (ring.group.flatWidth * ring.group.flatDepth)) * 100
+}
