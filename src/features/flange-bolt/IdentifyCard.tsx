@@ -102,6 +102,16 @@ export function IdentifyCard({ index, selected, onSelect, className }: IdentifyC
 
   const errorText = '正の数値で入力してください'
 
+  // 測り方を切り替えたら、入力済みの値を換算して引き継ぐ（間隔のまま PCD として読まないように）
+  const changeMethod = (next: PcdMethod) => {
+    if (next === method) return
+    if (typeof spacingValue === 'number') {
+      const converted = next === 'pcd' ? pcdFromPitch(spacingValue, n) : spacingValue * Math.sin(Math.PI / n)
+      setSpacing(trim(converted, 1))
+    }
+    setMethod(next)
+  }
+
   return (
     <Card title="実測から探す（呼び径・圧力がわからないとき）" index={index} icon={Ruler} id={IDENTIFY_CARD_ID} className={className}>
       <p className="text-xs leading-relaxed text-zinc-600">
@@ -121,7 +131,7 @@ export function IdentifyCard({ index, selected, onSelect, className }: IdentifyC
           label="穴の位置の測り方"
           value={method}
           options={METHOD_OPTIONS}
-          onChange={setMethod}
+          onChange={changeMethod}
         />
         <div>
           <NumberField
