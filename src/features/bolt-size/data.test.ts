@@ -12,6 +12,10 @@ describe('ボルト寸法データの整合性', () => {
     expect(differ).toEqual([10, 12, 14, 22])
   })
 
+  it('JIS B 1176 に無い六角穴付きボルトは M18・M22・M27', () => {
+    expect(BOLT_SIZES.filter((size) => size.capNonJis).map((size) => size.d)).toEqual([18, 22, 27])
+  })
+
   it('六角穴付きボルトの頭部高さは呼び径と同じ', () => {
     for (const size of BOLT_SIZES) expect(size.capK, `M${size.d}`).toBe(size.d)
   })

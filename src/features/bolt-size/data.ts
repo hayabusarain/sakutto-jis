@@ -28,6 +28,8 @@ export interface BoltSize {
   spotFace: number
   /** 六角穴付きボルト用の座ぐり（穴径 d1・座ぐり径 D・深さ H）。未確認のサイズは null */
   counterbore: { d1: number; d: number; h: number } | null
+  /** 六角穴付きボルトが JIS B 1176（ISO 4762）に無いサイズ（寸法は DIN 912 などの値） */
+  capNonJis?: true
 }
 
 export const BOLT_SIZES: readonly BoltSize[] = [
@@ -40,12 +42,12 @@ export const BOLT_SIZES: readonly BoltSize[] = [
   { d: 12, sIso: 18, sJa: 19, kIso: 7.5, kJa: 8, nutStyle1: 10.8, nutJa1: 10, nutJa3: 7, capDk: 18, capK: 12, capKey: 10, holes: [13, 13.5, 14.5, 15], spotFace: 28, counterbore: { d1: 14, d: 20, h: 13 } },
   { d: 14, sIso: 21, sJa: 22, kIso: 8.8, kJa: 9, nutStyle1: 12.8, nutJa1: 11, nutJa3: 8, capDk: 21, capK: 14, capKey: 12, holes: [15, 15.5, 16.5, 17], spotFace: 32, counterbore: { d1: 16, d: 23, h: 15.2 } },
   { d: 16, sIso: 24, sJa: 24, kIso: 10, kJa: 10, nutStyle1: 14.8, nutJa1: 13, nutJa3: 10, capDk: 24, capK: 16, capKey: 14, holes: [17, 17.5, 18.5, 20], spotFace: 35, counterbore: { d1: 18, d: 26, h: 17.5 } },
-  { d: 18, sIso: 27, sJa: 27, kIso: 11.5, kJa: 12, nutStyle1: 15.8, nutJa1: 15, nutJa3: 11, capDk: 27, capK: 18, capKey: 14, holes: [19, 20, 21, 22], spotFace: 39, counterbore: { d1: 20, d: 29, h: 19.5 } },
+  { d: 18, sIso: 27, sJa: 27, kIso: 11.5, kJa: 12, nutStyle1: 15.8, nutJa1: 15, nutJa3: 11, capDk: 27, capK: 18, capKey: 14, holes: [19, 20, 21, 22], spotFace: 39, counterbore: { d1: 20, d: 29, h: 19.5 }, capNonJis: true },
   { d: 20, sIso: 30, sJa: 30, kIso: 12.5, kJa: 13, nutStyle1: 18, nutJa1: 16, nutJa3: 12, capDk: 30, capK: 20, capKey: 17, holes: [21, 22, 24, 25], spotFace: 43, counterbore: { d1: 22, d: 32, h: 21.5 } },
-  { d: 22, sIso: 34, sJa: 32, kIso: 14, kJa: 14, nutStyle1: 19.4, nutJa1: 18, nutJa3: 13, capDk: 33, capK: 22, capKey: 17, holes: [23, 24, 26, 27], spotFace: 46, counterbore: { d1: 24, d: 35, h: 23.5 } },
+  { d: 22, sIso: 34, sJa: 32, kIso: 14, kJa: 14, nutStyle1: 19.4, nutJa1: 18, nutJa3: 13, capDk: 33, capK: 22, capKey: 17, holes: [23, 24, 26, 27], spotFace: 46, counterbore: { d1: 24, d: 35, h: 23.5 }, capNonJis: true },
   { d: 24, sIso: 36, sJa: 36, kIso: 15, kJa: 15, nutStyle1: 21.5, nutJa1: 19, nutJa3: 14, capDk: 36, capK: 24, capKey: 19, holes: [25, 26, 28, 29], spotFace: 50, counterbore: { d1: 26, d: 39, h: 25.5 } },
-  { d: 27, sIso: 41, sJa: 41, kIso: 17, kJa: 17, nutStyle1: 23.8, nutJa1: 22, nutJa3: 16, capDk: 40, capK: 27, capKey: 19, holes: [28, 30, 32, 33], spotFace: 55, counterbore: null },
-  { d: 30, sIso: 46, sJa: 46, kIso: 18.7, kJa: 19, nutStyle1: 25.6, nutJa1: 24, nutJa3: 18, capDk: 45, capK: 30, capKey: 22, holes: [31, 33, 35, 36], spotFace: 62, counterbore: null },
+  { d: 27, sIso: 41, sJa: 41, kIso: 17, kJa: 17, nutStyle1: 23.8, nutJa1: 22, nutJa3: 16, capDk: 40, capK: 27, capKey: 19, holes: [28, 30, 32, 33], spotFace: 55, counterbore: { d1: 30, d: 43, h: 29 }, capNonJis: true },
+  { d: 30, sIso: 46, sJa: 46, kIso: 18.7, kJa: 19, nutStyle1: 25.6, nutJa1: 24, nutJa3: 18, capDk: 45, capK: 30, capKey: 22, holes: [31, 33, 35, 36], spotFace: 62, counterbore: { d1: 33, d: 48, h: 32 } },
   { d: 36, sIso: 55, sJa: 55, kIso: 22.5, kJa: 23, nutStyle1: 31, nutJa1: 29, nutJa3: 21, capDk: 54, capK: 36, capKey: 27, holes: [37, 39, 42, 43], spotFace: 72, counterbore: null },
 ]
 

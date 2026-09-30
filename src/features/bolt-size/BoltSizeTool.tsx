@@ -120,7 +120,12 @@ export function BoltSizeTool() {
           </Group>
           <Group title="六角穴付きボルト（JIS B 1176）">
             <ResultItem label="六角レンチ（六角穴の二面幅）" value={trim(size.capKey)} unit="mm" />
-            <ResultItem label="頭部径 dk / 頭部の高さ k" value={`${trim(size.capDk)} / ${trim(size.capK)}`} unit="mm" />
+            <ResultItem
+              label="頭部径 dk / 頭部の高さ k"
+              value={`${trim(size.capDk)} / ${trim(size.capK)}`}
+              unit="mm"
+              note={size.capNonJis ? `M${size.d} は JIS B 1176 に無いサイズです（DIN 912 などの値）` : undefined}
+            />
           </Group>
           <Group title="ボルト穴・座ぐり">
             <ResultItem label={`ボルト穴径（${input.holeClass}）`} value={hole === null ? undefined : trim(hole)} unit="mm" />
