@@ -258,6 +258,13 @@ describe('inchCaution（インチねじの可能性の知らせ）', () => {
     expect(inchCaution(best({ side: 'external', diameter: 11.95, pitch: 1.75 * 1.03 }))).toBeNull()
   })
 
+  it('ピッチは合っていて径だけずれている（すり減った M20 を 19.0mm と測った）ときも控えめに知らせる', () => {
+    const candidate = best({ side: 'external', diameter: 19.0, pitch: 2.5 })
+    expect(candidate.label).toBe('M20')
+    expect(candidate.deltaPitch).toBe(0)
+    expect(inchCaution(candidate)).toBe('soft')
+  })
+
   it('ピッチ未入力でも径がずれていれば知らせる。候補が無ければ null', () => {
     expect(inchCaution(best({ side: 'external', diameter: 19.0, pitch: null }))).toBe('soft')
     expect(inchCaution(best({ side: 'external', diameter: 11.9, pitch: null }))).toBeNull()
