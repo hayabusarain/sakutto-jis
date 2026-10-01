@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { parseNumber } from '../../lib/format'
 import {
   absoluteToGauge,
   convert,
+  echoValue,
   findUnit,
   formatFeetInches,
   formatValue,
@@ -183,8 +185,18 @@ describe('parseValue', () => {
     ['− 40', -40],
     ['１．５', 1.5],
     ['1,000', 1000],
+    ['1,200', 1200],
     ['12,500.5', 12500.5],
+    ['1,250.5', 1250.5],
+    ['１，２００', 1200],
     ['8,5', 8.5],
+    ['12,5', 12.5],
+    // 先頭が 0 の数は3桁区切りにならない（小数点のカンマ）
+    ['0,125', 0.125],
+    ['-0,125', -0.125],
+    ['00,125', 0.125],
+    ['1,2345', 1.2345],
+    ['0,125"', 0.125],
     ['1-1/4', 1.25],
     ['1 1/4', 1.25],
     ['1　1/4', 1.25],
@@ -199,8 +211,30 @@ describe('parseValue', () => {
     expect(parseValue(text)).toBe(expected)
   })
 
-  it.each(['', ' ', 'abc', '1/0', '1.2.3', '1/2/3', '-', '1-', '10 mm'])('%s → null', (text) => {
+  it.each(['', ' ', 'abc', '1/0', '1.2.3', '1/2/3', '-', '1-', '10 mm', '1,2,3'])('%s → null', (text) => {
     expect(parseValue(text)).toBeNull()
+  })
+
+  it('カンマの読み方は他のツール（lib/format の parseNumber）と同じ', () => {
+    for (const text of ['1,200', '1,000', '0,125', '-0,125', '12,5', '1,250.5', '1,2345', '１，２００']) {
+      expect(parseValue(text)).toBe(parseNumber(text))
+    }
+  })
+})
+
+describe('echoValue（入力した値の表示）', () => {
+  it.each<[number, string]>([
+    [1234567, '1,234,567'],
+    [1250.125, '1,250.125'],
+    [0.12345678, '0.12345678'],
+    [-1234.5, '-1,234.5'],
+    [0, '0'],
+    [25.4, '25.4'],
+    [0.000001, '0.000001'],
+    [1e-7, '1×10⁻⁷'],
+    [1 / 3, '0.333333333333'],
+  ])('%s → %s（6桁に丸めない）', (value, expected) => {
+    expect(echoValue(value)).toBe(expected)
   })
 })
 

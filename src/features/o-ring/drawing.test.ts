@@ -76,7 +76,10 @@ describe('cylinderGrooveDxf', () => {
     expect(texts).toContain('b 3.2 +0.25/0')
     expect(texts.some((text) => text.startsWith('%%c20 0/-0.06 (d: GROOVE DIA.)'))).toBe(true)
     expect(texts.some((text) => text.startsWith('%%c24 +0.06/0 (D: CYLINDER BORE)'))).toBe(true)
-    expect(texts.some((text) => text.includes('R0.4 MAX') && text.includes('E 0.05 MAX'))).toBe(true)
+    expect(texts.some((text) => text.includes('R0.4 MAX'))).toBe(true)
+    // E は「偏心」ではなく K の最大−最小。軸心のずれはその半分
+    expect(texts).toContain('E 0.05 MAX (K MAX-MIN, AXIS OFFSET 0.025 MAX)')
+    expect(texts.some((text) => text.includes('ECCENTRICITY'))).toBe(false)
     expect(texts.some((text) => text.includes('JIS B 2401-2') && text.includes('P20') && text.includes('PISTON'))).toBe(
       true,
     )
@@ -155,7 +158,7 @@ describe('grooveCallout（図面指示）', () => {
       '溝底径 φ20 0/-0.06',
       '溝幅 3.2 +0.25/0',
       '溝底の角 R0.4以下',
-      '偏心量 0.05以下',
+      '溝の振れ E（K の最大−最小）0.05以下（軸心のずれ 0.025以下）',
       'Oリング P20（内径 19.8 × 太さ 2.4）',
     ])
   })
@@ -166,6 +169,9 @@ describe('grooveCallout（図面指示）', () => {
     expect(lines[1]).toBe('軸径 φ50 0/-0.1')
     expect(lines[2]).toBe('溝底径 φ55 +0.1/0')
     expect(lines[3]).toBe('溝幅 7.3 +0.25/0')
+    // E 0.08 は K の最大−最小。軸心のずれ（偏心量）はその半分の 0.04 まで
+    expect(lines[5]).toBe('溝の振れ E（K の最大−最小）0.08以下（軸心のずれ 0.04以下）')
+    expect(lines.some((line) => line.includes('偏心量'))).toBe(false)
   })
 
   it('平面・内圧用は溝外径が規格値、溝内径は（ ）の参考寸法', () => {
@@ -190,6 +196,9 @@ describe('oRingExportTable（表の書き出し）', () => {
     const p20 = table.rows.find((row) => row[0] === 'P20')!
     expect(p20).toEqual(['P20', 19.8, 0.22, 2.4, 0.09, 20, 0, -0.06, 24, 0.06, 0, 3.2, 4.4, 6, 0.4, 0.05])
     expect(table.note).toContain('JIS B 2401-2:2012')
+    // 数値の出どころ（旧 JIS B 2406:1991 の表）と E の定義も書き出す
+    expect(table.note).toContain('旧 JIS B 2406:1991')
+    expect(table.note).toContain('K の最大値と最小値の差')
   })
 
   it('平面: 外圧用の溝内径・内圧用の溝外径・深さと許容差', () => {

@@ -1,4 +1,14 @@
-import { G_ROWS, GROUPS, P_ROWS, type CrossSectionGroup, type GroupKey, type ORingSeries } from './data'
+import {
+  BACKUP_PRESSURE_LIMITS,
+  G_ROWS,
+  GROUPS,
+  NO_BACKUP_MAX_CLEARANCE,
+  P_ROWS,
+  type CrossSectionGroup,
+  type GroupKey,
+  type ORingHardness,
+  type ORingSeries,
+} from './data'
 
 export interface ORing {
   series: ORingSeries
@@ -251,7 +261,7 @@ export function findByMatingDiameter(housing: HousingType, diameter: number, bot
   return { matches, exact, below: group(lower, Math.max), above: group(higher, Math.min) }
 }
 
-/** JIS B 2401 の太さ d2 の種類（小さい順）: 1.9・2.4・3.1・3.5・5.7・8.4 */
+/** JIS B 2401 の P・G 系列の太さ d2 の種類（小さい順）: 1.9・2.4・3.1・3.5・5.7・8.4（V 系列は含まない） */
 export const CROSS_SECTIONS: readonly number[] = [...new Set(Object.values(GROUPS).map((group) => group.d2))].sort(
   (a, b) => a - b,
 )
@@ -314,4 +324,43 @@ export function identifyByRing(d1: number, d2: number, limit = 5): RingIdentific
     d2Options,
     candidates,
   }
+}
+
+// ---------------------------------------------------------------------------
+// バックアップリングが要るかの目安（旧 JIS B 2406:1991 表1。現行 JIS B 2401-2:2012 とは未照合）
+
+/** 使用圧力の区分の表記 [MPa]（例: 「4.0 以下」「4.0 を超え 6.3 以下」） */
+export function pressureBandLabel(index: number): string {
+  const max = BACKUP_PRESSURE_LIMITS[index].toFixed(1)
+  return index === 0 ? `${max} 以下` : `${BACKUP_PRESSURE_LIMITS[index - 1].toFixed(1)} を超え ${max} 以下`
+}
+
+/** 表の見出し用の短い表記（「〜4.0」＝ 4.0 以下、「4.0超〜6.3」＝ 4.0 を超え 6.3 以下） */
+export function pressureBandShortLabel(index: number): string {
+  const max = BACKUP_PRESSURE_LIMITS[index].toFixed(1)
+  return index === 0 ? `〜${max}` : `${BACKUP_PRESSURE_LIMITS[index - 1].toFixed(1)}超〜${max}`
+}
+
+export type NoBackupClearance =
+  | { status: 'ok'; /** 圧力の区分 */ index: number; /** すきま 2g の最大値 [mm] */ max: number }
+  /** 使用圧力が 25.0 MPa を超える（この表・溝の規格の対象外） */
+  | { status: 'above' }
+  | { status: 'invalid' }
+
+/** 使用圧力 p [MPa] のとき、バックアップリングなしで使えるすきま 2g の最大値。区分の上端はその区分に含む */
+export function noBackupMaxClearance(hardness: ORingHardness, pressureMpa: number): NoBackupClearance {
+  if (!Number.isFinite(pressureMpa) || pressureMpa < 0) return { status: 'invalid' }
+  const index = BACKUP_PRESSURE_LIMITS.findIndex((limit) => pressureMpa <= limit + 1e-9)
+  if (index < 0) return { status: 'above' }
+  return { status: 'ok', index, max: NO_BACKUP_MAX_CLEARANCE[hardness][index] }
+}
+
+/**
+ * すきま 2g [mm] が、バックアップリングなしで使える最大値を超えるか（超えるならバックアップリングを使う）。
+ * 25.0 MPa を超える・値が不正なときは null。
+ */
+export function needsBackupRing(hardness: ORingHardness, pressureMpa: number, clearance2g: number): boolean | null {
+  const found = noBackupMaxClearance(hardness, pressureMpa)
+  if (found.status !== 'ok' || !Number.isFinite(clearance2g) || clearance2g < 0) return null
+  return clearance2g > found.max + 1e-9
 }

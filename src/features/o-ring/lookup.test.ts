@@ -150,7 +150,7 @@ describe('identifyByRing（実物の寸法から）', () => {
     ).toEqual(['G150', 'P150'])
   })
 
-  it('JIS の太さから大きく離れていると d2Far', () => {
+  it('P・G の太さから大きく離れていると d2Far', () => {
     expect(identifyByRing(20, 3.0).d2Far).toBe(false) // 3.1 から 0.1
     expect(identifyByRing(20, 4.5).d2Far).toBe(true) // 3.5 から 1.0
     expect(identifyByRing(20, 12).nearestD2).toBe(8.4)

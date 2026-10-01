@@ -11,11 +11,12 @@ import {
   grooveDepth,
   identifyByRing,
   oRingNumbers,
+  pressureBandLabel,
   squeeze,
   squeezeRange,
   type ORing,
 } from './calc'
-import type { ORingSeries } from './data'
+import { NO_BACKUP_MAX_CLEARANCE, type ORingSeries } from './data'
 
 const ring = (series: ORingSeries, no: string) => findORing(series, no)!
 const list = (values: readonly number[]) => values.map((value) => trim(value)).join('・')
@@ -57,7 +58,9 @@ export function ORingGuide() {
     <GuideSection>
       <Faq q="Oリングの P と G の違いは？">
         <p>
-          P は運動用と固定用の両方に使える系列、G は固定用の系列です（{standardLabel('JIS B 2401-1')}）。 P は{' '}
+          P は運動用と固定用の両方に使える系列、G は固定用の系列です（{standardLabel('JIS B 2401-1')}
+          ）。ただし P でも、4種C（シリコーン・VMQ）のように強度の低い材料のものは運動用に使いません（旧 JIS B
+          2406:1991 の備考）。P は{' '}
           {oRingNumbers('P').length} サイズで太さが {list(thicknesses('P'))} mm、G は {oRingNumbers('G').length}{' '}
           サイズで太さが {list(thicknesses('G'))} mm です。
         </p>
@@ -92,8 +95,8 @@ export function ORingGuide() {
           {trim(measured.ring.d1)} × {trim(measured.ring.group.d2)} mm）が最も近い候補です。
         </p>
         <p>
-          使ったOリングはつぶれや膨潤で寸法が変わっているので、候補は目安です。溝の寸法（d・D・溝幅）も測って確かめると確実です。インチ系（AS568）など
-          JIS 以外のOリングは含みません。
+          使ったOリングはつぶれや膨潤で寸法が変わっているので、候補は目安です。溝の寸法（d・D・溝幅）も測って確かめると確実です。JIS
+          B 2401 の P・G 系列だけを収録しています（真空フランジ用の V 系列や、インチ系 AS568 などは含みません）。
         </p>
       </Faq>
 
@@ -104,10 +107,20 @@ export function ORingGuide() {
           {fixed(p20Squeeze, 1)}% になります。
         </p>
         <p>
-          {standardLabel('JIS B 2401-2')} の溝寸法どおりにつくると、太さと溝の寸法許容差を含めたつぶし率は、円筒面で{' '}
+          JIS の溝寸法（旧 JIS B 2406:1991 の表）どおりにつくると、太さと溝の寸法許容差を含めたつぶし率は、円筒面で{' '}
           {fixed(cylinder.min, 1)}〜{fixed(cylinder.max, 1)}%（偏心は含まない）、平面で {fixed(flat.min, 1)}〜
           {fixed(flat.max, 1)}%
           の範囲に入ります（全サイズ）。充てん率は、溝の断面積に対するOリングの断面積の割合です。膨潤や熱膨張の逃げがあるかの目安に使います。
+        </p>
+      </Faq>
+
+      <Faq q="バックアップリングはどんなときに必要？">
+        <p>
+          すき間（すきま 2g・直径の差）が大きいときや、圧力が高いときです。旧 JIS B 2406:1991 の表1 では、使用圧力{' '}
+          {pressureBandLabel(2)} MPa のとき、硬さ 70 のOリングはすきま {fixed(NO_BACKUP_MAX_CLEARANCE[70][2], 2)} mm
+          まで、硬さ 90 なら {fixed(NO_BACKUP_MAX_CLEARANCE[90][2], 2)} mm
+          までがバックアップリングなしで使える目安で、これを超えるときはバックアップリングを使います（現行 JIS B
+          2401-2:2012 の表とは未照合）。圧力ごとの表は、上の「条件」の「バックアップリングが要るかの目安」にあります。
         </p>
       </Faq>
 

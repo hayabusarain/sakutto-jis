@@ -6,6 +6,13 @@
  * 全値の一致を確かめた。規格原文との照合は未了（docs/data-verification.md 参照）。
  */
 
+/**
+ * 値の確認状況の注記（画面・コピー・CSV に出す）。docs/data-verification.md で全項目を △ にしているため。
+ * 原文で確認できたら、この注記と docs の両方を更新する。
+ */
+export const VERIFICATION_NOTE =
+  '※ 許容差の値は ISO 2768-1 の表などの二次資料と照合済みで、JIS B 0405 原文との照合は確認中です。'
+
 export type ToleranceClass = 'f' | 'm' | 'c' | 'v'
 
 export const TOLERANCE_CLASSES: readonly ToleranceClass[] = ['f', 'm', 'c', 'v']

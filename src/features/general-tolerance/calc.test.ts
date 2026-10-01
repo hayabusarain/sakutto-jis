@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { parseNumber } from '../../lib/format'
 import {
   angleLimits,
   decimalsOfInput,
@@ -238,6 +239,23 @@ describe('上・下の寸法', () => {
     expect(decimalsOfInput('50.00')).toBe(2)
     expect(decimalsOfInput('１２．５')).toBe(1)
     expect(decimalsOfInput('8,5')).toBe(1)
+    // カンマは parseNumber と同じルール（3桁区切りなら桁に数えない）
+    expect(decimalsOfInput('1,200')).toBe(0)
+    expect(decimalsOfInput('1,200.50')).toBe(2)
+    expect(decimalsOfInput('0,125')).toBe(3)
+  })
+
+  it('カンマ入りの寸法: 1,200 は 1200 mm（1000 を超え 2000 以下）として読む', () => {
+    // 表計算ソフトや部品表から貼り付けた「1,200」を 1.2 mm と読まない
+    const size = parseNumber('1,200')!
+    expect(size).toBe(1200)
+    const found = lookupTolerance('linear', 'm', size)
+    expect(found).toMatchObject({ status: 'ok', tolerance: 1200 })
+    expect(linearLimits(size, decimalsOfInput('1,200'), 1200)).toEqual({ upper: '1201.2', lower: '1198.8' })
+    // 先頭が 0 の「0,125」は小数点のカンマ（0.5 mm 未満なので表の対象外）
+    expect(lookupTolerance('linear', 'm', parseNumber('0,125')!)).toEqual({ status: 'below' })
+    // 「12,5」は 12.5 mm
+    expect(lookupTolerance('linear', 'm', parseNumber('12,5')!)).toMatchObject({ status: 'ok', tolerance: 200 })
   })
 
   it('角度', () => {
