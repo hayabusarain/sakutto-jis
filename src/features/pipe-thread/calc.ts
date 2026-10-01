@@ -1,4 +1,9 @@
-import { G_INTERNAL_MINOR_TOLERANCE, PIPE_THREAD_SIZES, type PipeThreadSize } from './data'
+import {
+  G_INTERNAL_MINOR_TOLERANCE,
+  PIPE_THREAD_SIZES,
+  type PipeThreadKind,
+  type PipeThreadSize,
+} from './data'
 
 /** テーパ 1/16：直径は軸方向の長さ x に対して x/16 変化する */
 export const TAPER = 1 / 16
@@ -41,4 +46,77 @@ export function gRecommendedDrill(thread: PipeThreadSize): number {
 export function rcInnerMinorDiameter(thread: PipeThreadSize): number | null {
   if (thread.usefulInternalRc === null) return null
   return round3(thread.d1 - thread.usefulInternalRc * TAPER)
+}
+
+/**
+ * R（おねじ）の管端での外径 = d − a/16 [mm]。
+ * 基準径の位置は管端から a の位置にあり、管端に向かって細くなる。ノギスで管端の山を測るとこの値に近い。
+ */
+export function rPipeEndDiameter(thread: PipeThreadSize): number {
+  return round3(thread.d - thread.gaugeLength * TAPER)
+}
+
+/** R（おねじ）の有効ねじ部の端（管端から有効ねじ部の最小長さの位置）での外径 = d + (有効ねじ部 − a)/16 [mm] */
+export function rUsefulEndDiameter(thread: PipeThreadSize): number {
+  return round3(thread.d + (thread.usefulExternal - thread.gaugeLength) * TAPER)
+}
+
+/** 旧JIS記号と今のJIS記号の対応。PT は R・Rc の両方にあたるが、寸法を調べることが多いめねじ Rc にする */
+const KIND_ALIASES: Readonly<Record<string, PipeThreadKind>> = {
+  R: 'R',
+  RC: 'Rc',
+  RP: 'Rp',
+  G: 'G',
+  PT: 'Rc',
+  PS: 'Rp',
+  PF: 'G',
+}
+
+const toHalfWidth = (text: string) =>
+  text.replace(/[０-９Ａ-Ｚａ-ｚ／]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
+
+/** ねじの種類の表記ゆれを直す（例: rc → Rc、PF → G）。読めなければ null */
+export function parsePipeThreadKind(text: string): PipeThreadKind | null {
+  return KIND_ALIASES[toHalfWidth(text).trim().toUpperCase()] ?? null
+}
+
+/**
+ * ねじの呼びの表記ゆれを読み取る（URL の手入力など）。
+ * 例: "1/2" "1/2B" "15A" "R1/2" "PT1/2" "G 1-1/4" "G1/2A" → { size, kind }（種類の指定が無ければ kind は null）。
+ * 読めなければ null。
+ */
+export function parsePipeThreadDesignation(
+  text: string,
+): { size: string; kind: PipeThreadKind | null } | null {
+  const normalized = toHalfWidth(text).trim().replace(/\s+/g, ' ')
+
+  // 管の呼び径（A呼称）: 15A → 1/2
+  const pipeA = /^(\d+)\s*A$/i.exec(normalized)
+  if (pipeA) {
+    const byPipe = PIPE_THREAD_SIZES.find((s) => s.pipeA === `${pipeA[1]}A`)
+    return byPipe ? { size: byPipe.size, kind: null } : null
+  }
+
+  const match = /^([A-Za-z]{1,2})?\s*(\d[\d/ .・-]*?)\s*([AB])?$/i.exec(normalized)
+  if (!match) return null
+  const [, prefix, body, suffix] = match
+  const kind = prefix ? (KIND_ALIASES[prefix.toUpperCase()] ?? null) : null
+  if (prefix && kind === null) return null
+  // 末尾の A・B は G おねじの等級、B は B呼称（1/2B）。それ以外の組み合わせは読まない
+  if (suffix && suffix.toUpperCase() === 'A' && kind !== 'G') return null
+  if (suffix && suffix.toUpperCase() === 'B' && kind !== 'G' && kind !== null) return null
+
+  const size = body.trim().replace(/^(\d+)[-.・ ](\d+\/\d+)$/, '$1 $2') // 1-1/4・1.1/4 → 1 1/4
+  const found = PIPE_THREAD_SIZES.find((s) => s.size === size)
+  return found ? { size: found.size, kind } : null
+}
+
+/** 図面に書くねじの呼び（例: R1/2・Rc1/2・G1/2）。G のおねじには有効径の公差の等級 A・B を付ける（G1/2A） */
+export function pipeThreadDesignation(kind: PipeThreadKind, size: string, gExternalClass?: 'A' | 'B'): string {
+  return `${kind}${size}${kind === 'G' && gExternalClass ? gExternalClass : ''}`
+}
+
+/** G めねじの呼びに、計算した推奨下穴径を添えた注記（例: G1/2 下穴φ18.9） */
+export function gInternalCalloutWithDrill(thread: PipeThreadSize): string {
+  return `${pipeThreadDesignation('G', thread.size)} 下穴φ${gRecommendedDrill(thread).toFixed(1)}`
 }
