@@ -17,3 +17,27 @@ export function replaceUrl(next: string) {
   window.history.replaceState(window.history.state, '', next)
   knownSearch = window.location.search
 }
+
+/**
+ * 新しい版（Service Worker の更新）が公開されたか。数値の訂正を含むことがあるので、
+ * 公開されたら次の画面切り替えはページを読み直して、最新の HTML とプログラムで表示する（main.tsx・RouterProvider）。
+ */
+let updateAvailable = false
+const updateListeners = new Set<() => void>()
+
+export function markUpdateAvailable() {
+  if (updateAvailable) return
+  updateAvailable = true
+  updateListeners.forEach((listener) => listener())
+}
+
+export function isUpdateAvailable(): boolean {
+  return updateAvailable
+}
+
+export function subscribeUpdate(listener: () => void): () => void {
+  updateListeners.add(listener)
+  return () => {
+    updateListeners.delete(listener)
+  }
+}

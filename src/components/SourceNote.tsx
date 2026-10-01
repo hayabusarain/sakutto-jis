@@ -24,8 +24,15 @@ export function SourceNote({ standards }: SourceNoteProps) {
           </ul>
         </>
       )}
+      {standards.length === 0 && (
+        // 規格の表を使わないツール（単位換算）は、単位の定義から計算している
+        <p className="mb-2 text-xs leading-relaxed text-zinc-500">
+          換算係数は単位の定義値（<span className="num">1 in = 25.4 mm</span>、
+          <span className="num">1 kgf = 9.80665 N</span> など）から計算しています。
+        </p>
+      )}
       <p className="text-xs leading-relaxed text-zinc-500">
-        本ツールのデータはJIS規格に基づき万全を期して作成していますが、実業務でのご使用時は必要に応じて公式の規格書をご確認ください。規格原文は
+        本ツールのデータはJIS規格に基づき万全を期して作成しておりますが、実業務でのご使用時は必要に応じて公式規格書をご確認ください。規格原文は
         <a
           href={JISC_URL}
           target="_blank"

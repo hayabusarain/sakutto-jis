@@ -6,6 +6,8 @@ import { usePersistentState } from './usePersistentState'
 /**
  * ツールの入力。前回の入力を端末に覚え、さらに URL のクエリとも同期する。
  * 条件付きの URL（例: /tap-drill?d=12&p=1.75）を開けば同じ条件で表示でき、そのまま共有・ブックマークできる。
+ * クエリの無い URL（/tap-drill）は前回の入力で表示し、URL をその条件付きの形に書き換える（既定の条件でも ?d=10 のように書く）。
+ * 別のタブで同じツールの条件を変えても、このタブの表示と URL は変わらない（タブごとに見比べられる）。
  * defaults・isValid・normalize は、モジュールの定数など毎回同じものを渡すこと。
  *
  * normalize: URL で一部の項目だけが指定されたときに、関連する項目を整える
@@ -37,7 +39,7 @@ export function useToolState<T extends FlatState<T>>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 入力が変わったら URL のクエリを書き換える（履歴は増やさない）
+  // 入力が変わったら URL のクエリを書き換える（履歴は増やさない）。クエリは空にならない（stateQuery）
   useEffect(() => {
     if (!urlRead.current) return
     const query = stateQuery(state, defaults, normalize)
