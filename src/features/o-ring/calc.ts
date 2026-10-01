@@ -139,3 +139,179 @@ export function flatFillRatio(ring: ORing): number {
   const area = (Math.PI / 4) * ring.group.d2 ** 2
   return (area / (ring.group.flatWidth * ring.group.flatDepth)) * 100
 }
+
+/* ───────── はめたときの伸び・縮み ───────── */
+
+/** 内径 d1 を径 diameter の面にはめたときの内径の伸び [%] = (diameter − d1) ÷ d1 × 100 */
+export function innerStretch(d1: number, diameter: number): number {
+  return ((diameter - d1) / d1) * 100
+}
+
+/**
+ * 外径（d1 + 2·d2）を径 diameter の穴に入れたときの外径の縮み [%] = (外径 − diameter) ÷ 外径 × 100。
+ * ロッド型の溝底（D）や、平面・内圧用の溝の外壁に当てたときの周方向の縮み。
+ */
+export function outerCompression(ring: ORing, diameter: number): number {
+  const outer = ring.d1 + 2 * ring.group.d2
+  return ((outer - diameter) / outer) * 100
+}
+
+/** 円筒面の溝の型。ピストン型は軸（ピストン）側に溝、ロッド型は穴（ハウジング）側に溝 */
+export type HousingType = 'piston' | 'rod'
+
+export interface RingFit {
+  /** stretch: 内径を溝底・内壁にはめて伸ばす / compression: 外径を溝底・外壁に当てて縮める */
+  kind: 'stretch' | 'compression'
+  /** 当たる面の径 */
+  diameter: number
+  /** 伸び・縮み [%] */
+  value: number
+}
+
+/**
+ * 溝にはめたときの伸び・縮み（溝底や溝の壁に当たる側で決まる）。
+ * ピストン型: 内径が溝底 d に / ロッド型: 外径が溝底 D に /
+ * 平面・内圧用: 外径が溝の外壁に / 平面・外圧用: 内径が溝の内壁に当たる。
+ */
+export function ringFit(
+  ring: ORing,
+  groove: 'cylinder' | 'flat-internal' | 'flat-external',
+  housing: HousingType,
+): RingFit {
+  if (groove === 'flat-internal') {
+    const diameter = flatGroove(ring, 'internal').outer
+    return { kind: 'compression', diameter, value: outerCompression(ring, diameter) }
+  }
+  if (groove === 'flat-external') {
+    const diameter = flatGroove(ring, 'external').inner
+    return { kind: 'stretch', diameter, value: innerStretch(ring.d1, diameter) }
+  }
+  return housing === 'piston'
+    ? { kind: 'stretch', diameter: ring.d, value: innerStretch(ring.d1, ring.d) }
+    : { kind: 'compression', diameter: ring.D, value: outerCompression(ring, ring.D) }
+}
+
+/* ───────── 相手寸法・実物の寸法から番号を探す ───────── */
+
+/** 径の比較の余裕 */
+const EPS = 1e-6
+
+/** P と G の全サイズ（P → G の順） */
+export function allORings(): ORing[] {
+  return (['P', 'G'] as const).flatMap((series) => oRingNumbers(series).map((no) => findORing(series, no)!))
+}
+
+/** その型でOリングの相手になる径（ピストン型はシリンダ内径 D、ロッド型は軸径 d） */
+export function matingDiameter(ring: ORing, housing: HousingType): number {
+  return housing === 'piston' ? ring.D : ring.d
+}
+
+/** その型の溝底径（ピストン型は d、ロッド型は D） */
+export function grooveBottomDiameter(ring: ORing, housing: HousingType): number {
+  return housing === 'piston' ? ring.d : ring.D
+}
+
+export interface DiameterGroup {
+  diameter: number
+  rings: ORing[]
+}
+
+export interface MatingLookup {
+  /** 相手の径がちょうど合う番号（溝底径は問わない） */
+  matches: ORing[]
+  /** matches のうち、溝底径も合うもの（溝底径を指定しなければ matches と同じ） */
+  exact: ORing[]
+  /** ちょうど合う番号が無いとき、すぐ下・すぐ上の相手径とその番号 */
+  below: DiameterGroup | null
+  above: DiameterGroup | null
+}
+
+/**
+ * 相手の径（ピストン型はシリンダ内径 D、ロッド型は軸径 d）から、P・G の両方で番号を探す。
+ * bottom（溝底径）も指定すると、両方が合うものを exact にする（既存のハウジングの確認用）。
+ */
+export function findByMatingDiameter(housing: HousingType, diameter: number, bottom?: number): MatingLookup {
+  const rings = allORings()
+  const at = (value: number) => rings.filter((ring) => Math.abs(matingDiameter(ring, housing) - value) < EPS)
+  const matches = at(diameter)
+  const exact =
+    bottom === undefined
+      ? matches
+      : matches.filter((ring) => Math.abs(grooveBottomDiameter(ring, housing) - bottom) < EPS)
+  if (matches.length > 0) return { matches, exact, below: null, above: null }
+
+  const diameters = rings.map((ring) => matingDiameter(ring, housing))
+  const lower = diameters.filter((value) => value < diameter)
+  const higher = diameters.filter((value) => value > diameter)
+  const group = (values: number[], pick: (...values: number[]) => number): DiameterGroup | null => {
+    if (values.length === 0) return null
+    const value = pick(...values)
+    return { diameter: value, rings: at(value) }
+  }
+  return { matches, exact, below: group(lower, Math.max), above: group(higher, Math.min) }
+}
+
+/** JIS B 2401 の太さ d2 の種類（小さい順）: 1.9・2.4・3.1・3.5・5.7・8.4 */
+export const CROSS_SECTIONS: readonly number[] = [...new Set(Object.values(GROUPS).map((group) => group.d2))].sort(
+  (a, b) => a - b,
+)
+
+/** 測った太さが2つの太さのほぼ中間のとき、両方を候補にする幅 [mm] */
+const D2_AMBIGUITY = 0.15
+
+/** 測った太さが、最も近い規格の太さからこの割合より離れていたら注意を出す */
+const D2_FAR_RATIO = 0.08
+
+export interface RingCandidate {
+  ring: ORing
+  /** 測った値 − 規格の値 */
+  dd1: number
+  dd2: number
+  /** 内径・太さとも規格の許容差に入っている */
+  withinTol: boolean
+}
+
+export interface RingIdentification {
+  /** 測った太さに最も近い規格の太さ */
+  nearestD2: number
+  /** 測った太さが規格の太さから大きく離れている（8% を超える） */
+  d2Far: boolean
+  /** 候補にした太さ（近い順。ほぼ中間なら2つ） */
+  d2Options: number[]
+  /** 内径の差が小さい順 */
+  candidates: RingCandidate[]
+}
+
+/**
+ * 実物の内径 d1 × 太さ d2 から、近い番号を探す。
+ * 太さを最も近い規格の太さに寄せ（ほぼ中間なら両方）、その太さの P・G を内径の差が小さい順に並べる。
+ */
+export function identifyByRing(d1: number, d2: number, limit = 5): RingIdentification {
+  const distances = CROSS_SECTIONS.map((value) => ({ value, distance: Math.abs(d2 - value) })).sort(
+    (a, b) => a.distance - b.distance,
+  )
+  const nearest = distances[0]
+  const d2Options = distances
+    .filter(({ distance }) => distance <= nearest.distance + D2_AMBIGUITY + EPS)
+    .map(({ value }) => value)
+  const candidates = allORings()
+    .filter((ring) => d2Options.includes(ring.group.d2))
+    .map((ring) => {
+      const dd1 = round3(d1 - ring.d1)
+      const dd2 = round3(d2 - ring.group.d2)
+      return {
+        ring,
+        dd1,
+        dd2,
+        withinTol: Math.abs(dd1) <= ring.d1Tol + EPS && Math.abs(dd2) <= ring.group.d2Tol + EPS,
+      }
+    })
+    .sort((a, b) => Math.abs(a.dd1) - Math.abs(b.dd1) || Math.abs(a.dd2) - Math.abs(b.dd2))
+    .slice(0, limit)
+  return {
+    nearestD2: nearest.value,
+    d2Far: nearest.distance > nearest.value * D2_FAR_RATIO + EPS,
+    d2Options,
+    candidates,
+  }
+}
