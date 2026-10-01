@@ -2,8 +2,8 @@
  * ねじの呼び（M3〜M36）ごとのまとめページに載せる値を、各ツールの data.ts・calc.ts から集める。
  */
 import { BOLT_SIZES, type BoltSize } from '../../features/bolt-size/data'
+import { isRowUnverified } from '../../features/flange-bolt/calc'
 import { FLANGES, PRESSURE_CLASSES, type PressureClass } from '../../features/flange-bolt/data'
-import { roundSignificant } from '../../features/steel-pipe/calc'
 import {
   engagementPercent,
   findSize,
@@ -33,7 +33,8 @@ export interface PitchRow {
 
 export interface FlangeUse {
   pressure: PressureClass
-  sizes: readonly { size: string; n: number }[]
+  /** unverified: その呼び径の行（寸法・ボルトの呼び・本数）が規格原文で未確認（フランジのツールで ※ を付ける行） */
+  sizes: readonly { size: string; n: number; unverified: boolean }[]
 }
 
 export interface ScrewSummary {
@@ -44,7 +45,7 @@ export interface ScrewSummary {
   coarse: PitchRow
   /** 並目 → 細目の順 */
   pitches: readonly PitchRow[]
-  /** 並目ねじの有効断面積 As [mm²]（有効数字3桁） */
+  /** 並目ねじの有効断面積 As [mm²]（丸める前の値。表示は formatSignificant で有効数字3桁） */
   stressArea: number
   /** このボルトを使う JIS フランジ（呼び圧力ごとの呼び径とボルト本数） */
   flanges: readonly FlangeUse[]
@@ -83,7 +84,9 @@ function pitchRow(metric: MetricSize, p: number): PitchRow {
 export function flangesUsingBolt(d: number): FlangeUse[] {
   return PRESSURE_CLASSES.map((pressure) => ({
     pressure,
-    sizes: FLANGES[pressure].filter((row) => row.bolt === d).map((row) => ({ size: row.size, n: row.n })),
+    sizes: FLANGES[pressure]
+      .filter((row) => row.bolt === d)
+      .map((row) => ({ size: row.size, n: row.n, unverified: isRowUnverified(pressure, row.size) })),
   })).filter((use) => use.sizes.length > 0)
 }
 
@@ -102,7 +105,7 @@ export function screwSummary(d: number): ScrewSummary | null {
     bolt,
     coarse: pitches[0],
     pitches,
-    stressArea: roundSignificant(stressArea(d, metric.coarse), 3),
+    stressArea: stressArea(d, metric.coarse),
     flanges: flangesUsingBolt(d),
     prev: index > 0 ? SUMMARY_SIZES[index - 1] : null,
     next: index < SUMMARY_SIZES.length - 1 ? SUMMARY_SIZES[index + 1] : null,

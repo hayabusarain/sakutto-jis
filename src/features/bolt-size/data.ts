@@ -78,6 +78,12 @@ export const UNVERIFIED: readonly UnverifiedEntry[] = [
 /** ※ の凡例 */
 export const UNVERIFIED_LEGEND = '※ 規格原文で未確認の値'
 
+/** 六角穴付きボルトが JIS B 1176 に無いサイズ（capNonJis）の値に付ける印 */
+export const CAP_NON_JIS_MARK = '†'
+
+/** † の凡例（M18・M22・M27 の六角レンチ・頭部・CAP座ぐり） */
+export const CAP_NON_JIS_LEGEND = '† 六角穴付きボルトが JIS B 1176 に無いサイズ（ボルトの寸法は DIN 912 などの値）'
+
 /** その値が規格原文で未確認か */
 export function isUnverified(field: CheckedField, d: number): boolean {
   return UNVERIFIED.some(

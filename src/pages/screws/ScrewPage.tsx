@@ -6,7 +6,7 @@ import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { ResultItem } from '../../components/ui/ResultItem'
 import { isUnverified } from '../../features/bolt-size/data'
-import { TWO_H1_PER_PITCH } from '../../features/tap-drill/calc'
+import { formatSignificant, TWO_H1_PER_PITCH } from '../../features/tap-drill/calc'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { Link } from '../../router/Link'
@@ -40,6 +40,8 @@ export function ScrewPage({ d }: { d: number }) {
   const coarseLimits = coarse.limits
   const coarseHole = coarse.recommended?.hole
   const h = (Math.sqrt(3) / 2) * coarse.p
+  const stressAreaText = formatSignificant(summary.stressArea)
+  const flangeHasUnverified = summary.flanges.some((use) => use.sizes.some((row) => row.unverified))
 
   const columns: Column<PitchRow>[] = [
     {
@@ -132,7 +134,11 @@ export function ScrewPage({ d }: { d: number }) {
             value={trim(bolt.sIso)}
             note={jaDiffers ? `旧JIS ${trim(bolt.sJa)} mm` : undefined}
           />
-          <QuickValue label="六角レンチ（キャップボルト）" value={trim(bolt.capKey)} />
+          <QuickValue
+            label="六角レンチ（キャップボルト）"
+            value={trim(bolt.capKey)}
+            note={bolt.capNonJis ? 'JIS B 1176 に無いサイズ（DIN 912 などの値）' : undefined}
+          />
           <QuickValue label="ボルト穴径（2級）" value={trim(bolt.holes[1])} />
         </dl>
       </section>
@@ -154,7 +160,7 @@ export function ScrewPage({ d }: { d: number }) {
             <dl>
               <ResultItem
                 label={`有効断面積 As（M${d} 並目）`}
-                value={trim(summary.stressArea)}
+                value={stressAreaText}
                 unit="mm²"
                 note="ボルトの強度計算（引張荷重 = 応力 × As）に使います"
               />
@@ -181,7 +187,8 @@ export function ScrewPage({ d }: { d: number }) {
                     {TWO_H1_PER_PITCH} × {trim(coarse.p)}) × 100 = {fixed(coarse.engagement ?? 0, 1)}%
                   </Formula>
                   <Formula>
-                    As = π/4 × (D − 13/12 × H)² = π/4 × ({d} − 13/12 × {fixed(h, 4)})² = {trim(summary.stressArea)} mm²
+                    As = π/4 × (D − 13/12 × H)² = π/4 × ({d} − 13/12 × {fixed(h, 4)})² = {fixed(summary.stressArea, 2)} ≒{' '}
+                    {stressAreaText} mm²
                   </Formula>
                   <FormulaLegend
                     items={[
@@ -231,11 +238,15 @@ export function ScrewPage({ d }: { d: number }) {
           </dl>
           {bolt.capNonJis && (
             <p className="mt-2 text-xs leading-relaxed text-orange-800">
-              M{d} の六角穴付きボルトは JIS B 1176 に無いサイズです（DIN 912 などの値を載せています）。
+              M{d} の六角穴付きボルトは JIS B 1176 に無いサイズです。DIN 912 などの値を載せているので、使うボルトのメーカー寸法で確かめてください。
             </p>
           )}
           <div className="mt-3 space-y-1">
-            <Citation code="JIS B 1176" />
+            {bolt.capNonJis ? (
+              <Citation code="JIS B 1176" suffix="に無いサイズ（値は DIN 912 など）" />
+            ) : (
+              <Citation code="JIS B 1176" />
+            )}
           </div>
         </Card>
 
@@ -307,13 +318,19 @@ export function ScrewPage({ d }: { d: number }) {
                       className="mt-1.5"
                       links={use.sizes.map((row) => ({
                         to: toolHref(FLANGE_TOOL_PATH, { pressure: use.pressure, size: row.size }),
-                        label: `${row.size}（${row.n}本）`,
+                        label: `${row.size}${row.unverified ? '※' : ''}（${row.n}本）`,
                       }))}
                     />
                   </div>
                 )
               })}
             </div>
+            {flangeHasUnverified && (
+              <p className="mt-2 text-xs leading-relaxed text-zinc-600">
+                <span className="font-bold text-orange-700">※</span>{' '}
+                の付いたサイズは、フランジの寸法（ボルトの呼び・本数を含む）を規格原文で確認できていません。
+              </p>
+            )}
             <div className="mt-3 space-y-1">
               <Citation code="JIS B 2220" suffix="のボルトの呼びと本数" />
             </div>

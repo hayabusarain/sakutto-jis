@@ -19,9 +19,11 @@ import {
   diameterSigma,
   FORM_PENALTY,
   hasFormAmbiguity,
+  inchCaution,
   INTERNAL_GRADE,
   matchLevel,
   MIN_TAPER_SPACING,
+  PITCH_CAUTION_PERCENT,
   PITCH_SIGMA_RATIO,
   rankCandidates,
   relatedLinksFor,
@@ -174,6 +176,14 @@ export function ThreadIdTool() {
   const top = ranked.slice(0, TOP_COUNT)
   const best = top[0]
   const bestLevel = best ? matchLevel(best.score) : null
+  const caution = inchCaution(best)
+  // 「少しずれている」の知らせ: 10ピッチ分の長さが候補と同じ表示になるとき（ピッチは合っていて径だけずれている）は比べない
+  const tenPitch = (value: number) => fixed(value * EXAMPLE_PITCH_COUNT, 2)
+  const pitchLengths =
+    best && pitch !== null && tenPitch(pitch) !== tenPitch(best.pitch)
+      ? { measured: tenPitch(pitch), candidate: tenPitch(best.pitch) }
+      : null
+  const softTarget = !pitchLengths ? '径' : best?.deltaDiameter === 0 ? 'ピッチ' : '径かピッチ'
   const ambiguous = hasFormAmbiguity(ranked)
 
   // テーパの確認欄（おねじだけ）。値が入っていれば開いておく
@@ -203,9 +213,16 @@ export function ThreadIdTool() {
               c.deltaPitch === null ? '' : `・ピッチの差 ${signed(c.deltaPitch)} mm`
             }）`,
         ),
+        caution === 'strong'
+          ? '注: どの候補とも差が大きい（インチねじ・特殊なねじの可能性あり）'
+          : caution === 'soft'
+            ? '注: 候補と少しずれている（測り直し、またはインチねじの可能性あり）'
+            : '',
         `典拠: ${standardLabel('JIS B 0205-2')} / ${standardLabel('JIS B 0203')} / ${standardLabel('JIS B 0202')}`,
         '（サクッとJIS）',
-      ].join('\n')
+      ]
+        .filter(Boolean)
+        .join('\n')
     : ''
 
   const tips = confusablePitches()
@@ -397,12 +414,27 @@ export function ThreadIdTool() {
           )}
         </PrimaryResult>
 
-        {best && bestLevel === 'poor' && (
+        {best && caution === 'strong' && (
           <Notice tone="warning">
             <p className="font-semibold">どの候補とも差が大きいです。</p>
             <p>
               測り直すか、インチねじ（ユニファイ UNC・UNF、ウイット）や特殊なねじの可能性を考えてください。このツールはインチねじには対応していません。
             </p>
+          </Notice>
+        )}
+        {best && caution === 'soft' && (
+          <Notice tone="info">
+            <p>
+              いちばん近い {best.label} とも、{softTarget}
+              が少しずれています。測り直すか、インチねじ（ユニファイ UNC・UNF、ウイット）の可能性も考えてください。このツールはインチねじには対応していません。
+            </p>
+            {pitchLengths && (
+              <p>
+                山頂を {EXAMPLE_PITCH_COUNT + 1} 個数えて {EXAMPLE_PITCH_COUNT} ピッチ分の距離を測ると見分けやすくなります（入力したピッチなら{' '}
+                <span className="num font-semibold">{pitchLengths.measured} mm</span>、{best.label} なら{' '}
+                <span className="num font-semibold">{pitchLengths.candidate} mm</span>）。
+              </p>
+            )}
           </Notice>
         )}
         {best && pitch === null && (
@@ -486,7 +518,8 @@ export function ThreadIdTool() {
               </Formula>
             )}
             <p>
-              目安（0.1 mm + 1%、ピッチの 2%）は、ノギスの読み取り・ねじの公差・摩耗を見込んだこのサイトの想定で、規格の値ではありません。2か所の外径でテーパ・平行を判定したときは、形が合わない候補に {FORM_PENALTY} 点を足します。点数 4 以下を「よく合う」、16 以下を「近い」としています。
+              目安（0.1 mm + 1%、ピッチの 2%）は、ノギスの読み取り・ねじの公差・摩耗を見込んだこのサイトの想定で、規格の値ではありません。2か所の外径でテーパ・平行を判定したときは、形が合わない候補に {FORM_PENALTY} 点を足します。点数 4 以下を「よく合う」、16 以下を「近い」としています。いちばん近い候補が「よく合う」でないとき、または「よく合う」でもピッチの差が{' '}
+              {PITCH_CAUTION_PERCENT}% を超えるとき（これもこのサイトの目安）は、インチねじの可能性を知らせます。
             </p>
             <FormulaLegend
               items={

@@ -201,7 +201,8 @@ describe('規格原文で未確認の値の ※', () => {
     expect(summaryText(bolt(10), '2級')).toContain('ボルト穴 2級: 11 mm／')
     expect(summaryText(bolt(3), '4級')).toContain('ボルト穴 4級: —／')
     expect(summaryText(bolt(3), '2級')).toContain('（旧JIS 5.5※ mm）')
-    expect(summaryText(bolt(18), '2級')).toContain('JIS B 1176 に無いサイズ')
+    expect(summaryText(bolt(18), '2級')).toContain('六角レンチ（六角穴付きボルト）: 14 mm（JIS B 1176 に無いサイズ。DIN 912 などの値）')
+    expect(summaryText(bolt(16), '2級')).not.toContain('DIN 912')
   })
 
   it('表の出力', () => {
