@@ -1,3 +1,4 @@
+import { trim } from '../../lib/format'
 import {
   ISO2306_COARSE_DRILL,
   METRIC_SIZES,
@@ -52,6 +53,15 @@ export function engagementPercent(d: number, p: number, hole: number): number {
 /** 下穴径の刻み [mm]。細いピッチは 0.05mm、ピッチ1mm以上は市販ドリルの主流に合わせ 0.1mm */
 export function holeStep(p: number): number {
   return p < 1 ? 0.05 : 0.1
+}
+
+/**
+ * 下穴径の表示。小数1桁以上で、0.05mm 刻みの径だけ2桁にする（5 → "5.0"、2.5 → "2.5"、2.05 → "2.05"）。
+ * 下穴径は 0.05mm の倍数なので、小数3桁目以降は出ない。
+ */
+export function formatHole(hole: number): string {
+  const text = hole.toFixed(2)
+  return text.endsWith('0') ? text.slice(0, -1) : text
 }
 
 export type HoleFit = 'small' | 'ok' | 'large'
@@ -133,4 +143,231 @@ export function holeCandidates(d: number, p: number): HoleCandidate[] {
     candidates.push({ hole, engagement: engagementPercent(d, p, hole), fits })
   }
   return candidates
+}
+
+// ---------------------------------------------------------------------------
+// ねじの基準寸法と有効断面積
+// ---------------------------------------------------------------------------
+
+/** とがり山の高さ H = (√3 / 2)P = 0.866025P（JIS B 0205-4 の基準山形） */
+export const H_PER_PITCH = 0.866025
+/** 有効径 D2 = d2 = D − 2 × (3/8)H = D − 0.649519P（JIS B 0205-4） */
+export const PITCH_DIAMETER_PER_PITCH = 0.649519
+/** おねじの d3 = d1 − H/6 = d − 1.226869P（JIS B 1082 の有効断面積の式で使う径） */
+export const D3_PER_PITCH = 1.226869
+
+export interface ThreadBasics {
+  /** 呼び径 D = d */
+  d: number
+  /** 有効径 D2 = d2（小数3桁） */
+  d2: number
+  /** めねじ内径 D1 = おねじ谷の径 d1（小数3桁） */
+  d1: number
+  /** d3 = d1 − H/6（小数3桁） */
+  d3: number
+  /** とがり山の高さ H（小数3桁） */
+  h: number
+  /** 有効断面積 As [mm²]（丸める前の値） */
+  stressArea: number
+}
+
+/** 呼び径から「係数 × P」を引いた径を、μm に丸めて返す */
+const minusPitch = (d: number, coefficient: number, p: number) =>
+  toMm(Math.round(d * 1000 - coefficient * 1000 * p))
+
+/**
+ * 有効断面積 As = π/4 × ((d2 + d3) / 2)² [mm²]（JIS B 1082）。
+ * d2・d3 は丸める前の値で計算する（小数3桁に丸めた値で計算すると M24 が 352.49 となり、有効数字3桁で 353 にならない）。
+ */
+export function stressArea(d: number, p: number): number {
+  const d2 = d - PITCH_DIAMETER_PER_PITCH * p
+  const d3 = d - D3_PER_PITCH * p
+  return (Math.PI / 4) * ((d2 + d3) / 2) ** 2
+}
+
+/** 基準寸法（D・D2・D1・d3・H）と有効断面積 As */
+export function threadBasics(d: number, p: number): ThreadBasics {
+  return {
+    d,
+    d2: minusPitch(d, PITCH_DIAMETER_PER_PITCH, p),
+    d1: basicMinorDiameter(d, p),
+    d3: minusPitch(d, D3_PER_PITCH, p),
+    h: toMm(Math.round(H_PER_PITCH * 1000 * p)),
+    stressArea: stressArea(d, p),
+  }
+}
+
+/**
+ * 有効数字 digits 桁の文字列（指数表記にしない）。規格の表と同じく As は3桁で表示する。
+ * 例: 57.99 → "58.0"、2676 → "2680"、0.4603 → "0.460"
+ */
+export function formatSignificant(value: number, digits = 3): string {
+  if (value === 0 || !Number.isFinite(value)) return String(value)
+  const rounded = Number(value.toPrecision(digits))
+  const decimals = Math.max(0, digits - 1 - Math.floor(Math.log10(Math.abs(rounded))))
+  return rounded.toFixed(decimals)
+}
+
+// ---------------------------------------------------------------------------
+// 全サイズの早見表・ドリルからの逆引き
+// ---------------------------------------------------------------------------
+
+export type ThreadKind = 'coarse' | 'fine'
+
+export interface ChartRow {
+  d: number
+  p: number
+  kind: ThreadKind
+  choice: MetricSize['choice']
+  /** 実際に使った公差域クラス（指定の等級が規定されていないピッチでは別の等級） */
+  grade: ToleranceGrade
+  limits: Range
+  hole: number
+  basis: Recommendation['basis']
+  engagement: number
+  /** 用途が限られるピッチの注記 */
+  note?: string
+}
+
+/** 規格のサイズとピッチをすべて（呼び径の順、同じ呼び径は並目 → 細目の順） */
+function allThreads() {
+  return METRIC_SIZES.flatMap((size) =>
+    pitchesOf(size).map((p) => ({
+      size,
+      p,
+      kind: (p === size.coarse ? 'coarse' : 'fine') as ThreadKind,
+    })),
+  )
+}
+
+/**
+ * 早見表の1行。指定の等級が規定されていないピッチ（M1〜M1.2 の 6H など）は availableGrade の等級で求める。
+ * 規格に無いサイズ・ピッチ、推奨径が出せないときは null（今のデータでは後者は起きない。テストで確認）。
+ */
+export function chartRow(d: number, p: number, preferred: ToleranceGrade): ChartRow | null {
+  const size = findSize(d)
+  if (!size || !pitchesOf(size).includes(p)) return null
+  const grade = availableGrade(d, p, preferred)
+  const limits = minorDiameterLimits(d, p, grade)
+  const recommendation = recommendHole(d, p, grade)
+  if (!limits || !recommendation) return null
+  return {
+    d,
+    p,
+    kind: p === size.coarse ? 'coarse' : 'fine',
+    choice: size.choice,
+    grade,
+    limits,
+    hole: recommendation.hole,
+    basis: recommendation.basis,
+    engagement: engagementPercent(d, p, recommendation.hole),
+    note: size.pitchNotes?.[String(p)],
+  }
+}
+
+/** 並目または細目の、全サイズの下穴径の早見表 */
+export function drillChart(kind: ThreadKind, preferred: ToleranceGrade = 6): ChartRow[] {
+  return allThreads()
+    .filter((thread) => thread.kind === kind)
+    .map((thread) => chartRow(thread.size.d, thread.p, preferred))
+    .filter((row): row is ChartRow => row !== null)
+}
+
+export interface DrillMatch {
+  d: number
+  p: number
+  kind: ThreadKind
+  choice: MetricSize['choice']
+  grade: ToleranceGrade
+  limits: Range
+  engagement: number
+  note?: string
+}
+
+/**
+ * 逆引き: そのドリル径が、めねじ内径 D1 の許容範囲に入るねじ（M1〜M68 の並目・細目すべて）。
+ * 指定の等級が規定されていないピッチは availableGrade の等級で判定する。
+ * 並び順: 並目 → 細目、第1選択 → 第3選択、呼び径の小さい順。
+ */
+export function threadsForDrill(drill: number, preferred: ToleranceGrade): DrillMatch[] {
+  if (!(drill > 0)) return []
+  const matches: DrillMatch[] = []
+  for (const { size, p, kind } of allThreads()) {
+    const grade = availableGrade(size.d, p, preferred)
+    const limits = minorDiameterLimits(size.d, p, grade)
+    if (!limits || judgeHole(drill, limits) !== 'ok') continue
+    matches.push({
+      d: size.d,
+      p,
+      kind,
+      choice: size.choice,
+      grade,
+      limits,
+      engagement: engagementPercent(size.d, p, drill),
+      note: size.pitchNotes?.[String(p)],
+    })
+  }
+  const kindOrder = (kind: ThreadKind) => (kind === 'coarse' ? 0 : 1)
+  return matches.sort(
+    (a, b) => kindOrder(a.kind) - kindOrder(b.kind) || a.choice - b.choice || a.d - b.d || b.p - a.p,
+  )
+}
+
+/**
+ * 手持ちドリル径の打ち間違いの直し方。
+ * 入力値がどの等級（4H〜7H）の範囲にも入らず、1/10・1/100・10倍した値が範囲に入るなら、その値を返す
+ * （例: M10 に 85 → 8.5、0.85 → 8.5）。直す候補が無ければ null。
+ */
+export function suggestDrillFix(d: number, p: number, drill: number): number | null {
+  if (!(drill > 0)) return null
+  const defined = TOLERANCE_GRADES.map((grade) => minorDiameterLimits(d, p, grade)).filter(
+    (limits): limits is Range => limits !== null,
+  )
+  if (defined.length === 0) return null
+  const union: Range = {
+    min: Math.min(...defined.map((limits) => limits.min)),
+    max: Math.max(...defined.map((limits) => limits.max)),
+  }
+  if (judgeHole(drill, union) === 'ok') return null
+  for (const candidate of [drill / 10, drill / 100, drill * 10]) {
+    const value = toMm(toUm(candidate))
+    if (judgeHole(value, union) === 'ok') return value
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// 図面指示（表記例）
+// ---------------------------------------------------------------------------
+
+/** ねじの呼び。並目はピッチを省く（例: M12、M12×1.5） */
+export function threadName(d: number, p: number): string {
+  const coarse = findSize(d)?.coarse === p
+  return `M${trim(d)}${coarse ? '' : `×${trim(p)}`}`
+}
+
+/** 公差域クラスまで含めたねじの呼び方（例: M12-6H、M12×1.5-6H） */
+export function threadDesignation(d: number, p: number, grade: ToleranceGrade): string {
+  return `${threadName(d, p)}-${grade}H`
+}
+
+export interface CalloutInput {
+  d: number
+  p: number
+  grade: ToleranceGrade
+  hole: number
+  /** ねじ深さ [mm]（任意。0 以下・null は書かない） */
+  threadDepth?: number | null
+  /** 下穴深さ [mm]（任意。0 以下・null は書かない） */
+  holeDepth?: number | null
+}
+
+/**
+ * めねじの図面指示の表記例。例: "M12-6H 深さ20 下穴φ10.2 深さ25"
+ * 「深さ」は直前の項目（ねじ・下穴）の深さ。
+ */
+export function drawingCallout({ d, p, grade, hole, threadDepth, holeDepth }: CalloutInput): string {
+  const depth = (value: number | null | undefined) =>
+    value !== null && value !== undefined && value > 0 ? ` 深さ${trim(value)}` : ''
+  return `${threadDesignation(d, p, grade)}${depth(threadDepth)} 下穴φ${trim(hole)}${depth(holeDepth)}`
 }
