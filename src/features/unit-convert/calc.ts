@@ -1,4 +1,4 @@
-import { normalizeDigits, resolveCommas } from '../../lib/format'
+import { commaNote, normalizeDigits, resolveCommas } from '../../lib/format'
 import { INCH, QUANTITIES, QUANTITY_KEYS, STANDARD_ATMOSPHERE, type Quantity, type UnitDef } from './data'
 
 /** 量の中から単位を探す */
@@ -71,6 +71,14 @@ export function parseValue(text: string): number | null {
     return minus ? -value : value
   }
   return null
+}
+
+/**
+ * 入力にカンマがあったとき、どう読んだかの説明（lib/format の commaNote）。
+ * 末尾のインチ記号（0,125″）は外して見る。カンマが無い・読めないときは null。
+ */
+export function valueCommaNote(text: string): string | null {
+  return commaNote(text.trim().replace(/[\s　]*["″”]$/, ''))
 }
 
 // ---------------------------------------------------------------------------

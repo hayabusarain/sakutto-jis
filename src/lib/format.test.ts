@@ -58,6 +58,11 @@ describe('カンマの読み方（サイト共通）', () => {
     expect(commaNote('1,200')).toBe('「1,200」は3桁区切りのカンマとして 1200 で計算しています。')
     expect(commaNote(' 0,125 ')).toBe('「0,125」は小数点のカンマとして 0.125 で計算しています。')
     expect(commaNote('12，5')).toBe('「12，5」は小数点のカンマとして 12.5 で計算しています。')
+    // 読んだ数は普通の書き方で見せる（先頭の小数点に 0 を付け、末尾の小数点は落とす。入力した桁は残す）
+    expect(commaNote(',5')).toBe('「,5」は小数点のカンマとして 0.5 で計算しています。')
+    expect(commaNote('-,5')).toBe('「-,5」は小数点のカンマとして -0.5 で計算しています。')
+    expect(commaNote('1,')).toBe('「1,」は小数点のカンマとして 1 で計算しています。')
+    expect(commaNote('1,200.50')).toBe('「1,200.50」は3桁区切りのカンマとして 1200.50 で計算しています。')
     expect(commaNote('1200')).toBeNull()
     expect(commaNote('1,2,3')).toBeNull()
     expect(commaNote('')).toBeNull()

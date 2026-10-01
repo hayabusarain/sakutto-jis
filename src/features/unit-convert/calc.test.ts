@@ -15,6 +15,7 @@ import {
   plainValue,
   quantityOfUnit,
   roundSignificant,
+  valueCommaNote,
 } from './calc'
 import { POUND_FORCE, QUANTITIES, QUANTITY_KEYS, type Quantity } from './data'
 
@@ -219,6 +220,25 @@ describe('parseValue', () => {
     for (const text of ['1,200', '1,000', '0,125', '-0,125', '12,5', '1,250.5', '1,2345', '１，２００']) {
       expect(parseValue(text)).toBe(parseNumber(text))
     }
+  })
+})
+
+describe('valueCommaNote（カンマをどう読んだか）', () => {
+  it('3桁区切り・小数点のどちらで読んだかを、parseValue と同じ数で説明する', () => {
+    expect(valueCommaNote('1,200')).toBe('「1,200」は3桁区切りのカンマとして 1200 で計算しています。')
+    expect(valueCommaNote('0,125')).toBe('「0,125」は小数点のカンマとして 0.125 で計算しています。')
+  })
+
+  it('末尾のインチ記号は外して見る（0,125″ も 0.125 in）', () => {
+    expect(parseValue('0,125"')).toBe(0.125)
+    expect(valueCommaNote('0,125"')).toBe('「0,125」は小数点のカンマとして 0.125 で計算しています。')
+    expect(valueCommaNote('1,200 ″')).toBe('「1,200」は3桁区切りのカンマとして 1200 で計算しています。')
+  })
+
+  it('カンマが無い・読めないときは null', () => {
+    expect(valueCommaNote('1-1/4')).toBeNull()
+    expect(valueCommaNote('25.4')).toBeNull()
+    expect(valueCommaNote('1,2,3')).toBeNull()
   })
 })
 

@@ -56,5 +56,7 @@ export function commaNote(text: string): string | null {
   const normalized = normalizeDigits(trimmed)
   if (!normalized.includes(',') || parseNumber(trimmed) === null) return null
   const kind = THOUSANDS.test(normalized) ? '3桁区切り' : '小数点'
-  return `「${trimmed}」は${kind}のカンマとして ${resolveCommas(normalized)} で計算しています。`
+  // 「,5」→ 0.5、「1,」→ 1 のように、読んだ数を普通の書き方で見せる（入力の桁 1,200.50 → 1200.50 は残す）
+  const shown = resolveCommas(normalized).replace(/^(-?)\./, '$10.').replace(/\.$/, '')
+  return `「${trimmed}」は${kind}のカンマとして ${shown} で計算しています。`
 }

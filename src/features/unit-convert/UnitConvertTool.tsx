@@ -10,7 +10,6 @@ import { StickyResult } from '../../components/ui/StickyResult'
 import { TableExport } from '../../components/ui/TableExport'
 import { useToolState } from '../../hooks/useToolState'
 import { Link } from '../../router/Link'
-import { commaNote } from '../../lib/format'
 import {
   absoluteToGauge,
   convert,
@@ -24,6 +23,7 @@ import {
   nearestInchFraction,
   parseValue,
   plainValue,
+  valueCommaNote,
 } from './calc'
 import { QUANTITIES, QUANTITY_KEYS, type Quantity, type UnitDef } from './data'
 import { DEFAULT_INPUT, isUnitConvertInput, normalizeInput, STORAGE_KEY, type PressureRef } from './state'
@@ -244,7 +244,7 @@ export function UnitConvertTool() {
 
   // 入力した値は6桁に丸めずに見せる（換算結果だけを丸める）
   const valueText = value === null ? '' : echoValue(value)
-  const comma = commaNote(input.v)
+  const comma = valueCommaNote(input.v)
   const refText = isPressure ? `（${REF_TEXT[input.ref]}）` : ''
   const mark = (x: number) => (isExact(x) ? '=' : '≒')
   const rows = quantity.units.map((unit) => ({ unit, value: value === null ? null : convert(value, from, unit) }))

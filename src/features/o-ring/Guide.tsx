@@ -11,12 +11,11 @@ import {
   grooveDepth,
   identifyByRing,
   oRingNumbers,
-  pressureBandLabel,
   squeeze,
   squeezeRange,
   type ORing,
 } from './calc'
-import { NO_BACKUP_MAX_CLEARANCE, type ORingSeries } from './data'
+import { BACKUP_PRESSURE_LIMITS, NO_BACKUP_MAX_CLEARANCE, type ORingSeries } from './data'
 
 const ring = (series: ORingSeries, no: string) => findORing(series, no)!
 const list = (values: readonly number[]) => values.map((value) => trim(value)).join('・')
@@ -90,7 +89,7 @@ export function ORingGuide() {
 
       <Faq q="古いOリングの番号を調べるには？">
         <p>
-          内径と太さを測り、「選び方」の「実物寸法」に入れてください。太さを近い規格の太さ（{list(CROSS_SECTIONS)}{' '}
+          内径と太さを測り、「選び方」の「実物寸法」に入れてください。太さを近い P・G の太さ（{list(CROSS_SECTIONS)}{' '}
           mm）に寄せて、内径の近い順に候補を出します。たとえば {trim(24.6)} × {trim(3.5)} mm なら {measured.ring.no}（
           {trim(measured.ring.d1)} × {trim(measured.ring.group.d2)} mm）が最も近い候補です。
         </p>
@@ -116,11 +115,12 @@ export function ORingGuide() {
 
       <Faq q="バックアップリングはどんなときに必要？">
         <p>
-          すき間（すきま 2g・直径の差）が大きいときや、圧力が高いときです。旧 JIS B 2406:1991 の表1 では、使用圧力{' '}
-          {pressureBandLabel(2)} MPa のとき、硬さ 70 のOリングはすきま {fixed(NO_BACKUP_MAX_CLEARANCE[70][2], 2)} mm
-          まで、硬さ 90 なら {fixed(NO_BACKUP_MAX_CLEARANCE[90][2], 2)} mm
+          すきま（2g・直径の差）が大きいときや、圧力が高いときです。旧 JIS B 2406:1991 の表1 では、使用圧力が{' '}
+          {fixed(BACKUP_PRESSURE_LIMITS[1], 1)} MPa を超え {fixed(BACKUP_PRESSURE_LIMITS[2], 1)} MPa 以下のとき、硬さ
+          70 のOリングはすきま {fixed(NO_BACKUP_MAX_CLEARANCE[70][2], 2)} mm まで、硬さ 90 なら{' '}
+          {fixed(NO_BACKUP_MAX_CLEARANCE[90][2], 2)} mm
           までがバックアップリングなしで使える目安で、これを超えるときはバックアップリングを使います（現行 JIS B
-          2401-2:2012 の表とは未照合）。圧力ごとの表は、上の「条件」の「バックアップリングが要るかの目安」にあります。
+          2401-2:2012 の表とは未照合）。圧力ごとの表は、円筒面の溝を選んだときに、上の「条件」の「バックアップリングが要るかの目安」で開けます。
         </p>
       </Faq>
 
