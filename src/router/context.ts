@@ -39,3 +39,18 @@ export function resolveLink(current: URL, next: URL): URL | null {
   }
   return destination.href === current.href ? null : destination
 }
+
+/**
+ * サイト内リンクを押したときの動き。
+ * - push: 画面内で移る / stay: いま表示している画面なので、履歴を増やさずスクロールだけ
+ * - 新しい版が公開されていたら（updateAvailable）、画面内で切り替えずにページを読み込む。
+ *   load は移動先を読み込み、reload は同じ画面を今の URL（条件）のまま読み直す（履歴を増やさない）。
+ *   条件の無いリンクで読み込むと、端末に覚えている別のタブの条件に変わってしまうため
+ */
+export type LinkAction = { type: 'push' | 'load'; url: URL } | { type: 'stay' | 'reload' }
+
+export function linkAction(current: URL, requested: URL, updateAvailable: boolean): LinkAction {
+  const url = resolveLink(current, requested)
+  if (url) return { type: updateAvailable ? 'load' : 'push', url }
+  return { type: updateAvailable ? 'reload' : 'stay' }
+}

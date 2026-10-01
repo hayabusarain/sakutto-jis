@@ -41,7 +41,7 @@ export function SearchResults({ query, result, tools }: SearchResultsProps) {
       ))}
 
       {result.status === 'found' && (
-        <p className="px-1 text-[11px] leading-relaxed text-zinc-500">
+        <p className="px-1 text-[11px] leading-relaxed text-zinc-600">
           値は各ツールと同じ規格データ・計算式で求めています。条件を変えたいときや計算式を確かめたいときは、各欄のボタンでツールを開いてください。
         </p>
       )}

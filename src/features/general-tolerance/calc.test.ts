@@ -242,6 +242,7 @@ describe('上・下の寸法', () => {
     // カンマは parseNumber と同じルール（3桁区切りなら桁に数えない）
     expect(decimalsOfInput('1,200')).toBe(0)
     expect(decimalsOfInput('1,200.50')).toBe(2)
+    expect(decimalsOfInput('1,200.')).toBe(0)
     expect(decimalsOfInput('0,125')).toBe(3)
   })
 

@@ -335,7 +335,7 @@ export function ThreadIdTool() {
             >
               <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 text-sm font-semibold text-zinc-700 select-none [&::-webkit-details-marker]:hidden">
                 テーパか平行かを確かめる（任意）
-                <span className="ml-auto text-xs text-zinc-400 group-open:hidden">開く</span>
+                <span className="ml-auto text-xs text-zinc-500 group-open:hidden">開く</span>
               </summary>
               <div className="grid gap-3 border-t border-zinc-200 p-3">
                 <p className="text-xs leading-relaxed text-zinc-600">

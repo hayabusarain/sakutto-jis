@@ -36,8 +36,9 @@ export function PrimaryResult({ label, value, unit, children }: PrimaryResultPro
   return (
     <div className="rounded-md bg-zinc-900 p-4 text-white">
       <p className="text-xs font-semibold tracking-wider text-zinc-400">{label}</p>
-      <p className="mt-1 flex items-baseline gap-1.5">
-        <span className="num text-4xl font-bold sm:text-5xl">{value ?? '—'}</span>
+      {/* 桁の多い値（入力の打ち間違いなど）でもスマホの幅からはみ出さないよう、折り返せるようにする */}
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
+        <span className="num min-w-0 text-4xl font-bold wrap-anywhere sm:text-5xl">{value ?? '—'}</span>
         {unit && <span className="text-lg font-semibold text-zinc-400">{unit}</span>}
       </p>
       {children && <div className="mt-2 text-xs leading-relaxed text-zinc-300">{children}</div>}

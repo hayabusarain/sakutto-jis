@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { CRUMB_LINK_CLASS } from '../../components/layout/Breadcrumb'
 import { ShareButton } from '../../components/ui/ShareButton'
 import type { Crumb } from '../../lib/structuredData'
 import { Link } from '../../router/Link'
@@ -20,7 +21,7 @@ export function TrailBreadcrumb({ trail }: { trail: readonly Crumb[] }) {
                   {crumb.label}
                 </span>
               ) : (
-                <Link to={crumb.path} className="hover:text-zinc-900 hover:underline">
+                <Link to={crumb.path} className={CRUMB_LINK_CLASS}>
                   {crumb.label}
                 </Link>
               )}

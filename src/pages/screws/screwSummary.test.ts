@@ -123,6 +123,9 @@ describe('ページの定義', () => {
   it('説明文にそのサイズの数値が入る（ページごとに違う）', () => {
     const m12 = SCREW_PAGES.find((page) => page.d === 12)!
     expect(m12.description).toContain('下穴径 10.2 mm')
+    // 下穴径は本文・ツールと同じ書き方（整数でも小数1桁）
+    const m16 = SCREW_PAGES.find((page) => page.d === 16)!
+    expect(m16.description).toContain('下穴径 14.0 mm')
     expect(m12.description).toContain('二面幅 18 mm（旧JIS 19 mm）')
     expect(m12.description).toContain('六角レンチ 10 mm')
     expect(m12.description).toContain('ボルト穴径 13.5 mm（2級）')

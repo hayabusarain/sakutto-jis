@@ -183,7 +183,7 @@ export function ScrewPage({ d }: { d: number }) {
                     {fixed(coarseLimits.max - coarseLimits.min, 3)} = {fixed(coarseLimits.max, 3)} mm
                   </Formula>
                   <Formula>
-                    ひっかかり率 = (D − 下穴径) ÷ ({TWO_H1_PER_PITCH} × P) × 100 = ({d} − {trim(coarseHole)}) ÷ (
+                    ひっかかり率 = (D − 下穴径) ÷ ({TWO_H1_PER_PITCH} × P) × 100 = ({d} − {formatHole(coarseHole)}) ÷ (
                     {TWO_H1_PER_PITCH} × {trim(coarse.p)}) × 100 = {fixed(coarse.engagement ?? 0, 1)}%
                   </Formula>
                   <Formula>

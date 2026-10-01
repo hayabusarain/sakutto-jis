@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
-import { normalizePath, resolveLink, RouterContext } from './context'
+import { linkAction, normalizePath, RouterContext } from './context'
 import { getKnownSearch, isUpdateAvailable, setKnownSearch } from './history'
 
 interface RouterProviderProps {
@@ -12,11 +12,16 @@ interface RouterProviderProps {
 /** そのままキーボードのフォーカスを受け取れる要素 */
 const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex]'
 
-/** 見出し（#contact など）へスクロールし、読み上げソフトやキーボード操作の位置もそこへ移す */
+/**
+ * 見出し（#contact など）へスクロールし、読み上げソフトやキーボード操作の位置もそこへ移す。
+ * 見出しが無ければページの先頭へ戻し、位置は本文へ移す（検索で今と同じ条件を選んだときなど、
+ * 押したリンクが閉じた画面の中にあっても、キーボード操作の位置がページの先頭に戻らないように）
+ */
 function scrollToTarget(hash: string) {
   const target = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null
   if (!target) {
     window.scrollTo(0, 0)
+    document.querySelector<HTMLElement>('main')?.focus({ preventScroll: true })
     return
   }
   if (!target.matches(FOCUSABLE)) target.setAttribute('tabindex', '-1')
@@ -65,21 +70,28 @@ export function RouterProvider({ initialPath, children }: RouterProviderProps) {
 
   const navigate = useCallback(
     (to: string) => {
-      const requested = new URL(to, window.location.href)
-      // 新しい版（数値の訂正を含むことがある）が公開されていたら、画面内で切り替えずにページを読み込み直す
-      if (isUpdateAvailable()) {
-        window.location.assign(requested.href)
-        return
-      }
       const current = new URL(window.location.href)
-      const url = resolveLink(current, requested)
-      // いま表示しているページへのリンクなら、履歴を増やさずにスクロールだけ
-      if (url) {
-        window.history.pushState(null, '', url)
-        // 新しいページを描画し終えてから、見出し（#contact など）を探してスクロールする
-        flushSync(() => update(normalizePath(url.pathname), current.search, url.search))
+      // 新しい版（数値の訂正を含むことがある）が公開されていたら、画面内で切り替えずにページを読み込み直す
+      const action = linkAction(current, new URL(to, current), isUpdateAvailable())
+      switch (action.type) {
+        case 'load':
+          window.location.assign(action.url.href)
+          return
+        case 'reload':
+          window.location.reload()
+          return
+        case 'push': {
+          const { url } = action
+          window.history.pushState(null, '', url)
+          // 新しいページを描画し終えてから、見出し（#contact など）を探してスクロールする
+          flushSync(() => update(normalizePath(url.pathname), current.search, url.search))
+          scrollToTarget(url.hash)
+          return
+        }
+        case 'stay':
+          // いま表示しているページへのリンクなら、履歴を増やさずにスクロールだけ
+          scrollToTarget(current.hash)
       }
-      scrollToTarget((url ?? current).hash)
     },
     [update],
   )

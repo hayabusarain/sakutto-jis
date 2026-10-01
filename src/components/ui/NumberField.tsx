@@ -33,8 +33,9 @@ export function NumberField({
   const errorId = `${id}-error`
   const warningId = `${id}-warning`
   const commaId = `${id}-comma`
-  // 「1,200」（3桁区切り）・「12,5」（小数点）のどちらとして読んだかを、どのツールでも同じように見せる
-  const comma = error ? null : commaNote(value)
+  // 「1,200」（3桁区切り）・「12,5」（小数点）のどちらとして読んだかを、どのツールでも同じように見せる。
+  // エラーのときも出す（「20,450」を 20450 と読んで範囲外になったときなど、エラーの理由が分かるように）
+  const comma = commaNote(value)
   const describedBy = [
     error ? errorId : null,
     !error && warning ? warningId : null,

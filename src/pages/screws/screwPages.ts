@@ -1,6 +1,7 @@
 /**
  * ねじの呼びごとのまとめページ（/screw/m12 など）と一覧ページ（/screw）のパス・題名・説明文。
  */
+import { formatHole } from '../../features/tap-drill/calc'
 import { trim } from '../../lib/format'
 import type { StandardCode } from '../../standards'
 import { CATEGORY_LABELS } from '../../tools/registry'
@@ -34,7 +35,7 @@ export const SCREW_PAGES: readonly ScrewPageMeta[] = SUMMARY_SIZES.map((d) => {
   const { bolt, coarse } = summary
   const path = screwPath(d)
   const label = `M${d}`
-  const drill = coarse.recommended ? `下穴径 ${trim(coarse.recommended.hole)} mm、` : ''
+  const drill = coarse.recommended ? `下穴径 ${formatHole(coarse.recommended.hole)} mm、` : ''
   const across = bolt.sIso === bolt.sJa ? `${trim(bolt.sIso)} mm` : `${trim(bolt.sIso)} mm（旧JIS ${trim(bolt.sJa)} mm）`
   const standards: StandardCode[] = [
     'JIS B 0205-2',

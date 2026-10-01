@@ -6,10 +6,13 @@ interface FormulaInfoProps {
   children: ReactNode
 }
 
-/** 「どうしてこの数字になったのか」を開いて確認できる計算ロジックの説明 */
+/**
+ * 「どうしてこの数字になったのか」を開いて確認できる計算ロジックの説明。
+ * min-w-0: グリッドやフレックスの中でも、長い式（1行のまま）で欄全体が広がらず、式の欄の中だけ横にスクロールする
+ */
 export function FormulaInfo({ title = '計算ロジック', children }: FormulaInfoProps) {
   return (
-    <details className="group rounded-md border border-zinc-200 bg-zinc-50 text-sm">
+    <details className="group min-w-0 rounded-md border border-zinc-200 bg-zinc-50 text-sm">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 font-semibold text-zinc-700 select-none hover:text-zinc-900 [&::-webkit-details-marker]:hidden">
         <Info className="size-4 shrink-0 text-orange-600" aria-hidden />
         {title}
