@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!--
+    SNS で共有したときのプレビュー画像（OGP）の元の図。1200×630。
+    PNG（public/og-image.png）は scripts/og-image.mjs で書き出す。色はサイトと同じ
+    グレー（zinc-900 #18181b）× 白 × オレンジ（orange-500 #f97316）。
+  -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#27272a" stroke-width="1.5" />
+    </pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#18181b" stop-opacity="0" />
+      <stop offset="0.55" stop-color="#18181b" stop-opacity="0.85" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景（方眼紙のような細い線） -->
+  <rect width="1200" height="630" fill="#18181b" />
+  <rect width="1200" height="470" fill="url(#grid)" />
+  <rect width="1200" height="470" fill="url(#fade)" />
+
+  <!-- 六角ナットのロゴ（サイトの LogoMark と同じ比率） -->
+  <g transform="translate(210 235)">
+    <polygon
+      points="0,-150 129.9,-75 129.9,75 0,150 -129.9,75 -129.9,-75"
+      fill="none"
+      stroke="#f97316"
+      stroke-width="26"
+      stroke-linejoin="round"
+    />
+    <circle r="58" fill="none" stroke="#f97316" stroke-width="26" />
+  </g>
+
+  <!-- サイト名と説明 -->
+  <text x="420" y="150" font-family="'JetBrains Mono Variable', 'JetBrains Mono', monospace" font-size="24" font-weight="600" letter-spacing="7" fill="#fb923c">JIS CALC TOOLS</text>
+  <text x="414" y="280" font-family="'Noto Sans JP', 'Hiragino Sans', 'IPAGothic', sans-serif" font-size="116" font-weight="700" fill="#ffffff">サクッとJIS</text>
+  <text x="420" y="360" font-family="'Noto Sans JP', 'Hiragino Sans', 'IPAGothic', sans-serif" font-size="46" font-weight="700" fill="#e4e4e7">JIS規格の寸法表と計算ツール</text>
+
+  <!-- 下の白い帯（主なツール） -->
+  <rect y="470" width="1200" height="160" fill="#f4f4f5" />
+  <rect y="470" width="1200" height="8" fill="#f97316" />
+  <text x="600" y="564" text-anchor="middle" font-family="'Noto Sans JP', 'Hiragino Sans', 'IPAGothic', sans-serif" font-size="31" font-weight="500" fill="#27272a">ねじ下穴<tspan fill="#f97316" dx="16">/</tspan><tspan dx="16">フランジ寸法</tspan><tspan fill="#f97316" dx="16">/</tspan><tspan dx="16">ボルト長さ</tspan><tspan fill="#f97316" dx="16">/</tspan><tspan dx="16">鋼管</tspan><tspan fill="#f97316" dx="16">/</tspan><tspan dx="16">Oリング溝</tspan><tspan fill="#f97316" dx="16">/</tspan><tspan dx="16">管用ねじ</tspan></text>
+</svg>
