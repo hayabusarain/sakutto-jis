@@ -146,7 +146,7 @@ export function UnverifiedMark() {
   return (
     <span className="relative ml-0.5 font-sans text-[11px] font-bold text-orange-700" title="規格原文での確認が済んでいない値">
       <span aria-hidden>※</span>
-      <span className="sr-only">（要確認）</span>
+      <span className="sr-only">（規格原文で未確認）</span>
     </span>
   )
 }

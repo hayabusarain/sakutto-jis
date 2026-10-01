@@ -1,13 +1,30 @@
 import type { KeyboardEvent } from 'react'
+import { isRowMoveKey, nextRowIndex } from '../../components/ui/tableKeyboard'
 import { fixed } from '../../lib/format'
 import { compareSpecs, PIPE_SPEC_KEYS, unitMassText } from './calc'
 import { PIPE_SIZES, PIPE_SPECS, type PipeSpec } from './data'
 
+/**
+ * 行を選べる表のキー操作（DataTable と同じ決まり）。Enter・スペースで選び、↑↓・Home・End で行を移る。
+ * Tab で止まるのは選択中の行（なければ先頭の行）だけにして、表を1回の Tab で抜けられるようにする
+ */
 const onActivate = (action: () => void) => (event: KeyboardEvent<HTMLTableRowElement>) => {
+  if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey) return
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault()
     action()
+  } else if (isRowMoveKey(event.key)) {
+    const rows = Array.from(event.currentTarget.parentElement?.querySelectorAll<HTMLTableRowElement>('tr[tabindex]') ?? [])
+    const index = rows.indexOf(event.currentTarget)
+    if (index === -1) return
+    event.preventDefault()
+    rows[nextRowIndex(index, rows.length, event.key)].focus()
   }
+}
+
+/** 選択中の行であることを読み上げソフトに伝える（aria-selected は普通の表の行では読まれない） */
+function SelectedMark({ selected }: { selected: boolean }) {
+  return selected ? <span className="sr-only">（選択中）</span> : null
 }
 
 const th = 'px-2 py-2 font-semibold whitespace-nowrap'
@@ -24,6 +41,7 @@ interface SpecCompareProps {
 /** 選んだ呼び径の SGP・Sch40・Sch80 を並べる（行をタップでその規格にする） */
 export function SpecCompare({ a, spec, totalLength, onSelectSpec }: SpecCompareProps) {
   const rows = compareSpecs(a)
+  const tabStopSpec = rows.some((row) => row.spec === spec && row.dims) ? spec : rows.find((row) => row.dims)?.spec
   return (
     <div className="overflow-x-auto rounded-md border border-zinc-200">
       <table className="w-full border-collapse text-sm">
@@ -58,8 +76,7 @@ export function SpecCompare({ a, spec, totalLength, onSelectSpec }: SpecCompareP
                 key={rowSpec}
                 onClick={dims ? select : undefined}
                 onKeyDown={dims ? onActivate(select) : undefined}
-                tabIndex={dims ? 0 : undefined}
-                aria-selected={selected}
+                tabIndex={dims ? (rowSpec === tabStopSpec ? 0 : -1) : undefined}
                 className={`border-b border-zinc-100 last:border-b-0 ${
                   selected ? 'bg-orange-50 font-semibold' : ''
                 } ${
@@ -73,6 +90,7 @@ export function SpecCompare({ a, spec, totalLength, onSelectSpec }: SpecCompareP
                   className={`${th} text-left ${selected ? 'shadow-[inset_3px_0_0_var(--color-orange-600)]' : ''}`}
                 >
                   {PIPE_SPECS[rowSpec].label}
+                  <SelectedMark selected={selected} />
                 </th>
                 {dims ? (
                   <>
@@ -105,6 +123,7 @@ const groupStart = 'border-l border-zinc-200'
 
 /** 全サイズの SGP・Sch40・Sch80 の厚さ・内径・単位質量を並べる */
 export function AllSpecsTable({ selectedA, selectedSpec, onSelectSize }: AllSpecsTableProps) {
+  const tabStopA = PIPE_SIZES.some((size) => size.a === selectedA) ? selectedA : PIPE_SIZES[0].a
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-sm">
@@ -145,8 +164,7 @@ export function AllSpecsTable({ selectedA, selectedSpec, onSelectSize }: AllSpec
                 key={size.a}
                 onClick={select}
                 onKeyDown={onActivate(select)}
-                tabIndex={0}
-                aria-selected={highlighted}
+                tabIndex={size.a === tabStopA ? 0 : -1}
                 className={`cursor-pointer border-b border-zinc-100 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-orange-500 ${
                   highlighted ? 'bg-orange-50 font-semibold' : 'even:bg-zinc-50/60'
                 }`}
@@ -159,6 +177,7 @@ export function AllSpecsTable({ selectedA, selectedSpec, onSelectSize }: AllSpec
                 >
                   {size.a}
                   <span className="ml-1 text-xs font-normal text-zinc-500">{size.b}B</span>
+                  <SelectedMark selected={highlighted} />
                 </th>
                 <td className={td}>{fixed(size.od, 1)}</td>
                 {compareSpecs(size.a).map(({ spec, dims }) =>

@@ -20,14 +20,15 @@ npm run build    # 型チェック → ビルド → 全ページを静的HTML�
 - `src/features/<ツール>/` … `data.ts`（規格の寸法）・`calc.ts`（純粋関数）・`*.test.ts`・`*Tool.tsx`（画面）・`Guide.tsx`（解説・よくある質問）
 - `src/components/ui/` … 共通部品
   - `Card`（`index`="01" の番号付き見出し、`aside` にボタン、`id` を付けられる）
-  - `SelectField`（`stepper` で前後ボタン、`quickPicks` でよく使う値のボタン）、`NumberField`（`error`・`warning`・`fix`）、`SegmentedControl`
+  - `SelectField`（`stepper` で前後ボタン、`quickPicks` でよく使う値のボタン）、`NumberField`（`error`・`warning`・`fix`。カンマ入りの値は読み方を自動で表示）、`SegmentedControl`
   - `PrimaryResult`（暗いパネルの主結果）、`ResultItem`
-  - `DataTable`（`onRowClick`・`isHighlighted`・`maxHeightClass`）、`TableExport`（表を Excel 用にコピー・CSV 保存）
+  - `DataTable`（`onRowClick`・`isHighlighted`・`highlightLabel`・`maxHeightClass`。行を選べる表は Tab で1行だけ止まり、↑↓・Home・End で移動）、`TableExport`（表を Excel 用にコピー・CSV 保存）
   - `CopyButton`（結果の文章＋URL をコピー）、`ShareButton`
   - `FormulaInfo`・`Formula`・`FormulaLegend`（「計算ロジック」の開閉欄）
   - `StickyResult`（スマホで結果カードが画面外のとき、画面下に答えを出すバー。`targetId` に結果カードの id）
 - `src/components/` … `Citation`（数値の近くに典拠のJISを表示）、`SourceNote`、`RelatedLinks`（条件付きで関連ツールへ）、`Guide`（`GuideSection`・`Faq`）
-- `src/hooks/useToolState.ts` … ツールの入力。localStorage に保存し、URL のクエリと同期する（既定値と違う項目だけ）。`normalize` で URL の一部指定を整える
+- `src/hooks/useToolState.ts` … ツールの入力。localStorage に保存し、URL のクエリと同期する（既定値と違う項目だけ。ただし開き直して同じ条件に戻るよう、既定の条件でも空にはせず最小限の項目を書く）。`normalize` で URL の一部指定を整える。別のタブでの変更には追従しない（表示設定だけ `usePersistentState` の `{ crossTab: true }`）
+- 数値の入力は `src/lib/format.ts` の `parseNumber` で読む（全角数字・「1,200」の3桁区切り・「12,5」の小数点カンマに対応）
 - `src/lib/query.ts` の `toolHref(path, params)` … 条件付きリンク。キー名は各ツールの `DEFAULT_INPUT` と同じ
 - `src/standards.ts` … 表示する規格の番号・年版・名称
 - ルーターは自作（`src/router`）。サイト内リンクは `Link` を使う

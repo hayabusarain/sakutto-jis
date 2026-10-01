@@ -6,7 +6,7 @@ import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { ResultItem } from '../../components/ui/ResultItem'
 import { isUnverified } from '../../features/bolt-size/data'
-import { formatSignificant, TWO_H1_PER_PITCH } from '../../features/tap-drill/calc'
+import { formatHole, formatSignificant, TWO_H1_PER_PITCH } from '../../features/tap-drill/calc'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { Link } from '../../router/Link'
@@ -67,7 +67,7 @@ export function ScrewPage({ d }: { d: number }) {
         </span>
       ),
     },
-    { key: 'hole', header: '推奨下穴径', cell: (row) => (row.recommended ? trim(row.recommended.hole) : '—') },
+    { key: 'hole', header: '推奨下穴径', cell: (row) => (row.recommended ? formatHole(row.recommended.hole) : '—') },
     {
       key: 'range',
       header: `内径の範囲（${SUMMARY_GRADE}H）`,
@@ -127,7 +127,7 @@ export function ScrewPage({ d }: { d: number }) {
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md bg-zinc-700 sm:grid-cols-4">
           <QuickValue
             label={`下穴径（並目 ${trim(coarse.p)}・${SUMMARY_GRADE}H）`}
-            value={coarseHole === undefined ? '—' : trim(coarseHole)}
+            value={coarseHole === undefined ? '—' : formatHole(coarseHole)}
           />
           <QuickValue
             label="二面幅（スパナ）"
@@ -346,7 +346,7 @@ export function ScrewPage({ d }: { d: number }) {
       </div>
 
       <section className="mt-6" aria-labelledby="screw-sizes">
-        <h2 id="screw-sizes" className="text-xs font-bold tracking-wider text-zinc-500">
+        <h2 id="screw-sizes" className="text-xs font-bold tracking-wider text-zinc-600">
           ほかのサイズのまとめ
         </h2>
         <ChipNav

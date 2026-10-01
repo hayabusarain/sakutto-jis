@@ -12,7 +12,7 @@ import { StickyResult } from '../../components/ui/StickyResult'
 import { TableExport } from '../../components/ui/TableExport'
 import { useToolState } from '../../hooks/useToolState'
 import { copyText } from '../../lib/clipboard'
-import { commaNote, parseNumber, trim } from '../../lib/format'
+import { parseNumber, trim } from '../../lib/format'
 import { standardLabel } from '../../standards'
 import {
   angleLimits,
@@ -197,10 +197,7 @@ export function GeneralToleranceTool() {
 
   const size = parseNumber(input.d)
   const sizeDecimals = decimalsOfInput(input.d)
-  // 「1,200」（3桁区切り）・「12,5」（小数点）のどちらで読んだかを入力欄の下に出す
-  const sizeComma = commaNote(input.d)
   const angle = isAngle ? parseNumber(input.angle) : null
-  const angleComma = isAngle ? commaNote(input.angle) : null
   const angleValid = angle !== null && angle > 0 && angle < 360
 
   let sizeError: string | undefined
@@ -298,10 +295,7 @@ export function GeneralToleranceTool() {
                   ? '4000 mm を超える寸法は表にありません。'
                   : undefined
             }
-            hint={
-              [sizeComma, kind === 'chamfer' ? 'C1 なら 1、R2.5 なら 2.5 を入力。' : null].filter(Boolean).join(' ') ||
-              undefined
-            }
+            hint={kind === 'chamfer' ? 'C1 なら 1、R2.5 なら 2.5 を入力。' : undefined}
           />
           {isAngle && (
             <NumberField
@@ -311,7 +305,7 @@ export function GeneralToleranceTool() {
               placeholder="90"
               unit="°"
               error={angleError}
-              hint={`${angleComma ? `${angleComma} ` : ''}30′ は 0.5° です（例: 22°30′ → 22.5）。空欄なら許容差だけを表示します。`}
+              hint="30′ は 0.5° です（例: 22°30′ → 22.5）。空欄なら許容差だけを表示します。"
             />
           )}
           <ClassPicker value={cls} onChange={(value) => setInput({ ...input, cls: value })} />

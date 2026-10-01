@@ -119,7 +119,7 @@ export interface ORingGroupRange {
   count: number
 }
 
-/** 太さのグループごとの番号の範囲（溝幅・R・偏心などはグループで決まる） */
+/** 太さのグループごとの番号の範囲（溝幅・R・E などはグループで決まる） */
 export function oRingGroupRanges(series: ORingSeries): ORingGroupRange[] {
   const ranges: ORingGroupRange[] = []
   for (const ring of oRingTableRows(series)) {

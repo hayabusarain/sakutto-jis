@@ -21,7 +21,7 @@ function applyTextSize(size: TextSize) {
  * そのため属性は、ボタンを押したときと、別のタブで切り替えたときだけ変える。
  */
 export function TextSizeToggle() {
-  const [size, setSize] = usePersistentState<TextSize>('text-size', 'md', isTextSize)
+  const [size, setSize] = usePersistentState<TextSize>('text-size', 'md', isTextSize, { crossTab: true })
 
   // 別のタブで切り替えたとき（保存を全部消したとき＝key が null も含む）も、このタブの表示をそろえる
   useEffect(() => {

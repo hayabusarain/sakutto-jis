@@ -579,6 +579,7 @@ export function UnitConvertTool() {
               rows={TEMPERATURE_ROWS}
               rowKey={(c) => String(c)}
               isHighlighted={(c) => value !== null && from.id === 'C' && c === value}
+              highlightLabel="入力の値"
               caption="温度の早見表（°C・°F・K）"
             />
           ) : (
@@ -587,6 +588,7 @@ export function UnitConvertTool() {
               rows={tableUnits}
               rowKey={(row) => row.id}
               isHighlighted={(row) => row.id === from.id}
+              highlightLabel="入力の単位"
               caption={`${quantity.label}の換算表`}
             />
           )}

@@ -13,7 +13,7 @@ import { StickyResult } from '../../components/ui/StickyResult'
 import { TableExport } from '../../components/ui/TableExport'
 import { useToolState } from '../../hooks/useToolState'
 import { downloadText } from '../../lib/download'
-import { commaNote, fixed, trim } from '../../lib/format'
+import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { standardLabel } from '../../standards'
 import {
@@ -282,8 +282,7 @@ export function ORingTool() {
                 placeholder={isPiston ? '例: 30' : '例: 20'}
                 unit="mm"
                 error={positiveError(input.mate)}
-                hint={commaNote(input.mate) ?? undefined}
-              />
+                              />
               <NumberField
                 label={`${isPiston ? '溝底径 d' : '溝底径 D'}（わかれば）`}
                 value={input.bottom}
@@ -291,7 +290,7 @@ export function ORingTool() {
                 placeholder="空欄で可"
                 unit="mm"
                 error={positiveError(input.bottom) ?? bottomOrder}
-                hint={`${commaNote(input.bottom) ?? ''}既存の部品を確かめるときに入れると、両方が合う番号にしぼります。`}
+                hint="既存の部品を確かめるときに入れると、両方が合う番号にしぼります。"
               />
               {typeof mate === 'number' && !bottomOrder && bottom !== null && (
                 <div>
@@ -321,8 +320,7 @@ export function ORingTool() {
                   placeholder="例: 24.6"
                   unit="mm"
                   error={positiveError(input.d1)}
-                  hint={commaNote(input.d1) ?? undefined}
-                />
+                                  />
                 <NumberField
                   label="太さ d2"
                   value={input.d2}
@@ -330,8 +328,7 @@ export function ORingTool() {
                   placeholder="例: 3.5"
                   unit="mm"
                   error={positiveError(input.d2)}
-                  hint={commaNote(input.d2) ?? undefined}
-                />
+                                  />
               </div>
               <p className="-mt-2 text-xs leading-relaxed text-zinc-600">
                 使ったOリングは、つぶれや膨潤で寸法が変わっています。太さは何か所か測り、内径は伸ばさずに測ってください（外径を測ったときは

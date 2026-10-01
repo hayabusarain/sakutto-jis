@@ -19,7 +19,7 @@ import {
   oRingNumbers,
   outerDiameter,
 } from '../features/o-ring/calc'
-import type { ORingSeries } from '../features/o-ring/data'
+import { DYNAMIC_MATERIAL_NOTE, SOURCE_NOTE, type ORingSeries } from '../features/o-ring/data'
 import {
   findPipeThread,
   gMinorLimits,
@@ -33,7 +33,7 @@ import {
   type PipeThreadKind,
   type PipeThreadSize,
 } from '../features/pipe-thread/data'
-import { findPipeSize, pipeDimensions } from '../features/steel-pipe/calc'
+import { findPipeSize, pipeDimensions, unitMassText } from '../features/steel-pipe/calc'
 import { PIPE_SIZES, PIPE_SPECS, type PipeSize, type PipeSpec } from '../features/steel-pipe/data'
 import {
   availableGrade,
@@ -689,7 +689,7 @@ function boltSection(bolt: BoltSize, fine: boolean): SummarySection {
       unit: 'mm',
       note: `1級 ${trim(bolt.holes[0])}・3級 ${trim(bolt.holes[2])}`,
     },
-    { label: 'ざぐり径（六角ボルト用）', value: trim(bolt.spotFace), unit: 'mm', unverified: spotFaceUnverified },
+    { label: "ざぐり径 D'（六角ボルト・ナット用）", value: trim(bolt.spotFace), unit: 'mm', unverified: spotFaceUnverified },
   ]
   if (bolt.counterbore) {
     rows.push({
@@ -887,7 +887,7 @@ function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
           const dims = pipeDimensions(key, a)
           return dims
             ? {
-                cells: [PIPE_SPECS[key].label, fixed(dims.t, 1), fixed(dims.id, 1), trim(dims.massPerM)],
+                cells: [PIPE_SPECS[key].label, fixed(dims.t, 1), fixed(dims.id, 1), unitMassText(dims.massPerM)],
                 href: toolHref(SEARCH_TOOL_PATHS.steelPipe, { spec: key, a }),
                 highlight: i.spec === key,
               }
@@ -1195,6 +1195,8 @@ function buildORing(i: Extract<Interpretation, { type: 'oring' }>): Built {
     }
   }
   if (ring.series === 'G') notes.push('G は固定用です。往復運動などの運動用には P を使います。')
+  else notes.push(`P は運動用・固定用の両方に使えます（${DYNAMIC_MATERIAL_NOTE.replace(/。$/, '')}）。`)
+  notes.push(SOURCE_NOTE)
 
   return {
     card: {

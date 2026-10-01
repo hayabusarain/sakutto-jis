@@ -515,6 +515,7 @@ export function TapDrillTool() {
             rows={candidates}
             rowKey={(row) => String(row.hole)}
             isHighlighted={(row) => row.hole === recommended}
+            highlightLabel="推奨"
             caption={`${threadName} の下穴径の早見表`}
           />
         </div>

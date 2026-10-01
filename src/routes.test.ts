@@ -60,7 +60,7 @@ describe('事前レンダリング', () => {
     const { html } = render('/flange-bolt-length/16k')
     expect(html).toContain('/flange-bolt-length?pressure=16K&amp;size=300A')
     expect(html).toContain('JIS 16K フランジ寸法表')
-    expect(html).toContain('要確認')
+    expect(html).toContain('規格原文で未確認')
   })
 
   it('ねじのまとめにツールへのリンクと前後のサイズがある', () => {

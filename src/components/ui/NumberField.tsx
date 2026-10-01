@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { commaNote } from '../../lib/format'
 
 interface NumberFieldProps {
   label: string
@@ -31,7 +32,15 @@ export function NumberField({
   const hintId = `${id}-hint`
   const errorId = `${id}-error`
   const warningId = `${id}-warning`
-  const describedBy = [error ? errorId : null, !error && warning ? warningId : null, hint ? hintId : null]
+  const commaId = `${id}-comma`
+  // 「1,200」（3桁区切り）・「12,5」（小数点）のどちらとして読んだかを、どのツールでも同じように見せる
+  const comma = error ? null : commaNote(value)
+  const describedBy = [
+    error ? errorId : null,
+    !error && warning ? warningId : null,
+    comma ? commaId : null,
+    hint ? hintId : null,
+  ]
     .filter(Boolean)
     .join(' ')
 
@@ -78,6 +87,11 @@ export function NumberField({
               {fix.label}
             </button>
           )}
+        </p>
+      )}
+      {comma && (
+        <p id={commaId} className="mt-1 text-xs font-semibold text-zinc-700">
+          {comma}
         </p>
       )}
       {hint && (

@@ -88,7 +88,7 @@ export function SearchDialog() {
         aria-haspopup="dialog"
         aria-keyshortcuts="/ Control+K Meta+K"
         title="呼びで検索（/ キー）"
-        className="relative flex h-9 items-center gap-1.5 rounded-sm border border-zinc-600 px-2 text-sm font-bold text-zinc-200 after:absolute after:-inset-y-0.5 after:inset-x-0 hover:border-zinc-400 print:hidden"
+        className="relative flex h-9 items-center gap-1.5 rounded-sm border border-zinc-600 px-2 text-sm font-bold text-zinc-200 after:absolute after:-inset-y-1 after:inset-x-0 hover:border-zinc-400 print:hidden"
       >
         <Search className="size-4" aria-hidden />
         <span className="sr-only sm:not-sr-only sm:pr-0.5">検索</span>

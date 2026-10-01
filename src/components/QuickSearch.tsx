@@ -164,7 +164,7 @@ export function QuickSearch({ query, onQueryChange, variant = 'page', onNavigate
               </button>
             )}
           </div>
-          <p id={hintId} className={isDialog ? 'sr-only' : 'mt-1.5 text-xs leading-relaxed text-zinc-500'}>
+          <p id={hintId} className={isDialog ? 'sr-only' : 'mt-1.5 text-xs leading-relaxed text-zinc-600'}>
             ねじ・管・Oリング・フランジの呼びから、下穴・二面幅・外径・溝などをまとめて表示します。全角・小文字でも大丈夫です。
           </p>
           {query.trim() === '' && (

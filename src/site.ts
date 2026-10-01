@@ -34,7 +34,7 @@ export const SITE = {
    * 掲載データを最後に見直した日（YYYY-MM-DD）。sitemap.xml の lastmod と構造化データの dateModified に使う。
    * 数値や説明を直したら更新する（ページごとに変えるときは PAGE_UPDATED_AT に書く）。
    */
-  contentUpdatedAt: '2026-09-30',
+  contentUpdatedAt: '2026-10-01',
   /**
    * Google AdSense のサイト運営者ID（環境変数 VITE_ADSENSE_CLIENT、例: ca-pub-1234567890123456）。
    * 設定すると、審査用の meta・広告のスクリプト・ads.txt を出力し、AdSlot が広告枠を表示する。
@@ -45,10 +45,16 @@ export const SITE = {
 } as const
 
 /** ページごとの最終更新日（YYYY-MM-DD）。書いていないページは SITE.contentUpdatedAt */
-export const PAGE_UPDATED_AT: Readonly<Record<string, string>> = {}
+export const PAGE_UPDATED_AT: Readonly<Record<string, string>> = {
+  '/privacy': '2026-10-01',
+}
 
 /** 掲載データの見直しの記録（新しい順）。編集方針のページに表示する */
 export const SITE_CHANGELOG: readonly { date: string; text: string }[] = [
+  {
+    date: '2026-10-01',
+    text: '規格原文で未確認の値の「※」を、クイック検索・寸法表・ねじのまとめページにもそろえて付けました。Oリングの E（溝の振れ）の説明、バックアップリングの目安の表、数値の出どころ（旧 JIS B 2406:1991）の注記、普通公差の確認状況の注記を加え、数値入力のカンマ（1,200 など）の読み方を全ツールでそろえました。',
+  },
   { date: '2026-09-30', text: '編集方針・データの確認方法のページを公開しました。' },
 ]
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { parseNumber } from '../../lib/format'
 import { PIPE_THREAD_SIZES } from '../pipe-thread/data'
 import {
   circumference,
@@ -146,6 +147,11 @@ describe('isValidCount', () => {
     expect(isValidCount(-1)).toBe(false)
     expect(isValidCount(1.5)).toBe(false)
     expect(isValidCount(null)).toBe(false)
+  })
+
+  it('3桁区切りの「1,000」は 1000 本として読む（以前は 1 本と読んでいた）', () => {
+    expect(parseNumber('1,000')).toBe(1000)
+    expect(isValidCount(parseNumber('1,000')!)).toBe(true)
   })
 })
 

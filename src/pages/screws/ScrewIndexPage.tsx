@@ -4,8 +4,10 @@ import { SourceNote } from '../../components/SourceNote'
 import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { TableExport } from '../../components/ui/TableExport'
-import { CAP_NON_JIS_LEGEND } from '../../features/bolt-size/data'
+import { acrossFlatsText, markIf } from '../../features/bolt-size/calc'
+import { CAP_NON_JIS_LEGEND, isUnverified, UNVERIFIED, UNVERIFIED_LEGEND } from '../../features/bolt-size/data'
 import { NonJisMark } from '../../features/bolt-size/Mark'
+import { formatHole } from '../../features/tap-drill/calc'
 import { trim } from '../../lib/format'
 import { Link } from '../../router/Link'
 import { SITE } from '../../site'
@@ -20,9 +22,9 @@ const SUMMARIES = SUMMARY_SIZES.map((d) => screwSummary(d)!)
 /** 六角穴付きボルトが JIS B 1176 に無いサイズ（M18・M22・M27） */
 const NON_JIS_SIZES = SUMMARIES.filter((row) => row.bolt.capNonJis).map((row) => `M${row.d}`)
 
-const holeText = (row: ScrewSummary) => (row.coarse.recommended ? trim(row.coarse.recommended.hole) : '—')
-const acrossText = (row: ScrewSummary) =>
-  row.bolt.sIso === row.bolt.sJa ? trim(row.bolt.sIso) : `${trim(row.bolt.sIso)}（${trim(row.bolt.sJa)}）`
+const holeText = (row: ScrewSummary) => (row.coarse.recommended ? formatHole(row.coarse.recommended.hole) : '—')
+/** 規格原文で未確認の旧JIS二面幅（M3）の説明 */
+const JA_UNVERIFIED_NOTES = UNVERIFIED.filter((entry) => entry.field === 'sJa').map((entry) => entry.note)
 
 export function ScrewIndexPage() {
   const meta = SCREW_INDEX_META
@@ -41,7 +43,7 @@ export function ScrewIndexPage() {
     },
     { key: 'p', header: '並目ピッチ', cell: (row) => trim(row.coarse.p) },
     { key: 'hole', header: '下穴径', cell: holeText },
-    { key: 's', header: '二面幅', cell: acrossText },
+    { key: 's', header: '二面幅', cell: (row) => acrossFlatsText(row.bolt) },
     {
       key: 'key',
       header: '六角レンチ',
@@ -87,7 +89,7 @@ export function ScrewIndexPage() {
     row.coarse.p,
     row.coarse.recommended?.hole,
     row.bolt.sIso,
-    row.bolt.sJa,
+    markIf(trim(row.bolt.sJa), isUnverified('sJa', row.d)),
     row.bolt.capKey,
     row.bolt.holes[1],
     row.bolt.counterbore?.d,
@@ -124,6 +126,11 @@ export function ScrewIndexPage() {
           </p>
           <p>CAP座ぐりは六角穴付きボルト用の、設計でよく使われる参考値です（規格本体の規定ではありません）。</p>
           <p>{CAP_NON_JIS_LEGEND}。</p>
+          {JA_UNVERIFIED_NOTES.length > 0 && (
+            <p>
+              {UNVERIFIED_LEGEND}（{JA_UNVERIFIED_NOTES.join('、')}）。
+            </p>
+          )}
         </TableNote>
         <div className="flex justify-end px-4 pt-2">
           <TableExport
@@ -131,7 +138,7 @@ export function ScrewIndexPage() {
             filename="screw_sizes"
             headers={exportHeaders}
             rows={exportRows}
-            note={`典拠: JIS B 0205-2 / B 0209-1 / ISO 2306 / JIS B 1180 / B 1181 / B 1176 / B 1001。${NON_JIS_SIZES.join('・')} の六角穴付きボルトは JIS B 1176 に無いサイズ（DIN 912 などの値）。${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
+            note={`典拠: JIS B 0205-2 / B 0209-1 / ISO 2306 / JIS B 1180 / B 1181 / B 1176 / B 1001。${NON_JIS_SIZES.join('・')} の六角穴付きボルトは JIS B 1176 に無いサイズ（DIN 912 などの値）。${UNVERIFIED_LEGEND}（${JA_UNVERIFIED_NOTES.join('、')}）。${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
           />
         </div>
         <div className="mt-2">
