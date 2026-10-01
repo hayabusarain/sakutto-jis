@@ -1,7 +1,7 @@
 // ビルド後に全ページを静的HTMLとして書き出す。
 // 検索エンジンやSNSのプレビューに、ページごとのタイトル・説明・本文が見えるようにするため。
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { generateSW } from 'workbox-build'
@@ -70,17 +70,29 @@ function headTags({ title, description, path, noindex, ogType, ads, jsonLd }) {
     .join('\n    ')
 }
 
+const ROOT_TAG = '<div id="root">'
+
 function page(path, rendered, noindex = false) {
-  if (!template.includes('<!--app-head-->') || !template.includes('<!--app-html-->')) {
-    throw new Error('index.html に <!--app-head--> / <!--app-html--> がありません')
+  if (!template.includes('<!--app-head-->') || !template.includes('<!--app-html-->') || !template.includes(ROOT_TAG)) {
+    throw new Error(`index.html に <!--app-head--> / <!--app-html--> / ${ROOT_TAG} がありません`)
   }
-  return template
+  const html = template
     .replace('<!--app-head-->', headTags({ ...rendered, path, noindex }))
     .replace('<!--app-html-->', rendered.html)
+  // 404.html は、オフラインで開けなかったページ（/tap-drill/ など）の代わりにも表示する。
+  // そのときは中身が URL のページと違うので、main.tsx は結びつけ（hydrate）ずに描き直す
+  return rendered.found ? html : html.replace(ROOT_TAG, '<div id="root" data-not-found>')
 }
 
 // /tap-drill → dist/tap-drill.html（Cloudflare では拡張子なしのURLで配信される）
 const fileFor = (path) => join(dist, path === '/' ? 'index.html' : `${path.slice(1)}.html`)
+
+/** 書き出したページの本文（フォントの文字セットの確認に使う） */
+const pageTexts = new Map()
+const textOf = (html) =>
+  html
+    .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, '')
+    .replace(/<[^>]*>/g, ' ')
 
 for (const path of paths) {
   const rendered = render(path)
@@ -88,6 +100,7 @@ for (const path of paths) {
   const file = fileFor(path)
   await mkdir(dirname(file), { recursive: true })
   await writeFile(file, page(path, rendered))
+  pageTexts.set(path, textOf(rendered.html))
 }
 
 await writeFile(join(dist, '404.html'), page('/404', render('/404'), true))
@@ -123,21 +136,63 @@ if (SITE.adsenseClient) {
 
 // オフライン対応: 全ページとアセットをあらかじめキャッシュする Service Worker を作る。
 // /tap-drill のような拡張子なしのURLは、キャッシュ済みの tap-drill.html で表示される。
+// 新しい版を公開すると、開いているページは次の画面切り替えで読み直す（src/main.tsx・RouterProvider）。
+const IGNORED_FONT_SUBSETS = ['cyrillic', 'cyrillic-ext', 'vietnamese']
 const { count, size } = await generateSW({
   globDirectory: dist,
   globPatterns: ['**/*.{html,js,css,svg,png,woff2,webmanifest}'],
-  // 日本語ページで使わないフォントの文字セットはキャッシュしない
-  // （SNS のプレビュー画像は端末に保存しなくてよい）
-  globIgnores: ['**/*-{cyrillic,cyrillic-ext,greek,vietnamese}-*.woff2', OG_IMAGE.file],
+  // 使わないフォントの文字セットはキャッシュしない（ギリシャ文字は φ・π を数値の欄で使うのでキャッシュする）。
+  // SNS のプレビュー画像は端末に保存しなくてよい
+  globIgnores: [`**/*-{${IGNORED_FONT_SUBSETS.join(',')}}-*.woff2`, OG_IMAGE.file],
   swDest: join(dist, 'sw.js'),
   // 条件付きのURL（/tap-drill?d=12 など）でも、オフライン時にキャッシュしたページを出す
   ignoreURLParametersMatching: [/.*/],
+  // キャッシュに無いページ（/tap-drill/ や存在しないURL）は、オンラインならそのまま取りに行き、
+  // オフラインで取れないときだけ 404.html を出す（ブラウザのオフラインのエラー画面にしない）。
+  // 新しく増えたページを古い Service Worker が 404 にしないよう、navigateFallback は使わない
+  runtimeCaching: [
+    {
+      urlPattern: ({ request }) => request.mode === 'navigate',
+      handler: 'NetworkOnly',
+      options: { precacheFallback: { fallbackURL: '/404.html' } },
+    },
+  ],
   skipWaiting: true,
   clientsClaim: true,
   cleanupOutdatedCaches: true,
   sourcemap: false,
 })
 console.log(`service worker: ${count} files, ${Math.round(size / 1024)} KiB precached`)
+
+// キャッシュしないフォントの文字セットの文字をページで使っていたら知らせる（オフラインでその文字だけ別のフォントになる）
+{
+  const assets = join(dist, 'assets')
+  const cssFiles = (await readdir(assets)).filter((file) => file.endsWith('.css'))
+  const css = (await Promise.all(cssFiles.map((file) => readFile(join(assets, file), 'utf8')))).join('\n')
+  const ranges = []
+  for (const [, block] of css.matchAll(/@font-face\s*\{([^}]*)\}/g)) {
+    const subset = IGNORED_FONT_SUBSETS.find((name) => block.includes(`-${name}-wght`))
+    const unicodeRange = /unicode-range:([^;}]*)/.exec(block)?.[1]
+    if (!subset || !unicodeRange) continue
+    for (const part of unicodeRange.split(',')) {
+      const [start, end = start] = part.trim().replace(/^U\+/i, '').split('-').map((hex) => parseInt(hex, 16))
+      ranges.push({ subset, start, end })
+    }
+  }
+  const found = new Map()
+  for (const [path, text] of pageTexts) {
+    for (const char of text) {
+      const code = char.codePointAt(0)
+      const range = ranges.find(({ start, end }) => code >= start && code <= end)
+      if (range) found.set(`${char}（${range.subset}）`, path)
+    }
+  }
+  if (found.size > 0) {
+    console.warn(
+      `\n[注意] キャッシュしないフォントの文字セットの文字を使っています。数値の欄（等幅フォント）で使うなら、IGNORED_FONT_SUBSETS から外してください。\n${[...found].map(([char, path]) => `  - ${char} ${path}`).join('\n')}\n`,
+    )
+  }
+}
 
 await rm(ssrDir, { recursive: true, force: true })
 console.log(
