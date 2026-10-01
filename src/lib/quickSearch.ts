@@ -573,13 +573,17 @@ function legendOf(detail: string): string {
   return `${UNVERIFIED_LEGEND}（${detail}）`
 }
 
-/** ボルト・ナットの値のうち、規格原文で未確認のものの説明（bolt-size/data の UNVERIFIED の note） */
-function boltUnverifiedNotes(items: readonly { field: CheckedField; d: number }[]): string[] {
-  return unique(
+/**
+ * ボルト・ナットの ※ の凡例（未確認の値が無ければ undefined）。何が未確認かは bolt-size/data の UNVERIFIED の note。
+ * 書き方は二面幅・座ぐりツールの凡例と同じ「※ 規格原文で未確認の値：…」（note に括弧があるので括弧で包まない）
+ */
+function boltLegend(items: readonly { field: CheckedField; d: number }[]): string | undefined {
+  const notes = unique(
     items
       .filter((item) => isBoltUnverified(item.field, item.d))
       .flatMap((item) => BOLT_UNVERIFIED.filter((entry) => entry.field === item.field).map((entry) => entry.note)),
   )
+  return notes.length > 0 ? `${UNVERIFIED_LEGEND}：${notes.join('、')}` : undefined
 }
 
 /** ボルトの呼び径 d を使うフランジを、呼び圧力ごとに「25A〜100A」の形でまとめる */
@@ -695,16 +699,15 @@ function boltSection(bolt: BoltSize, fine: boolean): SummarySection {
       note: '設計でよく使われる参考値（規格本体の規定ではない）',
     })
   }
-  // ※ を付けた値の説明（二面幅の旧JIS・ざぐり径。ボルト穴 4級はここには出さない）
-  const unverifiedNotes = boltUnverifiedNotes([
-    { field: 'sJa', d: bolt.d },
-    { field: 'spotFace', d: bolt.d },
-  ])
   return {
     title: 'ボルト・ナット',
     rows,
     note: fine ? `呼び径 M${bolt.d} の値です（寸法表は並目のもの）。` : undefined,
-    legend: unverifiedNotes.length > 0 ? legendOf(unverifiedNotes.join('、')) : undefined,
+    // ※ を付けた値の説明（二面幅の旧JIS・ざぐり径。ボルト穴 4級はここには出さない）
+    legend: boltLegend([
+      { field: 'sJa', d: bolt.d },
+      { field: 'spotFace', d: bolt.d },
+    ]),
     standards: ['JIS B 1180', 'JIS B 1181', 'JIS B 1176', 'JIS B 1001'],
     href: toolHref(SEARCH_TOOL_PATHS.boltSize, { d: bolt.d }),
     linkLabel: '二面幅・座ぐり',
@@ -800,7 +803,9 @@ function buildMetric(i: Extract<Interpretation, { type: 'metric' }>): Built {
         })),
       },
       legend:
-        unverifiedList.length > 0 ? legendOf(`寸法が未確認の呼び径を含む: ${unverifiedList.join('・')}`) : undefined,
+        unverifiedList.length > 0
+          ? `${UNVERIFIED_LEGEND}を含む（${unverifiedList.join('・')} は寸法すべて）`
+          : undefined,
       standards: ['JIS B 2220'],
       href: toolHref(SEARCH_TOOL_PATHS.flange, {
         pressure: flanges.find((f) => f.pressure === '10K')?.pressure ?? flanges[0].pressure,
@@ -1181,8 +1186,13 @@ function buildORing(i: Extract<Interpretation, { type: 'oring' }>): Built {
   const notes: string[] = []
   if (i.material) {
     notes.push(`「${i.material}」は材料の種類の記号として外し、${ring.no} の寸法を表示しています。`)
-    // 4種C・4種D は内径の許容差が 1種〜3種 と違う（倍率はOリングのツールに記載）
-    if (i.material.startsWith('4')) notes.push('4種（4C・4D など）は内径の許容差が 1種〜3種 と違います。許容差はツールで確認してください。')
+    // 4種C（シリコーンゴム VMQ）・4種D（ふっ素ゴム FKM）は内径の許容差が 1種〜3種 と違う（倍率はOリングのツールに記載）。
+    // 新しい材料記号（FKM-70・VMQ-70 など）で書かれていても同じ材料なので、同じ注意を出す
+    if (/^(?:4|FKM|VMQ)/.test(i.material)) {
+      notes.push(
+        '4種C（シリコーンゴム・VMQ）・4種D（ふっ素ゴム・FKM）は、内径の許容差が 1種〜3種 と違います。許容差はツールで確認してください。',
+      )
+    }
   }
   if (ring.series === 'G') notes.push('G は固定用です。往復運動などの運動用には P を使います。')
 
@@ -1335,7 +1345,6 @@ function buildAcrossFlats(s: number): Built {
     )
   }
   const hexKeyMatch = BOLT_SIZES.some((bolt) => bolt.capKey === s)
-  const unverifiedNotes = boltUnverifiedNotes(matches.map((bolt) => ({ field: 'sJa' as const, d: bolt.d })))
   return {
     card: {
       key: `flats-${s}`,
@@ -1364,7 +1373,7 @@ function buildAcrossFlats(s: number): Built {
               }
             }),
           },
-          legend: unverifiedNotes.length > 0 ? legendOf(unverifiedNotes.join('、')) : undefined,
+          legend: boltLegend(matches.map((bolt) => ({ field: 'sJa' as const, d: bolt.d }))),
           standards: ['JIS B 1180', 'JIS B 1181'],
           href: toolHref(SEARCH_TOOL_PATHS.boltSize, { d: matches[0].d }),
           linkLabel: '二面幅・座ぐり',

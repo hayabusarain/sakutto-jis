@@ -650,7 +650,15 @@ describe('quickSearch: Oリング', () => {
     expect(card('1A-P20').notes[0]).toContain('「1A」は材料の種類の記号')
     const g = card('4D-G50')
     expect(g.title).toBe('G50')
-    expect(g.notes.join('')).toContain('4種')
+    expect(g.notes.join('')).toContain('内径の許容差が 1種〜3種 と違います')
+    // 新しい材料記号の FKM（ふっ素ゴム）・VMQ（シリコーンゴム）も 4種D・4種C と同じ注意を出す
+    for (const text of ['FKM-70 G50', 'VMQ-70 P20']) {
+      expect(card(text).notes.join(''), text).toContain('内径の許容差が 1種〜3種 と違います')
+    }
+    // 1種〜3種（NBR など）には出さない
+    for (const text of ['1A-P20', 'NBR-70 P20']) {
+      expect(card(text).notes.join(''), text).not.toContain('許容差')
+    }
     expect(card('P-22A').title).toBe('P22A')
     expect(card('4C-P10A').title).toBe('P10A')
   })
@@ -908,7 +916,7 @@ describe('quickSearch: 規格原文で未確認の値（※）', () => {
       ['16K', false],
       ['20K', false],
     ])
-    expect(s.legend).toContain('5K 90A・10K 90A')
+    expect(s.legend).toBe(`${UNVERIFIED_LEGEND}を含む（5K 90A・10K 90A は寸法すべて）`)
     expect(section(card('M12'), 'M12 のボルトを使うフランジ').legend).toBeUndefined()
   })
 
@@ -930,6 +938,9 @@ describe('quickSearch: 規格原文で未確認の値（※）', () => {
     expect(flats.note).not.toContain('とも同じ')
     expect(flats.note).toBe('旧JIS（附属書JA）は 5.5※ mm（規格原文で未確認）')
     expect(s.legend).toContain('M3 ナットの二面幅')
+    // 凡例は二面幅・座ぐりツールと同じ「※ 規格原文で未確認の値：…」の形（項目の説明の括弧を、さらに括弧で包まない）
+    const note = (field: string) => BOLT_UNVERIFIED.find((entry) => entry.field === field)!.note
+    expect(s.legend).toBe(`${BOLT_UNVERIFIED_LEGEND}：${note('sJa')}、${note('spotFace')}`)
     // M6 は確認済みなので「とも同じ」のまま
     expect(row(section(card('M6'), 'ボルト・ナット'), '二面幅').note).toBe('JIS本体・旧JIS とも同じ')
   })
