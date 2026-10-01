@@ -35,7 +35,7 @@ import {
   TAP_DRILL_TOOL_PATH,
 } from './calc'
 import { BOLT_SIZES, HOLE_CLASSES, isUnverified, UNVERIFIED, type BoltSize } from './data'
-import { Mark, MarkLegend } from './Mark'
+import { Mark, MarkLegend, NonJisLegend, NonJisMark } from './Mark'
 import { ToolFinder } from './ToolFinder'
 
 const SIZE_OPTIONS = BOLT_SIZES.map((size) => ({ value: String(size.d), label: `M${size.d}` }))
@@ -139,7 +139,16 @@ export function BoltSizeTool() {
   const columns: Column<BoltSize>[] = [
     { key: 'd', header: 'ねじ', cell: (row) => `M${row.d}` },
     { key: 's', header: '二面幅', cell: (row) => <AcrossFlats size={row} /> },
-    { key: 'key', header: '六角レンチ', cell: (row) => trim(row.capKey) },
+    {
+      key: 'key',
+      header: '六角レンチ',
+      cell: (row) => (
+        <>
+          {trim(row.capKey)}
+          <NonJisMark show={row.capNonJis === true} />
+        </>
+      ),
+    },
     {
       key: 'hole',
       header: (
@@ -174,7 +183,19 @@ export function BoltSizeTool() {
         </>
       ),
     },
-    { key: 'cbd', header: 'CAP座ぐり径', cell: (row) => (row.counterbore ? trim(row.counterbore.d) : '—') },
+    {
+      key: 'cbd',
+      header: 'CAP座ぐり径',
+      cell: (row) =>
+        row.counterbore ? (
+          <>
+            {trim(row.counterbore.d)}
+            <NonJisMark show={row.capNonJis === true} />
+          </>
+        ) : (
+          '—'
+        ),
+    },
     { key: 'cbh', header: 'CAP深さ', cell: (row) => (row.counterbore ? trim(row.counterbore.h) : '—') },
   ]
 
@@ -246,7 +267,7 @@ export function BoltSizeTool() {
             <ResultItem label="高さ m（本体スタイル1 最大）" value={trim(size.nutStyle1)} unit="mm" />
             <ResultItem label="高さ m（附属書JA 1種 / 3種）" value={`${trim(size.nutJa1)} / ${trim(size.nutJa3)}`} unit="mm" />
           </Group>
-          <Group title="六角穴付きボルト（JIS B 1176）">
+          <Group title={size.capNonJis ? '六角穴付きボルト（DIN 912 などの値）' : '六角穴付きボルト（JIS B 1176）'}>
             <ResultItem label="六角レンチ（六角穴の二面幅）" value={trim(size.capKey)} unit="mm" />
             <ResultItem
               label="頭部径 dk / 頭部の高さ k"
@@ -270,7 +291,7 @@ export function BoltSizeTool() {
               note={hole === null ? `M${size.d} の ${holeClass} は表にありません` : undefined}
             />
             <ResultItem
-              label="ざぐり径 D'（六角ボルト用）"
+              label="ざぐり径 D'（六角ボルト・ナット用）"
               value={
                 <>
                   {trim(size.spotFace)}
@@ -285,7 +306,7 @@ export function BoltSizeTool() {
               unit="mm"
               note={
                 size.counterbore
-                  ? `下穴 φ${trim(size.counterbore.d1)}（設計でよく使われる参考値）`
+                  ? `穴径 φ${trim(size.counterbore.d1)}（設計でよく使われる参考値）`
                   : 'このサイズの参考値は確認中です'
               }
             />
@@ -298,7 +319,11 @@ export function BoltSizeTool() {
         <div className="mt-3 space-y-1">
           <Citation code="JIS B 1180" suffix="本体・附属書JA" />
           <Citation code="JIS B 1181" suffix="本体（スタイル1）・附属書JA" />
-          <Citation code="JIS B 1176" />
+          {size.capNonJis ? (
+            <Citation code="JIS B 1176" suffix="に無いサイズ（値は DIN 912 など）" />
+          ) : (
+            <Citation code="JIS B 1176" />
+          )}
           <Citation code="JIS B 1001" suffix="のボルト穴径・ざぐり径" />
           {hasFlanges && <Citation code="JIS B 2220" suffix="のフランジのボルト" />}
         </div>
@@ -359,7 +384,8 @@ export function BoltSizeTool() {
             caption="ボルト・ナット寸法一覧"
           />
         </div>
-        <MarkLegend className="px-4 pt-2 pb-3" />
+        <MarkLegend className="px-4 pt-2" />
+        <NonJisLegend className="px-4 pt-1 pb-3" />
       </Card>
 
       <StickyResult

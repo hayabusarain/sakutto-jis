@@ -8,6 +8,7 @@ import {
   diameterSigma,
   FORM_PENALTY,
   INTERNAL_GRADE,
+  PITCH_CAUTION_PERCENT,
   PITCH_SIGMA_RATIO,
   pitchFromCount,
   rankCandidates,
@@ -107,7 +108,7 @@ export function ThreadIdGuide() {
       <Faq q="インチねじ（ユニファイ UNC・UNF、ウイット）も判別できますか？">
         <p>
           いいえ。このツールが候補にするのは、メートルねじ（M{SCOPE.metricMin}〜M{SCOPE.metricMax}）と管用ねじ（R・Rc・Rp・G の{' '}
-          {SCOPE.pipeMin}〜{SCOPE.pipeMax}）だけです。インチねじを測ると、多くはどの候補とも差が大きい（「離れている」）結果になりますが、たまたま近い候補が出ることもあります。候補の径やピッチが実測と合わないときは、インチねじや特殊なねじの可能性を考えてください。
+          {SCOPE.pipeMin}〜{SCOPE.pipeMax}）だけです。インチねじを測ると、多くはどの候補とも差が大きい（「離れている」）結果になりますが、たまたま「近い」候補が出ることもあります。そのため、いちばん近い候補が「よく合う」でないとき（「よく合う」でもピッチの差が {PITCH_CAUTION_PERCENT}% を超えるとき）は、結果の下にインチねじの可能性を表示します。候補の径やピッチが実測と合わないときは、{EXAMPLE_PITCH_COUNT}ピッチ分の長さで測り直し、インチねじや特殊なねじの可能性を考えてください。
         </p>
       </Faq>
 

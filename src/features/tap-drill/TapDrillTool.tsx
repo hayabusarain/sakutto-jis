@@ -174,7 +174,8 @@ export function TapDrillTool() {
     }
   }
   const drillPositive = drill !== null && drill > 0
-  const drillValid = drillPositive && drill < d
+  // 打ち間違いの直し方を出しているあいだは判定しない（ひっかかり率 563.5% のような意味の無い値を出さない。逆引きも同じ）
+  const drillValid = drillPositive && drill < d && !drillFix
   const drillFit = drillValid && limits ? judgeHole(drill, limits) : null
 
   const changeSize = (value: string) => {

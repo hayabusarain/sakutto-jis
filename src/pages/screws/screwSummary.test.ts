@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BOLT_SIZES } from '../../features/bolt-size/data'
+import { formatSignificant } from '../../features/tap-drill/calc'
 import { SCREW_INDEX_META, SCREW_PAGES, screwPath } from './screwPages'
 import { flangesUsingBolt, screwSummary, stressArea, SUMMARY_SIZES } from './screwSummary'
 import { roundSignificant } from '../../features/steel-pipe/calc'
@@ -39,12 +40,18 @@ describe('screwSummary', () => {
     expect(summary.coarse.kind).toBe('並目')
     expect(summary.coarse.recommended).toEqual({ hole: 10.2, basis: 'iso2306' })
     expect(summary.coarse.limits).toEqual({ min: 10.106, max: 10.441 })
-    expect(summary.stressArea).toBe(84.3)
+    expect(formatSignificant(summary.stressArea)).toBe('84.3')
     expect(summary.pitches.map((row) => row.p)).toEqual([1.75, 1.5, 1.25, 1])
     expect(summary.pitches.slice(1).every((row) => row.kind === '細目')).toBe(true)
     expect(summary.bolt.sIso).toBe(18)
     expect(summary.prev).toBe(10)
     expect(summary.next).toBe(14)
+  })
+
+  it('有効断面積は丸める前の値を持つ（M10 は 57.99 → 表示 58.0。末尾の 0 を落とさない）', () => {
+    const { stressArea: area } = screwSummary(10)!
+    expect(area).toBeCloseTo(57.99, 2)
+    expect(formatSignificant(area)).toBe('58.0')
   })
 
   it('細目の推奨下穴（M10×1.25 → 8.8）', () => {
@@ -85,6 +92,18 @@ describe('flangesUsingBolt', () => {
     const tenK = uses.find((use) => use.pressure === '10K')!
     expect(tenK.sizes.map((row) => row.size)).toEqual(['25A', '32A', '40A', '50A', '65A', '80A', '90A', '100A'])
     expect(tenK.sizes.find((row) => row.size === '50A')?.n).toBe(4)
+  })
+
+  it('未確認の行（5K・10K の 90A など）に印を付ける。16K の厚さだけの未確認は付けない', () => {
+    const uses = flangesUsingBolt(16)
+    const unverified = (pressure: string) =>
+      uses.find((use) => use.pressure === pressure)!.sizes.filter((row) => row.unverified).map((row) => row.size)
+    expect(unverified('5K')).toEqual(['90A'])
+    expect(unverified('10K')).toEqual(['90A'])
+    expect(unverified('16K')).toEqual([])
+    expect(unverified('20K')).toEqual([])
+    // 5K 50A は厚さだけ未確認（ボルトの呼び・本数は確認済み）
+    expect(flangesUsingBolt(12).find((use) => use.pressure === '5K')!.sizes.find((row) => row.size === '50A')?.unverified).toBe(false)
   })
 
   it('フランジに使われないサイズは空', () => {

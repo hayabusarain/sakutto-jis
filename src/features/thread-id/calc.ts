@@ -294,6 +294,29 @@ export function pitchErrorPercent(candidate: RankedCandidate): number | null {
   return candidate.deltaPitch === null ? null : (Math.abs(candidate.deltaPitch) / candidate.pitch) * 100
 }
 
+/** ピッチの差がこれ（%）を超えたら、「よく合う」候補でも測り直し・インチねじの確認を促す（サイト独自の目安） */
+export const PITCH_CAUTION_PERCENT = 3
+
+/** インチねじの可能性の知らせ方。strong: どの候補とも差が大きい / soft: 近い候補はあるが少しずれている */
+export type InchCaution = 'strong' | 'soft'
+
+/**
+ * いちばん近い候補から、インチねじ（ユニファイ UNC・UNF、ウイット）の可能性を知らせるかを決める。
+ * インチねじは対象外だが、3/4-10 UNC（外径 約19mm・P2.54）が M20、1/2-20 UNF（約12.6mm・P1.27）が R1/4 の
+ * 「近い」になるように、たまたま近い候補が出る。そのため「離れている」だけでなく「近い」のときも知らせる。
+ * - 'strong': いちばん近い候補が「離れている」
+ * - 'soft': 「近い」、または「よく合う」でもピッチの差が PITCH_CAUTION_PERCENT % を超える
+ * - null: よく合う（候補が無いときも null）
+ */
+export function inchCaution(best: RankedCandidate | undefined): InchCaution | null {
+  if (!best) return null
+  const level = matchLevel(best.score)
+  if (level === 'poor') return 'strong'
+  if (level === 'fair') return 'soft'
+  const pitchError = pitchErrorPercent(best)
+  return pitchError !== null && pitchError > PITCH_CAUTION_PERCENT + 1e-9 ? 'soft' : null
+}
+
 // ---------------------------------------------------------------- リンク
 
 /** 候補の寸法を詳しく見るページ（下穴径ツール・管用ねじツール） */

@@ -217,7 +217,7 @@ export function BoltSizeGuide() {
           </li>
         </ul>
         <p>
-          ⌴ は深ざぐり、↧ は深さを表します。六角ボルトを通すだけの穴（2級）なら「{holeCallout(4, m10.holes[1], 'current')}」（従来は「
+          ⌴ は深座ぐり、↧ は深さを表します。六角ボルトを通すだけの穴（2級）なら「{holeCallout(4, m10.holes[1], 'current')}」（従来は「
           {holeCallout(4, m10.holes[1], 'legacy')}」）。上の「図面指示の例」で、選んだサイズの文字をそのままコピーできます。記号の形や並べ方は、社内の製図ルールに合わせてください。
         </p>
       </Faq>

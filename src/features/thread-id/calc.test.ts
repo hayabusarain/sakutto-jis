@@ -5,10 +5,12 @@ import {
   diameterSigma,
   distanceToRange,
   hasFormAmbiguity,
+  inchCaution,
   judgeTaper,
   matchLevel,
   pitchFromCount,
   pitchFromTpi,
+  PITCH_CAUTION_PERCENT,
   rankCandidates,
   relatedLinksFor,
   tpiFromPitch,
@@ -202,6 +204,64 @@ describe('境界', () => {
 
   it('径の差の目安は 0.1 + 1%', () => {
     expect(diameterSigma(12)).toBeCloseTo(0.22, 9)
+  })
+})
+
+describe('inchCaution（インチねじの可能性の知らせ）', () => {
+  const best = (measurement: Measurement) => rankCandidates(measurement)[0]
+
+  // インチねじの実測（外径は呼びより少し小さめ、ピッチ = 25.4 ÷ 山数）。メートル・管用ねじの「近い」になる
+  const inch: [string, Measurement, string][] = [
+    ['3/4-10 UNC（19.0mm・10山）', { side: 'external', diameter: 19.0, pitch: pitchFromTpi(10) }, 'M20'],
+    ['1/2-20 UNF（12.6mm・20山）', { side: 'external', diameter: 12.6, pitch: pitchFromTpi(20) }, 'R1/4'],
+    ['5/16-24 UNF（7.85mm・24山）', { side: 'external', diameter: 7.85, pitch: pitchFromTpi(24) }, 'M8×1'],
+    ['3/8-24 UNF（9.45mm・24山）', { side: 'external', diameter: 9.45, pitch: pitchFromTpi(24) }, 'M9×1'],
+    ['3/8-16 UNC めねじ（内径 8.1mm・16山）', { side: 'internal', diameter: 8.1, pitch: pitchFromTpi(16) }, 'M10'],
+  ]
+  for (const [name, measurement, label] of inch) {
+    it(`${name} → ${label} が「近い」なので、控えめに知らせる`, () => {
+      const candidate = best(measurement)
+      expect(candidate.label).toBe(label)
+      expect(matchLevel(candidate.score)).toBe('fair')
+      expect(inchCaution(candidate)).toBe('soft')
+    })
+  }
+
+  it('1/2-13 UNC（12.6mm・13山）は「離れている」ので強く知らせる', () => {
+    expect(inchCaution(best({ side: 'external', diameter: 12.6, pitch: pitchFromTpi(13) }))).toBe('strong')
+  })
+
+  it('メートルねじ・管用ねじの実測（よく合う）では知らせない', () => {
+    const fits: Measurement[] = [
+      { side: 'external', diameter: 11.8, pitch: 1.75 },
+      { side: 'external', diameter: 19.8, pitch: 2.5 },
+      { side: 'external', diameter: 9.85, pitch: 1.5 },
+      { side: 'external', diameter: 20.45, pitch: pitchFromTpi(14) },
+      { side: 'external', diameter: 9.7, pitch: pitchFromTpi(28) },
+      { side: 'internal', diameter: 8.5, pitch: 1.5 },
+      { side: 'internal', diameter: 18.6, pitch: pitchFromTpi(14) },
+    ]
+    for (const measurement of fits) {
+      const candidate = best(measurement)
+      expect(matchLevel(candidate.score)).toBe('good')
+      expect(inchCaution(candidate)).toBeNull()
+    }
+  })
+
+  it(`「よく合う」でもピッチの差が ${PITCH_CAUTION_PERCENT}% を超えれば控えめに知らせる`, () => {
+    // M12（P1.75）にピッチ 3.5% 大きい実測
+    const candidate = best({ side: 'external', diameter: 11.95, pitch: 1.75 * 1.035 })
+    expect(candidate.label).toBe('M12')
+    expect(matchLevel(candidate.score)).toBe('good')
+    expect(inchCaution(candidate)).toBe('soft')
+    // ちょうど 3% までは知らせない
+    expect(inchCaution(best({ side: 'external', diameter: 11.95, pitch: 1.75 * 1.03 }))).toBeNull()
+  })
+
+  it('ピッチ未入力でも径がずれていれば知らせる。候補が無ければ null', () => {
+    expect(inchCaution(best({ side: 'external', diameter: 19.0, pitch: null }))).toBe('soft')
+    expect(inchCaution(best({ side: 'external', diameter: 11.9, pitch: null }))).toBeNull()
+    expect(inchCaution(undefined)).toBeNull()
   })
 })
 

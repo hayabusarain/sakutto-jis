@@ -19,6 +19,7 @@ import {
   diameterSigma,
   FORM_PENALTY,
   hasFormAmbiguity,
+  inchCaution,
   INTERNAL_GRADE,
   matchLevel,
   MIN_TAPER_SPACING,
@@ -174,6 +175,7 @@ export function ThreadIdTool() {
   const top = ranked.slice(0, TOP_COUNT)
   const best = top[0]
   const bestLevel = best ? matchLevel(best.score) : null
+  const caution = inchCaution(best)
   const ambiguous = hasFormAmbiguity(ranked)
 
   // テーパの確認欄（おねじだけ）。値が入っていれば開いておく
@@ -203,9 +205,16 @@ export function ThreadIdTool() {
               c.deltaPitch === null ? '' : `・ピッチの差 ${signed(c.deltaPitch)} mm`
             }）`,
         ),
+        caution === 'strong'
+          ? '注: どの候補とも差が大きい（インチねじ・特殊なねじの可能性あり）'
+          : caution === 'soft'
+            ? '注: 候補と少しずれている（測り直し、またはインチねじの可能性あり）'
+            : '',
         `典拠: ${standardLabel('JIS B 0205-2')} / ${standardLabel('JIS B 0203')} / ${standardLabel('JIS B 0202')}`,
         '（サクッとJIS）',
-      ].join('\n')
+      ]
+        .filter(Boolean)
+        .join('\n')
     : ''
 
   const tips = confusablePitches()
@@ -397,12 +406,27 @@ export function ThreadIdTool() {
           )}
         </PrimaryResult>
 
-        {best && bestLevel === 'poor' && (
+        {best && caution === 'strong' && (
           <Notice tone="warning">
             <p className="font-semibold">どの候補とも差が大きいです。</p>
             <p>
               測り直すか、インチねじ（ユニファイ UNC・UNF、ウイット）や特殊なねじの可能性を考えてください。このツールはインチねじには対応していません。
             </p>
+          </Notice>
+        )}
+        {best && caution === 'soft' && (
+          <Notice tone="info">
+            <p>
+              いちばん近い {best.label} とも、{best.deltaPitch === null ? '径' : '径かピッチ'}
+              が少しずれています。測り直すか、インチねじ（ユニファイ UNC・UNF、ウイット）の可能性も考えてください。このツールはインチねじには対応していません。
+            </p>
+            {pitch !== null && (
+              <p>
+                山頂を {EXAMPLE_PITCH_COUNT + 1} 個数えて {EXAMPLE_PITCH_COUNT} ピッチ分の距離を測ると見分けやすくなります（入力したピッチなら{' '}
+                <span className="num font-semibold">{fixed(pitch * EXAMPLE_PITCH_COUNT, 2)} mm</span>、{best.label} なら{' '}
+                <span className="num font-semibold">{fixed(best.pitch * EXAMPLE_PITCH_COUNT, 2)} mm</span>）。
+              </p>
+            )}
           </Notice>
         )}
         {best && pitch === null && (

@@ -244,7 +244,7 @@ export function summaryText(size: BoltSize, holeClass: HoleClass): string {
     `二面幅（スパナ）: ${trim(size.sIso)} mm${
       jaDiffers || jaUnverified ? `（旧JIS ${markIf(trim(size.sJa), jaUnverified)} mm）` : ''
     }`,
-    `六角レンチ（六角穴付きボルト）: ${trim(size.capKey)} mm${size.capNonJis ? '（JIS B 1176 に無いサイズ）' : ''}`,
+    `六角レンチ（六角穴付きボルト）: ${trim(size.capKey)} mm${size.capNonJis ? '（JIS B 1176 に無いサイズ。DIN 912 などの値）' : ''}`,
     `ボルト穴 ${holeClass}: ${holeText}／ざぐり径 D': ${markIf(trim(size.spotFace), isUnverified('spotFace', size.d))} mm`,
     size.counterbore
       ? `CAP用座ぐり（参考値）: φ${trim(size.counterbore.d)} 深さ${trim(size.counterbore.h)}（穴 φ${trim(size.counterbore.d1)}）`

@@ -106,7 +106,7 @@ export function CalloutPanel({ size, holeClass }: { size: BoltSize; holeClass: H
       <div className="space-y-1 text-xs leading-relaxed text-zinc-500">
         <p>
           {style === 'current'
-            ? '現行: 穴の数は「×」、深ざぐりは記号 ⌴、深さは記号 ↧ で書きます。CADのフォントによっては ⌴・↧ が表示されないことがあります。'
+            ? '現行: 穴の数は「×」、深座ぐりは記号 ⌴、深さは記号 ↧ で書きます。CADのフォントによっては ⌴・↧ が表示されないことがあります。'
             : '従来: 穴の数は「-」、「キリ」「深ザグリ」「深さ」と文字で書く、以前から図面で使われている書き方です。'}
         </p>
         <p>

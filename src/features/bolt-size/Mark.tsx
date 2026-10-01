@@ -1,4 +1,4 @@
-import { UNVERIFIED, UNVERIFIED_LEGEND } from './data'
+import { CAP_NON_JIS_LEGEND, CAP_NON_JIS_MARK, UNVERIFIED, UNVERIFIED_LEGEND } from './data'
 
 /** 規格原文で未確認の値に付ける ※（上付き）。show が false なら何も出さない */
 export function Mark({ show = true, dark = false }: { show?: boolean; dark?: boolean }) {
@@ -19,4 +19,20 @@ export function MarkLegend({ className = '' }: { className?: string }) {
       ：{UNVERIFIED.map((entry) => entry.note).join('、')}。図面や発注に使う前に規格書で確かめてください。
     </p>
   )
+}
+
+/** 六角穴付きボルトが JIS B 1176 に無いサイズ（M18・M22・M27）の値に付ける †。show が false なら何も出さない */
+export function NonJisMark({ show = true }: { show?: boolean }) {
+  if (!show) return null
+  return (
+    <sup className="ml-0.5 font-sans text-[0.65em] font-bold text-orange-700">
+      <span aria-hidden>{CAP_NON_JIS_MARK}</span>
+      <span className="sr-only">（JIS B 1176 に無いサイズ）</span>
+    </sup>
+  )
+}
+
+/** † の凡例 */
+export function NonJisLegend({ className = '' }: { className?: string }) {
+  return <p className={`text-xs leading-relaxed text-zinc-500 ${className}`}>{CAP_NON_JIS_LEGEND}</p>
 }
