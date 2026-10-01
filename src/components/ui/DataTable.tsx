@@ -28,6 +28,23 @@ const alignClass = { left: 'text-left', right: 'text-right', center: 'text-cente
 const PRINT_PAGE_WIDTH_PX = (186 / 25.4) * 96
 
 /**
+ * 表の外側にある余白と枠線の幅（左右の合計）。ページの余白（px-4）とカードの枠線など。
+ * 紙の幅からこれを引いた分が、表に使える幅になる（実測: ツールのカードでは 34 px）
+ */
+function horizontalInset(element: HTMLElement): number {
+  let inset = 0
+  for (let el: HTMLElement | null = element; el && el !== document.documentElement; el = el.parentElement) {
+    const style = getComputedStyle(el)
+    inset +=
+      parseFloat(style.paddingLeft) +
+      parseFloat(style.paddingRight) +
+      parseFloat(style.borderLeftWidth) +
+      parseFloat(style.borderRightWidth)
+  }
+  return inset
+}
+
+/**
  * キーボードで行に移ったときの枠。行（tr）に枠を描くと固定表示の1列目に隠れるので、
  * 各セルの内側に線を引いて、行全体を囲んで見せる
  */
@@ -99,7 +116,8 @@ export function DataTable<T>({
   }, [highlightedId, maxHeightClass])
 
   // 印刷では、紙（A4 縦）の幅に収まらない表を、その表のカードごと横向きのページに印刷する。
-  // 印刷の直前に、印刷と同じ文字の大きさで折り返したときの表の最小の幅を測って決める
+  // 印刷の直前に、印刷と同じ文字の大きさで折り返したときの表の最小の幅を測り、
+  // 紙の幅からカードの枠やページの余白を除いた幅と比べて決める
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -110,7 +128,7 @@ export function DataTable<T>({
       container.classList.add('print-measure')
       const width = table.getBoundingClientRect().width
       container.classList.remove('print-measure')
-      if (width > PRINT_PAGE_WIDTH_PX) {
+      if (width > PRINT_PAGE_WIDTH_PX - horizontalInset(container)) {
         marked = container.closest('section') ?? container
         marked.dataset.printWide = ''
       }

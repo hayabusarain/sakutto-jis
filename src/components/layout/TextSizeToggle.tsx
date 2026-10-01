@@ -23,10 +23,10 @@ function applyTextSize(size: TextSize) {
 export function TextSizeToggle() {
   const [size, setSize] = usePersistentState<TextSize>('text-size', 'md', isTextSize)
 
-  // 別のタブで切り替えたときも、このタブの表示をそろえる
+  // 別のタブで切り替えたとき（保存を全部消したとき＝key が null も含む）も、このタブの表示をそろえる
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY) return
+      if (event.key !== null && event.key !== STORAGE_KEY) return
       let next: unknown = null
       try {
         next = event.newValue === null ? null : JSON.parse(event.newValue)

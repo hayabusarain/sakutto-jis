@@ -23,6 +23,11 @@
     body.has-sticky-result {
       padding-bottom: calc(4rem + env(safe-area-inset-bottom));
     }
+
+    /* キーボードで移った先（表の行・入力欄など）が、画面下の結果バーの裏に隠れないようにする */
+    html:has(> body.has-sticky-result) {
+      scroll-padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+    }
   }
 
   /* 文字を大きく（ヘッダーの切り替え）。Tailwind は rem 基準なので全体が拡大される */
