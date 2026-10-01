@@ -5,6 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { ResultItem } from '../../components/ui/ResultItem'
+import { isUnverified } from '../../features/bolt-size/data'
 import { TWO_H1_PER_PITCH } from '../../features/tap-drill/calc'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
@@ -203,7 +204,12 @@ export function ScrewPage({ d }: { d: number }) {
           <dl>
             <ResultItem
               label="二面幅 s（本体 / 旧JIS）"
-              value={`${trim(bolt.sIso)} / ${trim(bolt.sJa)}`}
+              value={
+                <>
+                  {trim(bolt.sIso)} / {trim(bolt.sJa)}
+                  {isUnverified('sJa', bolt.d) && <UnverifiedMark />}
+                </>
+              }
               unit="mm"
               note={jaDiffers ? 'JIS本体（ISO）と旧JIS（附属書JA）で二面幅が違います' : undefined}
             />
@@ -242,7 +248,7 @@ export function ScrewPage({ d }: { d: number }) {
                 bolt.holes[3] === null ? undefined : (
                   <>
                     {trim(bolt.holes[3])}
-                    <UnverifiedMark />
+                    {isUnverified('hole4', bolt.d) && <UnverifiedMark />}
                   </>
                 )
               }
@@ -253,7 +259,7 @@ export function ScrewPage({ d }: { d: number }) {
               value={
                 <>
                   {trim(bolt.spotFace)}
-                  <UnverifiedMark />
+                  {isUnverified('spotFace', bolt.d) && <UnverifiedMark />}
                 </>
               }
               unit="mm"

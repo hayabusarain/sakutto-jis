@@ -172,7 +172,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     name: '単位換算（圧力・トルク・力・長さ）',
     navLabel: '単位換算',
     description:
-      '圧力（MPa・kgf/cm²・bar・psi・kPa）、トルク（N·m・kgf·m・kgf·cm）、力（N・kgf）、長さ（mm・インチ）を、定義どおりの換算係数で一度に換算します。',
+      '圧力（MPa・kgf/cm²・bar・psi・kPa）、トルク（N·m・kgf·m・kgf·cm）、力（N・kgf）、長さ（mm・インチ・分数インチ）、温度（°C・°F・K）を、定義どおりの換算係数で一度に換算します。',
     category: 'general',
     standards: [],
     icon: ArrowLeftRight,

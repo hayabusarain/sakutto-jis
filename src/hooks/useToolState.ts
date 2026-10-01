@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { fromQuery, toQuery, type FlatState } from '../lib/query'
+import { fromQuery, stateQuery, type FlatState } from '../lib/query'
+import { replaceUrl } from '../router/history'
 import { usePersistentState } from './usePersistentState'
 
 /**
@@ -27,7 +28,7 @@ export function useToolState<T extends FlatState<T>>(
     if (fromUrl) {
       const next = normalize ? normalize(fromUrl.state, fromUrl.keys) : fromUrl.state
       if (isValid(next)) {
-        pending.current = toQuery(next, defaults)
+        pending.current = stateQuery(next, defaults, normalize)
         setState(next)
       }
     }
@@ -39,7 +40,7 @@ export function useToolState<T extends FlatState<T>>(
   // 入力が変わったら URL のクエリを書き換える（履歴は増やさない）
   useEffect(() => {
     if (!urlRead.current) return
-    const query = toQuery(state, defaults)
+    const query = stateQuery(state, defaults, normalize)
     // 同じ描画でまだ古い（保存済みの）入力のときは、URL の条件を消さないよう待つ
     // （開発時の StrictMode では読み込みの effect が2回走るため、ここで消すと条件が失われる）
     if (pending.current !== null) {
@@ -48,8 +49,8 @@ export function useToolState<T extends FlatState<T>>(
     }
     const next = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`
-    if (next !== current) window.history.replaceState(window.history.state, '', next)
-  }, [state, defaults])
+    if (next !== current) replaceUrl(next)
+  }, [state, defaults, normalize])
 
   return [state, setState] as const
 }

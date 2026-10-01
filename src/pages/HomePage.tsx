@@ -1,10 +1,14 @@
-import { ArrowRight, BookOpen, Calculator, MessageSquareWarning, Smartphone } from 'lucide-react'
+import { ArrowRight, BookOpen, Calculator, MessageSquareWarning, Smartphone, Table2 } from 'lucide-react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { QuickSearch } from '../components/QuickSearch'
+import { replaceUrl } from '../router/history'
 import { Link } from '../router/Link'
 import { SITE } from '../site'
 import { standardLabel } from '../standards'
 import { CATEGORY_LABELS, TOOLS, type ToolCategory } from '../tools/registry'
+import { ChipNav } from './content/PageHeader'
+import { SCREW_INDEX_META, SCREW_PAGES } from './screws/screwPages'
+import { FLANGE_TABLE_PAGES, ORING_TABLE_PAGES, PIPE_TABLE_PAGES } from './tables/tablePages'
 
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as ToolCategory[]
 
@@ -31,6 +35,29 @@ const FEATURES = [
   },
 ]
 
+/** 計算せずに一覧で見たいとき用の、静的な寸法表のページ */
+const TABLE_GROUPS = [
+  {
+    title: 'JISフランジ（寸法・ボルト長さ）',
+    links: FLANGE_TABLE_PAGES.map((page) => ({ to: page.path, label: page.label })),
+  },
+  {
+    title: '鋼管（外径・厚さ・重量）',
+    links: PIPE_TABLE_PAGES.map((page) => ({ to: page.path, label: page.label })),
+  },
+  {
+    title: 'Oリング（寸法・溝）',
+    links: ORING_TABLE_PAGES.map((page) => ({ to: page.path, label: page.label })),
+  },
+  {
+    title: 'ねじ（下穴・二面幅・ボルト穴・座ぐり）',
+    links: [
+      { to: SCREW_INDEX_META.path, label: '一覧表' },
+      ...SCREW_PAGES.map((page) => ({ to: page.path, label: page.label })),
+    ],
+  },
+]
+
 const subscribeNothing = () => () => {}
 const readQueryFromUrl = () => new URLSearchParams(window.location.search).get('q') ?? ''
 
@@ -54,7 +81,7 @@ function HomeSearch() {
     const next = `${url.pathname}${url.search}${url.hash}`
     if (next === `${window.location.pathname}${window.location.search}${window.location.hash}`) return
     try {
-      window.history.replaceState(window.history.state, '', next)
+      replaceUrl(next)
     } catch {
       // 短時間に書き換えすぎたときなど。検索自体には影響しない
     }
@@ -124,6 +151,25 @@ export function HomePage() {
           </ul>
         </section>
       ))}
+
+      <section className="mt-10" aria-labelledby="tables">
+        <h2
+          id="tables"
+          className="flex items-center gap-3 text-sm font-bold tracking-wider text-zinc-500"
+        >
+          <Table2 className="size-4 shrink-0" aria-hidden />
+          寸法表を一覧で見る
+          <span className="h-px flex-1 bg-zinc-300" aria-hidden />
+        </h2>
+        <div className="mt-3 grid gap-px overflow-hidden rounded-md border border-zinc-200 bg-zinc-200 sm:grid-cols-2">
+          {TABLE_GROUPS.map((group) => (
+            <div key={group.title} className="bg-white p-4">
+              <h3 className="text-sm font-bold text-zinc-900">{group.title}</h3>
+              <ChipNav label={group.title} className="mt-2" links={group.links} />
+            </div>
+          ))}
+        </div>
+      </section>
 
       <section className="mt-10" aria-labelledby="features">
         <h2

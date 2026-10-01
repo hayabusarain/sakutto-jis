@@ -5,11 +5,10 @@ import { trim } from '../../lib/format'
 import type { StandardCode } from '../../standards'
 import { CATEGORY_LABELS } from '../../tools/registry'
 import { HOME_CRUMB, type ContentPageMeta } from '../tables/tablePages'
+import { SCREW_INDEX_PATH, screwPath } from './paths'
 import { screwSummary, SUMMARY_SIZES } from './screwSummary'
 
-export const SCREW_INDEX_PATH = '/screw'
-
-export const screwPath = (d: number) => `${SCREW_INDEX_PATH}/m${d}`
+export { SCREW_INDEX_PATH, screwPath } from './paths'
 
 const FIRST = SUMMARY_SIZES[0]
 const LAST = SUMMARY_SIZES[SUMMARY_SIZES.length - 1]

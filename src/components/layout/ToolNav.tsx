@@ -32,7 +32,8 @@ export function ToolNav() {
         className="no-scrollbar relative mx-auto flex max-w-5xl overflow-x-auto px-2 pr-8 sm:px-4 lg:pr-4"
       >
         {TOOLS.map(({ path, navLabel, icon: Icon }) => {
-          const active = path === pathname
+          // 寸法表のページ（/flange-bolt-length/10k など）も、そのツールを選択中として表示する
+          const active = pathname === path || pathname.startsWith(`${path}/`)
           return (
             <li key={path} className="shrink-0">
               <Link

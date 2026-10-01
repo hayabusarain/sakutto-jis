@@ -16,6 +16,7 @@ import { TableExport } from '../../components/ui/TableExport'
 import { useToolState } from '../../hooks/useToolState'
 import { fixed, parseNumber, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
+import { screwPath } from '../../pages/screws/paths'
 import { standardLabel } from '../../standards'
 import { BOLT_SIZES } from '../bolt-size/data'
 import {
@@ -230,7 +231,10 @@ export function TapDrillTool() {
 
   const relatedLinks: RelatedLink[] = [
     ...(BOLT_SIZES.some((bolt) => bolt.d === d)
-      ? [{ to: toolHref('/bolt-size', { d }), label: `M${trim(d)} のボルト穴・座ぐり・二面幅` }]
+      ? [
+          { to: toolHref('/bolt-size', { d }), label: `M${trim(d)} のボルト穴・座ぐり・二面幅` },
+          { to: screwPath(d), label: `M${trim(d)} の寸法まとめ` },
+        ]
       : []),
     { to: toolHref('/thread-identify'), label: 'ねじの種類を実測で判別' },
     { to: toolHref('/pipe-thread'), label: '管用ねじ（Rc・G）の下穴径' },

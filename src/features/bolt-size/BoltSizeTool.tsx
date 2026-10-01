@@ -14,6 +14,7 @@ import { TableExport } from '../../components/ui/TableExport'
 import { useToolState } from '../../hooks/useToolState'
 import { trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
+import { screwPath } from '../../pages/screws/paths'
 import { Link } from '../../router/Link'
 import { CalloutPanel } from './Callout'
 import {
@@ -120,6 +121,7 @@ export function BoltSizeTool() {
   const pitch = coarsePitchOf(size.d)
   const flange = representativeFlange(size.d)
   const links: RelatedLink[] = [
+    { to: screwPath(size.d), label: `M${size.d} の寸法まとめ（下穴・ナット高さ・フランジ）` },
     ...(pitch === null
       ? []
       : [{ to: toolHref(TAP_DRILL_TOOL_PATH, { d: size.d, p: pitch }), label: `M${size.d} のねじ下穴（並目）` }]),

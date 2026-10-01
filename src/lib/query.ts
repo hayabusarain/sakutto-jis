@@ -13,6 +13,37 @@ export function toQuery<T extends FlatState<T>>(state: T, defaults: T): string {
   return params.toString()
 }
 
+/**
+ * 入力を URL に書くときのクエリ。基本は toQuery と同じく既定値と違う項目だけにするが、
+ * 開き直したときに normalize（一部だけ指定された URL の補完）で別の値に変わってしまう項目は省かずに書く。
+ * 例: M16×1.5（細目）で p=1.5 が既定値と同じでも、"d=16" だけだと並目の 2 に補完されるので "d=16&p=1.5" にする。
+ */
+export function stateQuery<T extends FlatState<T>>(
+  state: T,
+  defaults: T,
+  normalize?: (state: T, keys: readonly (keyof T)[]) => T,
+): string {
+  const short = toQuery(state, defaults)
+  if (!normalize || short === '') return short
+  const keys = Object.keys(defaults) as (keyof T & string)[]
+  const restore = (query: string) => {
+    const parsed = fromQuery(query, defaults)
+    return parsed ? normalize(parsed.state, parsed.keys) : null
+  }
+  const restored = restore(short)
+  if (restored && keys.every((key) => restored[key] === state[key])) return short
+
+  // 変わってしまう項目を足す。それでも戻らなければ全項目を書く
+  const params = new URLSearchParams(short)
+  for (const key of keys) {
+    if (!restored || restored[key] !== state[key]) params.set(key, String(state[key]))
+  }
+  const longer = params.toString()
+  const again = restore(longer)
+  if (again && keys.every((key) => again[key] === state[key])) return longer
+  return new URLSearchParams(keys.map((key) => [key, String(state[key])])).toString()
+}
+
 export interface QueryState<T> {
   /** 既定値に URL の値を重ねたもの */
   state: T

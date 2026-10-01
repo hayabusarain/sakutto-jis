@@ -1,7 +1,13 @@
 /**
  * 寸法表ページに載せる行を、各ツールの data.ts・calc.ts から作る（数値を手書きしない）。
  */
-import { boltLength, type BoltLengthInput, type BoltLengthResult } from '../../features/flange-bolt/calc'
+import {
+  boltLength,
+  isRowUnverified,
+  isUnverified,
+  type BoltLengthInput,
+  type BoltLengthResult,
+} from '../../features/flange-bolt/calc'
 import { FLANGES, type FlangeRow, type PressureClass } from '../../features/flange-bolt/data'
 import { findORing, flatGroove, oRingNumbers, type ORing } from '../../features/o-ring/calc'
 import type { CrossSectionGroup, GroupKey, ORingSeries } from '../../features/o-ring/data'
@@ -23,13 +29,11 @@ export const TABLE_BOLT_CONDITIONS = {
 } as const satisfies Partial<BoltLengthInput>
 
 /**
- * 規格原文での確認が済んでいない値（docs/data-verification.md で確度 △ のもの）。
+ * 規格原文での確認が済んでいない値（ツールと同じ UNVERIFIED で判定する）。
  * row: 行全体（5K・10K の 90A・175A・225A）/ t: 厚さ（16K の全サイズ、5K 50A）
  */
 export function flangeUnverified(pressure: PressureClass, size: string): { row: boolean; t: boolean } {
-  const row = (pressure === '5K' || pressure === '10K') && ['90A', '175A', '225A'].includes(size)
-  const t = row || pressure === '16K' || (pressure === '5K' && size === '50A')
-  return { row, t }
+  return { row: isRowUnverified(pressure, size), t: isUnverified(pressure, size, 't') }
 }
 
 export interface FlangeTableRow extends FlangeRow {

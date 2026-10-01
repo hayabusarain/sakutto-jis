@@ -17,7 +17,7 @@ export default function App({ initialPath }: { initialPath: string }) {
 }
 
 function Shell() {
-  const { pathname } = useRouter()
+  const { pathname, revision } = useRouter()
   const page = findPage(pathname)
   const mainRef = useRef<HTMLElement>(null)
   const isFirstRender = useRef(true)
@@ -40,7 +40,7 @@ function Shell() {
   }, [page])
 
   let content = <NotFoundPage />
-  if (page?.tool) content = <ToolPage key={page.path} tool={page.tool} />
+  if (page?.tool) content = <ToolPage key={`${page.path}#${revision}`} tool={page.tool} />
   else if (page?.component) content = <page.component />
 
   return (
