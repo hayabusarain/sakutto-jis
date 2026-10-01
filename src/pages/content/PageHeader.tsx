@@ -8,7 +8,7 @@ import { standardLabel, type StandardCode } from '../../standards'
 /** ホーム › ツール › このページ のような、何段でも表示できるパンくず */
 export function TrailBreadcrumb({ trail }: { trail: readonly Crumb[] }) {
   return (
-    <nav aria-label="パンくずリスト" className="text-xs text-zinc-500">
+    <nav aria-label="パンくずリスト" className="text-xs text-zinc-600">
       <ol className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
         {trail.map((crumb, index) => {
           const last = index === trail.length - 1
@@ -128,7 +128,7 @@ export function ActionLink({ to, children }: { to: string; children: ReactNode }
   return (
     <Link
       to={to}
-      className="inline-flex min-h-11 items-center gap-1.5 rounded-sm bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700"
+      className="inline-flex min-h-11 items-center gap-1.5 rounded-sm bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-700 print:hidden"
     >
       {children}
       <ChevronRight className="size-4 shrink-0 text-orange-500" aria-hidden />

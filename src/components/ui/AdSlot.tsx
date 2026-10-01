@@ -45,7 +45,7 @@ export function AdSlot({ slot, className = '' }: AdSlotProps) {
 
   return (
     <aside aria-label="広告" className={`my-6 print:hidden ${className}`}>
-      <p className="mb-1 text-center text-[11px] tracking-wider text-zinc-500">スポンサーリンク</p>
+      <p className="mb-1 text-center text-[11px] tracking-wider text-zinc-600">スポンサーリンク</p>
       <ins
         key={pathname}
         className="adsbygoogle block min-h-[280px] w-full overflow-hidden sm:min-h-[120px]"

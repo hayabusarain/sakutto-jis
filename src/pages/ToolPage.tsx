@@ -65,7 +65,7 @@ export function ToolPage({ tool }: { tool: ToolDefinition }) {
 
       {related && (
         <section className="mt-6 print:hidden" aria-labelledby="related-pages">
-          <h2 id="related-pages" className="text-xs font-bold tracking-wider text-zinc-500">
+          <h2 id="related-pages" className="text-xs font-bold tracking-wider text-zinc-600">
             {related.title}
           </h2>
           <ChipNav label={related.title} className="mt-2" links={related.links} />

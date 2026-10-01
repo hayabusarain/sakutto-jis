@@ -28,7 +28,7 @@ export function Card({
   return (
     <section id={id} className={`rounded-md border border-zinc-200 bg-white ${className}`}>
       <header className="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-zinc-200 px-4 py-2">
-        {index && <span className="num text-xs font-bold text-orange-600">{index}</span>}
+        {index && <span className="num text-xs font-bold text-orange-700">{index}</span>}
         {Icon && <Icon className="size-4 shrink-0 text-zinc-500" aria-hidden />}
         <h2 className="min-w-0 text-sm font-bold tracking-wide text-zinc-800">{title}</h2>
         {/* 狭い画面では見出しの下の行に回り込む */}

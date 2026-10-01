@@ -25,10 +25,10 @@ export function FormulaInfo({ title = '計算ロジック', children }: FormulaI
   )
 }
 
-/** 計算式を等幅で1行に表示する */
+/** 計算式を等幅で1行に表示する（長い式は横にスクロール。印刷では紙の幅で折り返す） */
 export function Formula({ children }: { children: ReactNode }) {
   return (
-    <p className="num overflow-x-auto rounded-sm border border-zinc-200 bg-white px-3 py-2 text-[13px] whitespace-nowrap text-zinc-900">
+    <p className="num overflow-x-auto rounded-sm border border-zinc-200 bg-white px-3 py-2 text-[13px] whitespace-nowrap text-zinc-900 print:overflow-visible print:whitespace-normal print:wrap-anywhere">
       {children}
     </p>
   )

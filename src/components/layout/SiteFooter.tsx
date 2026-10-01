@@ -33,7 +33,7 @@ export function SiteFooter() {
         <div className="mt-8 grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-6">
           {CATEGORIES.map((category) => (
             <div key={category}>
-              <h2 className="text-xs font-semibold tracking-wider text-zinc-500">
+              <h2 className="text-xs font-semibold tracking-wider text-zinc-400">
                 {CATEGORY_LABELS[category]}
               </h2>
               <ul className="mt-2 space-y-2 text-sm">
@@ -48,7 +48,7 @@ export function SiteFooter() {
             </div>
           ))}
           <div>
-            <h2 className="text-xs font-semibold tracking-wider text-zinc-500">寸法表</h2>
+            <h2 className="text-xs font-semibold tracking-wider text-zinc-400">寸法表</h2>
             <ul className="mt-2 space-y-2 text-sm">
               {TABLE_LINKS.map((page) => (
                 <li key={page.path}>
@@ -60,7 +60,7 @@ export function SiteFooter() {
             </ul>
           </div>
           <div>
-            <h2 className="text-xs font-semibold tracking-wider text-zinc-500">サイト情報</h2>
+            <h2 className="text-xs font-semibold tracking-wider text-zinc-400">サイト情報</h2>
             <ul className="mt-2 space-y-2 text-sm">
               {SITE_PAGES.map((page) => (
                 <li key={page.path}>
@@ -73,7 +73,7 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <p className="num mt-8 border-t border-zinc-800 pt-4 text-xs text-zinc-500">
+        <p className="num mt-8 border-t border-zinc-800 pt-4 text-xs text-zinc-400">
           © {SITE.startYear} {SITE.name}
         </p>
       </div>

@@ -57,10 +57,10 @@ export function TableExport({ title, filename, headers, rows, note }: TableExpor
   }
 
   const button =
-    'inline-flex h-8 shrink-0 items-center gap-1 rounded-sm border border-zinc-300 bg-white px-2 text-xs font-semibold whitespace-nowrap text-zinc-700 hover:border-zinc-500 hover:text-zinc-900 print:hidden'
+    'inline-flex h-10 shrink-0 items-center gap-1 rounded-sm border border-zinc-300 bg-white px-2 text-xs font-semibold whitespace-nowrap text-zinc-700 hover:border-zinc-500 hover:text-zinc-900 print:hidden'
 
   return (
-    <div className="flex shrink-0 items-center gap-1.5">
+    <div className="flex shrink-0 items-center gap-2">
       <button type="button" onClick={handleCopy} className={button} title="Excel などに貼り付けられる形でコピー">
         {copied ? (
           <Check className="size-3.5 text-emerald-600" aria-hidden />

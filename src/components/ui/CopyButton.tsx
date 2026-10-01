@@ -28,7 +28,7 @@ export function CopyButton({ text, label = '結果をコピー', withUrl = true 
     <button
       type="button"
       onClick={handleClick}
-      className="inline-flex h-8 items-center gap-1.5 rounded-sm border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 hover:border-zinc-500 hover:text-zinc-900 print:hidden"
+      className="inline-flex h-10 items-center gap-1.5 rounded-sm border border-zinc-300 bg-white px-2.5 text-xs font-semibold text-zinc-700 hover:border-zinc-500 hover:text-zinc-900 print:hidden"
     >
       {status === 'copied' ? (
         <Check className="size-3.5 text-emerald-600" aria-hidden />
