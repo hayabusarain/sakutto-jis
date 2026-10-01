@@ -1,5 +1,7 @@
-import { Calculator, ClipboardList, Download, PenTool, Table2 } from 'lucide-react'
+import { Calculator, ChevronDown, ClipboardList, Download, PenTool, Search } from 'lucide-react'
+import { useState } from 'react'
 import { Citation } from '../../components/Citation'
+import { RelatedLinks, type RelatedLink } from '../../components/RelatedLinks'
 import { Card } from '../../components/ui/Card'
 import { CopyButton } from '../../components/ui/CopyButton'
 import { DataTable, type Column } from '../../components/ui/DataTable'
@@ -8,66 +10,43 @@ import { NumberField } from '../../components/ui/NumberField'
 import { PrimaryResult, ResultItem } from '../../components/ui/ResultItem'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { SelectField } from '../../components/ui/SelectField'
+import { StickyResult } from '../../components/ui/StickyResult'
+import { TableExport } from '../../components/ui/TableExport'
 import { useToolState } from '../../hooks/useToolState'
 import { downloadText } from '../../lib/download'
 import { parseNumber, trim } from '../../lib/format'
+import { toolHref } from '../../lib/query'
 import { standardLabel, type StandardCode } from '../../standards'
+import { pipeDimensions } from '../steel-pipe/calc'
+import { ClassComparisonCard } from './ClassComparisonCard'
 import {
-  boltLength,
   findFlange,
+  flangeBoltLength,
+  isRowUnverified,
+  isUnverified,
+  nearestSize,
   protrusionThreads,
-  type BoltType,
-  type NutKind,
-  type Rounding,
+  spannerSize,
+  type BoltConditions,
 } from './calc'
-import { FLANGES, PIPE_OD, PRESSURE_CLASSES, type FlangeRow, type PressureClass } from './data'
-import { boltHolePositions, flangeDxf, isDrawableBore } from './drawing'
+import {
+  COARSE_PITCH,
+  FLANGES,
+  PIPE_OD,
+  PRESSURE_CLASSES,
+  UNVERIFIED_LEGEND,
+  type FlangeRow,
+  type PressureClass,
+} from './data'
+import { dxfFilename, flangeDxf, isDrawableBore, tapDrillFor, type DrawingKind } from './drawing'
+import { ExportInAside, ExportInBody } from './ExportSlot'
+import { FlangePreview } from './FlangePreview'
+import { IDENTIFY_CARD_ID, IdentifyCard } from './IdentifyCard'
+import { DEFAULT_INPUT, isFlangeInput, normalizeFlangeInput, THREAD_CHOICES } from './input'
+import { BOLT_TYPE_LABELS, conditionsText, detailSummary, markedText, NUT_LABELS, sizeLabel } from './labels'
+import { Marked, UnverifiedLegend } from './Unverified'
 
-interface FlangeInput {
-  pressure: PressureClass
-  size: string
-  type: BoltType
-  gasket: string
-  nut: NutKind
-  washers: 0 | 1 | 2
-  threads: number
-  /** 相手側フランジの厚さ（空欄なら同じフランジ） */
-  t2: string
-  rounding: Rounding
-  /** 図面の内径（空欄なら SGP の外径） */
-  bore: string
-}
-
-const DEFAULT_INPUT: FlangeInput = {
-  pressure: '10K',
-  size: '50A',
-  type: 'hex',
-  gasket: '3',
-  nut: 'style1',
-  washers: 0,
-  threads: 3,
-  t2: '',
-  rounding: '5mm',
-  bore: '',
-}
-
-function isFlangeInput(value: unknown): value is FlangeInput {
-  if (typeof value !== 'object' || value === null) return false
-  const v = value as Record<string, unknown>
-  return (
-    PRESSURE_CLASSES.includes(v.pressure as PressureClass) &&
-    typeof v.size === 'string' &&
-    findFlange(v.pressure as PressureClass, v.size) !== undefined &&
-    (v.type === 'hex' || v.type === 'stud') &&
-    typeof v.gasket === 'string' &&
-    (v.nut === 'style1' || v.nut === 'ja1') &&
-    (v.washers === 0 || v.washers === 1 || v.washers === 2) &&
-    typeof v.threads === 'number' &&
-    typeof v.t2 === 'string' &&
-    (v.rounding === '5mm' || v.rounding === 'jis') &&
-    typeof v.bore === 'string'
-  )
-}
+const RESULT_CARD_ID = 'flange-result'
 
 const PRESSURE_OPTIONS = PRESSURE_CLASSES.map((p) => ({ value: p, label: p }))
 const TYPE_OPTIONS = [
@@ -75,54 +54,33 @@ const TYPE_OPTIONS = [
   { value: 'stud', label: 'スタッド' },
 ] as const
 const NUT_OPTIONS = [
-  { value: 'style1', label: 'JIS本体' },
-  { value: 'ja1', label: '旧JIS 1種' },
+  { value: 'style1', label: NUT_LABELS.style1 },
+  { value: 'ja1', label: NUT_LABELS.ja1 },
 ] as const
 const WASHER_OPTIONS = [
   { value: '0', label: 'なし' },
   { value: '1', label: '片側' },
   { value: '2', label: '両側' },
 ] as const
-const THREAD_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n}山` }))
+const THREAD_OPTIONS = THREAD_CHOICES.map((n) => ({ value: String(n), label: `${n}山` }))
 const ROUNDING_OPTIONS = [
   { value: '5mm', label: '5mm刻み' },
   { value: 'jis', label: 'JIS標準長さ' },
 ] as const
-
-function FlangePreview({ row, bore }: { row: FlangeRow; bore: number }) {
-  const r = row.D / 2
-  const margin = 12
-  const size = r + margin
-  const holes = boltHolePositions(row)
-  return (
-    <svg
-      viewBox={`${-size} ${-size} ${size * 2} ${size * 2}`}
-      className="mx-auto block aspect-square w-full max-w-72"
-      role="img"
-      aria-label={`フランジ正面図: 外径${row.D}、PCD${row.C}、ボルト穴${row.n}-φ${row.h}`}
-    >
-      <circle r={r} className="fill-zinc-100 stroke-zinc-900" strokeWidth={r / 90} />
-      {isDrawableBore(row, bore) && (
-        <circle r={bore / 2} className="fill-white stroke-zinc-900" strokeWidth={r / 90} />
-      )}
-      <circle
-        r={row.C / 2}
-        className="fill-none stroke-orange-600"
-        strokeWidth={r / 180}
-        strokeDasharray={`${r / 12} ${r / 30} ${r / 60} ${r / 30}`}
-      />
-      <line x1={-size} x2={size} y1={0} y2={0} className="stroke-orange-600" strokeWidth={r / 180} strokeDasharray={`${r / 12} ${r / 30} ${r / 60} ${r / 30}`} />
-      <line y1={-size} y2={size} x1={0} x2={0} className="stroke-orange-600" strokeWidth={r / 180} strokeDasharray={`${r / 12} ${r / 30} ${r / 60} ${r / 30}`} />
-      {holes.map((hole, i) => (
-        // SVG は下向きが +y なので反転して、DXF と同じ向きにする
-        <circle key={i} cx={hole.x} cy={-hole.y} r={row.h / 2} className="fill-white stroke-zinc-900" strokeWidth={r / 90} />
-      ))}
-    </svg>
-  )
-}
+const DRAWING_OPTIONS = [
+  { value: 'flange', label: '本体' },
+  { value: 'through', label: '通し穴' },
+  { value: 'tap', label: 'タップ' },
+] as const
+/** 現場でよく使う呼び径 */
+const QUICK_SIZES = ['15A', '20A', '25A', '40A', '50A', '80A', '100A', '150A'] as const
 
 export function FlangeBoltTool() {
-  const [input, setInput] = useToolState('flange-bolt', DEFAULT_INPUT, isFlangeInput)
+  const [input, setInput] = useToolState('flange-bolt', DEFAULT_INPUT, isFlangeInput, normalizeFlangeInput)
+  const [drawingKind, setDrawingKind] = useState<DrawingKind>('flange')
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [sizeNotice, setSizeNotice] = useState<string | null>(null)
+
   const row = findFlange(input.pressure, input.size) ?? FLANGES['10K'][6]
   const sizes = FLANGES[input.pressure]
 
@@ -135,83 +93,176 @@ export function FlangeBoltTool() {
   const t2Valid = t2Blank || (t2Input !== null && t2Input > 0 && t2Input < 200)
   const t2 = t2Blank || t2Input === null ? row.t : t2Input
 
+  // 詳細条件の中にエラーが出たら開く（描画中に前回の値と比べて state を直す、React の推奨パターン）
+  const [prevT2Valid, setPrevT2Valid] = useState(t2Valid)
+  if (prevT2Valid !== t2Valid) {
+    setPrevT2Valid(t2Valid)
+    if (!t2Valid) setDetailsOpen(true)
+  }
+
   // 図面の内径は「空欄なら管外径、0 なら穴なし」。それ以外で描けない値はエラーにする
   const boreBlank = input.bore.trim() === ''
   const boreInput = parseNumber(input.bore)
   const bore = boreBlank ? PIPE_OD[row.size] : (boreInput ?? 0)
   const boreValid = boreBlank || boreInput === 0 || (boreInput !== null && isDrawableBore(row, boreInput))
 
-  const result = gasketValid && t2Valid
-    ? boltLength({
-        bolt: row.bolt,
-        t1: row.t,
-        t2,
-        gasket,
-        washers: input.washers,
-        nut: input.nut,
-        threads: input.threads,
-        type: input.type,
-        rounding: input.rounding,
-      })
-    : null
+  const conditions: BoltConditions | null =
+    gasketValid && t2Valid
+      ? {
+          type: input.type,
+          gasket,
+          washers: input.washers,
+          nut: input.nut,
+          threads: input.threads,
+          rounding: input.rounding,
+          t2: t2Blank ? null : t2Input,
+        }
+      : null
+  const result = conditions ? flangeBoltLength(row, conditions) : null
 
   const nuts = input.type === 'stud' ? 2 : 1
+  const spanner = spannerSize(row.bolt, input.nut)
+  const otherNut = input.nut === 'style1' ? 'ja1' : 'style1'
+  const otherSpanner = spannerSize(row.bolt, otherNut)
+  const rowUnverified = isRowUnverified(input.pressure, row.size)
+  const tUnverified = isUnverified(input.pressure, row.size, 't')
+
   const citedStandards: StandardCode[] = [
     'JIS B 2220',
     'JIS B 1181',
+    ...(input.type === 'hex' || input.rounding === 'jis' ? (['JIS B 1180'] as const) : []),
     'JIS B 0205-2',
     ...(input.washers > 0 ? (['JIS B 1256'] as const) : []),
-    ...(input.rounding === 'jis' ? (['JIS B 1180'] as const) : []),
   ]
-  const boltName = input.type === 'stud' ? 'スタッドボルト' : '六角ボルト'
+  const boltName = BOLT_TYPE_LABELS[input.type]
   const spec = result?.length ? `M${row.bolt} × ${result.length}` : `M${row.bolt}`
+  const spannerUse = input.type === 'stud' ? '両側のナット用' : '頭側・ナット側'
 
+  const selectFlange = (pressure: PressureClass, size: string) => {
+    setSizeNotice(null)
+    setInput({ ...input, pressure, size })
+  }
   const changePressure = (pressure: PressureClass) => {
-    // 同じ呼び径が無い圧力（16K・20K に 175A・225A は無い）に切り替えたら 50A にする
-    const size = findFlange(pressure, input.size) ? input.size : '50A'
+    // 同じ呼び径が無い圧力（16K・20K に 90A・175A・225A は無い）に切り替えたら、最も近い呼び径にする
+    const size = nearestSize(pressure, input.size)
+    setSizeNotice(size === input.size ? null : `${pressure} に ${input.size} は無いため、${size} にしました。`)
     setInput({ ...input, pressure, size })
   }
 
   const copyText = [
     `【フランジボルト】JIS ${input.pressure} ${row.size}`,
-    `${boltName} ${spec}　${row.n}本（ナット ${row.n * nuts}個${input.washers ? `・座金 ${row.n * input.washers}枚` : ''}）`,
-    result ? `必要長さ ${trim(result.required)} mm（ガスケット ${trim(gasket ?? 0)} mm・突き出し ${input.threads}山）` : '',
-    `外径 ${row.D} / PCD ${row.C} / 穴 ${row.n}-φ${row.h} / 厚さ ${row.t}`,
+    `${boltName} ${markedText(spec, tUnverified && Boolean(result?.length))}　${row.n}本（ナット ${row.n * nuts}個${input.washers ? `・座金 ${row.n * input.washers}枚` : ''}）`,
+    spanner ? `スパナ ${spanner} mm × 2（${spannerUse}・${NUT_LABELS[input.nut]}）` : '',
+    result
+      ? `必要長さ ${trim(result.required)} mm（ガスケット ${trim(gasket ?? 0)} mm・突き出し ${input.threads}山${
+          t2Blank ? '' : `・相手側 ${trim(t2)} mm`
+        }）`
+      : '',
+    `外径 ${markedText(row.D, rowUnverified)} / PCD ${markedText(row.C, rowUnverified)} / 穴 ${markedText(
+      `${row.n}-φ${row.h}`,
+      rowUnverified,
+    )} / 厚さ ${markedText(row.t, tUnverified)}`,
+    tUnverified ? UNVERIFIED_LEGEND : '',
     `典拠: ${citedStandards.map(standardLabel).join(' / ')}`,
     '（サクッとJIS）',
   ]
     .filter(Boolean)
     .join('\n')
 
+  const relatedLinks: RelatedLink[] = [
+    { to: toolHref('/bolt-size', { d: row.bolt }), label: `M${row.bolt} のボルト・ナット寸法` },
+    { to: toolHref('/tap-drill', { d: row.bolt, p: COARSE_PITCH[row.bolt] }), label: `M${row.bolt} のタップ下穴` },
+    ...(pipeDimensions('sgp', row.size)
+      ? [{ to: toolHref('/steel-pipe', { spec: 'sgp', a: row.size }), label: `SGP ${row.size} の管の寸法・重量` }]
+      : []),
+  ]
+
+  const drawingOptions = { kind: drawingKind, bore, boreIsPipeOd: boreBlank }
+  const tapDrill = tapDrillFor(row.bolt)
   const downloadDxf = () => {
     downloadText(
-      `flange_JIS${input.pressure}_${row.size}.dxf`,
-      flangeDxf(input.pressure, row, bore),
+      dxfFilename(input.pressure, row.size, drawingKind),
+      flangeDxf(input.pressure, row, drawingOptions),
       'application/dxf',
     )
   }
 
+  const lengthOf = (r: FlangeRow) => (conditions ? flangeBoltLength(r, conditions).length : null)
+  const cellUnverified = (r: FlangeRow, field: 'D' | 't') => isUnverified(input.pressure, r.size, field)
   const columns: Column<FlangeRow>[] = [
     { key: 'size', header: '呼び径', cell: (r) => r.size },
-    { key: 'D', header: '外径 D', cell: (r) => r.D },
-    { key: 'C', header: 'PCD C', cell: (r) => r.C },
-    { key: 'n', header: '穴数', cell: (r) => r.n },
-    { key: 'h', header: '穴径 h', cell: (r) => r.h },
-    { key: 'bolt', header: 'ボルト', cell: (r) => `M${r.bolt}` },
-    { key: 't', header: '厚さ t', cell: (r) => r.t },
+    { key: 'D', header: '外径 D', cell: (r) => <Marked value={r.D} unverified={cellUnverified(r, 'D')} /> },
+    { key: 'C', header: 'PCD C', cell: (r) => <Marked value={r.C} unverified={cellUnverified(r, 'D')} /> },
+    { key: 'n', header: '穴数', cell: (r) => <Marked value={r.n} unverified={cellUnverified(r, 'D')} /> },
+    { key: 'h', header: '穴径 h', cell: (r) => <Marked value={r.h} unverified={cellUnverified(r, 'D')} /> },
+    { key: 't', header: '厚さ t', cell: (r) => <Marked value={r.t} unverified={cellUnverified(r, 't')} /> },
+    {
+      // ボルトの呼び × 今の条件の長さ（例: M16×60）。部品表にそのまま使える形
+      key: 'bolt',
+      header: 'ボルト（今の条件）',
+      cell: (r) => <Marked value={`M${r.bolt}×${lengthOf(r) ?? '—'}`} unverified={cellUnverified(r, 't')} />,
+    },
   ]
+  const tableHasUnverified = sizes.some((r) => cellUnverified(r, 't'))
+  const conditionNote = conditions ? conditionsText(conditions) : '入力エラーのため計算していません'
+
+  const tableExport = (
+    <TableExport
+      title={`JIS ${input.pressure} フランジ寸法表（JIS B 2220 並形）`}
+      filename={`flange_JIS${input.pressure}`}
+      headers={['呼び径', '外径 D [mm]', 'PCD C [mm]', '穴数', '穴径 h [mm]', '厚さ t [mm]', 'ボルト', 'ボルト長さ [mm]']}
+      rows={sizes.map((r) => {
+        const rowMark = cellUnverified(r, 'D')
+        const tMark = cellUnverified(r, 't')
+        const length = lengthOf(r)
+        return [
+          r.size,
+          markedText(r.D, rowMark),
+          markedText(r.C, rowMark),
+          markedText(r.n, rowMark),
+          markedText(r.h, rowMark),
+          markedText(r.t, tMark),
+          markedText(`M${r.bolt}`, rowMark),
+          length === null ? '' : markedText(length, tMark),
+        ]
+      })}
+      note={`典拠: ${standardLabel('JIS B 2220')}（${input.pressure} 並形）。ボルト長さは計算値（${conditionNote}）。${UNVERIFIED_LEGEND}`}
+    />
+  )
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-6">
-      <Card title="条件" index="01" icon={ClipboardList}>
+      <Card title="条件" index="01" icon={ClipboardList} className="lg:self-start">
         <div className="grid gap-4">
-          <SegmentedControl label="呼び圧力" value={input.pressure} options={PRESSURE_OPTIONS} onChange={changePressure} />
-          <SelectField
-            label="呼び径"
-            value={row.size}
-            options={sizes.map((r) => ({ value: r.size, label: r.size }))}
-            onChange={(size) => setInput({ ...input, size })}
-          />
+          <div>
+            <SegmentedControl label="呼び圧力" value={input.pressure} options={PRESSURE_OPTIONS} onChange={changePressure} />
+            {sizeNotice && (
+              <p className="mt-1 text-xs font-semibold text-orange-800" role="status">
+                {sizeNotice}
+              </p>
+            )}
+          </div>
+          <div>
+            <SelectField
+              label="呼び径"
+              value={row.size}
+              options={sizes.map((r) => ({
+                value: r.size,
+                label: `${sizeLabel(r.size)}${isRowUnverified(input.pressure, r.size) ? '※' : ''}`,
+              }))}
+              onChange={(size) => selectFlange(input.pressure, size)}
+              stepper
+              quickPicks={QUICK_SIZES}
+            />
+            <button
+              type="button"
+              onClick={() => document.getElementById(IDENTIFY_CARD_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="mt-1 inline-flex min-h-10 items-center gap-1 text-xs font-semibold text-zinc-700 underline underline-offset-2 hover:text-zinc-900"
+            >
+              <Search className="size-3.5 text-orange-600" aria-hidden />
+              呼び径・圧力がわからないときは、実測から探す
+            </button>
+          </div>
           <SegmentedControl
             label="ボルトの種類"
             value={input.type}
@@ -225,58 +276,91 @@ export function FlangeBoltTool() {
             onChange={(value) => setInput({ ...input, gasket: value })}
             placeholder="3"
             unit="mm"
+            error={gasketValid ? undefined : '0 以上 50 未満の数値で入力してください'}
             hint="シートガスケットは 1.5・2・3 mm がよく使われます。"
           />
-          <SegmentedControl
-            label="ナット"
-            value={input.nut}
-            options={NUT_OPTIONS}
-            onChange={(nut) => setInput({ ...input, nut })}
-            hint="JIS本体はスタイル1の最大高さ、旧JISは附属書JA 1種の高さで計算します。"
-          />
-          <div className="grid gap-4">
-            <SegmentedControl
-              label="平座金"
-              value={String(input.washers)}
-              options={WASHER_OPTIONS}
-              onChange={(value) => setInput({ ...input, washers: Number(value) as 0 | 1 | 2 })}
-            />
-            <SegmentedControl
-              label="ナットからの突き出し"
-              value={String(input.threads)}
-              options={THREAD_OPTIONS}
-              onChange={(value) => setInput({ ...input, threads: Number(value) })}
-            />
-          </div>
-          <NumberField
-            label="相手側フランジの厚さ（任意）"
-            value={input.t2}
-            onChange={(value) => setInput({ ...input, t2: value })}
-            placeholder={`空欄なら同じ ${row.t}`}
-            unit="mm"
-            error={t2Valid ? undefined : '正の数値で入力してください（空欄なら同じ厚さ）'}
-            hint="バルブや機器のフランジと組むときなど、相手の厚さが違う場合に入力します。"
-          />
-          <SegmentedControl
-            label="長さの丸め"
-            value={input.rounding}
-            options={ROUNDING_OPTIONS}
-            onChange={(rounding) => setInput({ ...input, rounding })}
-          />
+
+          <details
+            open={detailsOpen}
+            onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+            className="group rounded-md border border-zinc-200"
+          >
+            <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-3 py-2 hover:bg-zinc-50 [&::-webkit-details-marker]:hidden">
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-zinc-800">詳細条件</span>
+                {!t2Valid && (
+                  <span className="block text-xs font-semibold text-red-700">相手側フランジの厚さを確認してください</span>
+                )}
+                <span className="block text-xs leading-relaxed text-zinc-500">
+                  {detailSummary({
+                    nut: input.nut,
+                    washers: input.washers,
+                    threads: input.threads,
+                    t2: t2Blank ? null : t2Valid ? t2 : 'error',
+                    rounding: input.rounding,
+                  })}
+                </span>
+              </span>
+              <ChevronDown className="size-5 shrink-0 text-zinc-500 transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="grid gap-4 border-t border-zinc-200 p-3">
+              <SegmentedControl
+                label="ナット"
+                value={input.nut}
+                options={NUT_OPTIONS}
+                onChange={(nut) => setInput({ ...input, nut })}
+                hint="JIS本体はスタイル1の最大高さ、旧JISは附属書JA 1種の高さで計算します。スパナの大きさもこれに合わせます。"
+              />
+              <SegmentedControl
+                label="平座金"
+                value={String(input.washers) as '0' | '1' | '2'}
+                options={WASHER_OPTIONS}
+                onChange={(value) => setInput({ ...input, washers: Number(value) as 0 | 1 | 2 })}
+              />
+              <SegmentedControl
+                label="ナットからの突き出し"
+                value={String(input.threads)}
+                options={THREAD_OPTIONS}
+                onChange={(value) => setInput({ ...input, threads: Number(value) })}
+              />
+              <NumberField
+                label="相手側フランジの厚さ（任意）"
+                value={input.t2}
+                onChange={(value) => setInput({ ...input, t2: value })}
+                placeholder={`空欄なら同じ ${row.t}`}
+                unit="mm"
+                error={t2Valid ? undefined : '正の数値で入力してください（空欄なら同じ厚さ）'}
+                hint="バルブや機器のフランジと組むときなど、相手の厚さが違う場合に入力します。"
+              />
+              <SegmentedControl
+                label="長さの丸め"
+                value={input.rounding}
+                options={ROUNDING_OPTIONS}
+                onChange={(rounding) => setInput({ ...input, rounding })}
+              />
+            </div>
+          </details>
         </div>
       </Card>
 
-      <Card title="結果" index="02" icon={Calculator} aside={<CopyButton text={copyText} />}>
+      <Card
+        title="結果"
+        index="02"
+        icon={Calculator}
+        id={RESULT_CARD_ID}
+        className="lg:row-span-2 lg:self-start"
+        aside={<CopyButton text={copyText} />}
+      >
         <PrimaryResult
           label={`${boltName}の長さ（JIS ${input.pressure} ${row.size}）`}
-          value={result?.length ?? undefined}
+          value={result?.length == null ? undefined : <Marked value={result.length} unverified={tUnverified} dark large />}
           unit="mm"
         >
           {!result ? (
             !gasketValid ? (
               'ガスケットの厚さを数値で入力してください。'
             ) : (
-              '相手側フランジの厚さを正の数値で入力してください（空欄なら同じ厚さ）。'
+              '相手側フランジの厚さを正の数値で入力してください（詳細条件。空欄なら同じ厚さ）。'
             )
           ) : result.length === null ? (
             'JIS標準長さ（300mmまで）を超えています。5mm刻みに切り替えてください。'
@@ -288,12 +372,39 @@ export function FlangeBoltTool() {
               <br />
               計算上の必要長さ <span className="num">{trim(result.required)} mm</span> を
               {input.rounding === '5mm' ? '5mm刻み' : 'JIS標準長さ'}に切り上げ
+              {tUnverified && (
+                <>
+                  <br />
+                  <span className="text-orange-300">
+                    ※ {input.pressure} {row.size} のフランジ厚さ t は規格原文で未確認のため、長さも確認してください。
+                  </span>
+                </>
+              )}
             </>
           )}
         </PrimaryResult>
 
         <dl className="mt-3">
-          <ResultItem label="ボルトの呼び × 本数" value={`M${row.bolt} × ${row.n}`} unit="本" />
+          <ResultItem
+            label="ボルトの呼び × 本数"
+            value={<Marked value={`M${row.bolt} × ${row.n}`} unverified={rowUnverified} />}
+            unit="本"
+            note={`ナット ${row.n * nuts}個${input.washers ? `・平座金 ${row.n * input.washers}枚` : ''}`}
+          />
+          <ResultItem
+            label="スパナ（二面幅）"
+            value={spanner}
+            unit="mm"
+            note={
+              spanner === undefined
+                ? undefined
+                : `${spannerUse}に2本（${NUT_LABELS[input.nut]}）${
+                    otherSpanner !== undefined && otherSpanner !== spanner
+                      ? `。${NUT_LABELS[otherNut]}なら ${otherSpanner} mm`
+                      : ''
+                  }`
+            }
+          />
           <ResultItem
             label="ナットからの実際の突き出し"
             value={result?.actualProtrusion == null ? undefined : trim(result.actualProtrusion)}
@@ -304,23 +415,35 @@ export function FlangeBoltTool() {
                 : undefined
             }
           />
-          <ResultItem label="フランジ外径 D" value={row.D} unit="mm" />
-          <ResultItem label="ボルト穴中心円の径（PCD）C" value={row.C} unit="mm" />
-          <ResultItem label="ボルト穴" value={`${row.n}-φ${row.h}`} />
-          <ResultItem label="フランジの厚さ t" value={row.t} unit="mm" />
+          <ResultItem label="フランジ外径 D" value={<Marked value={row.D} unverified={rowUnverified} />} unit="mm" />
+          <ResultItem
+            label="ボルト穴中心円の径（PCD）C"
+            value={<Marked value={row.C} unverified={rowUnverified} />}
+            unit="mm"
+          />
+          <ResultItem label="ボルト穴" value={<Marked value={`${row.n}-φ${row.h}`} unverified={rowUnverified} />} />
+          <ResultItem label="フランジの厚さ t" value={<Marked value={row.t} unverified={tUnverified} />} unit="mm" />
         </dl>
+        {tUnverified && (
+          <UnverifiedLegend className="mt-2">
+            {rowUnverified
+              ? `（${input.pressure} ${row.size} は寸法すべてが未確認です）`
+              : '（公開前に規格原文で確認中）'}
+          </UnverifiedLegend>
+        )}
 
         <div className="mt-3 space-y-1">
           <Citation code="JIS B 2220" detail={`${input.pressure}（並形）`} suffix="のフランジ寸法" />
-          <Citation code="JIS B 1181" suffix="のナット高さ" />
+          <Citation code="JIS B 1181" suffix="のナット高さ・二面幅" />
+          {input.type === 'hex' && input.rounding === 'jis' && (
+            <Citation code="JIS B 1180" suffix="のボルト頭の二面幅・呼び長さの系列" />
+          )}
+          {input.type === 'hex' && input.rounding === '5mm' && <Citation code="JIS B 1180" suffix="のボルト頭の二面幅" />}
+          {input.type === 'stud' && input.rounding === 'jis' && (
+            <Citation code="JIS B 1180" suffix="の六角ボルトの呼び長さの系列を準用" />
+          )}
           {input.washers > 0 && <Citation code="JIS B 1256" suffix="の座金厚さ（並形）" />}
           <Citation code="JIS B 0205-2" suffix="の並目ピッチ（突き出しの計算）" />
-          {input.rounding === 'jis' && (
-            <Citation
-              code="JIS B 1180"
-              suffix={input.type === 'stud' ? 'の六角ボルトの呼び長さの系列を準用' : 'の呼び長さの系列'}
-            />
-          )}
         </div>
 
         {result && (
@@ -361,30 +484,60 @@ export function FlangeBoltTool() {
               <p>
                 フランジの厚さ t は、JIS B 2220 の表の値（座（RF）の高さを含む厚さ）として計算しています。座を含まない厚さの資料と組み合わせるときは、その分を相手側の厚さに足してください。ナットの高さは、JIS本体はスタイル1の最大値、旧JISは1種の呼び寸法です。
               </p>
+              <p>
+                スパナの大きさは六角ナット（六角ボルトの頭も同じ）の二面幅で、JIS本体は本体の値、旧JISは附属書JA の値です。
+              </p>
             </FormulaInfo>
           </div>
         )}
+
+        <RelatedLinks links={relatedLinks} />
       </Card>
 
-      <Card
-        title="フランジ図面（CADデータ）"
+      <IdentifyCard
         index="03"
-        icon={PenTool}
+        selected={{ pressure: input.pressure, size: row.size }}
+        onSelect={selectFlange}
+        className="lg:self-start"
+      />
+
+      <ClassComparisonCard
+        index="04"
+        pressure={input.pressure}
+        size={row.size}
+        conditions={conditions}
+        onSelect={(pressure) => selectFlange(pressure, row.size)}
         className="lg:col-span-2"
-      >
+      />
+
+      <Card title="フランジ図面（CADデータ）" index="05" icon={PenTool} className="lg:col-span-2">
         <div className="grid items-center gap-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <FlangePreview row={row} bore={bore} />
+          <FlangePreview row={row} bore={boreValid ? bore : 0} kind={drawingKind} />
           <div className="space-y-4">
             <p className="num text-sm text-zinc-700">
-              JIS {input.pressure} {row.size}　D{row.D} / PCD{row.C} / {row.n}-φ{row.h}
+              JIS {input.pressure} {row.size}　D{row.D} / PCD{row.C} /{' '}
+              {drawingKind === 'tap' ? `${row.n}-M${row.bolt}（下穴 φ${tapDrill ?? '—'}）` : `${row.n}-φ${row.h}`}
             </p>
+            <SegmentedControl
+              label="DXFの種類"
+              value={drawingKind}
+              options={DRAWING_OPTIONS}
+              onChange={setDrawingKind}
+              hint={
+                drawingKind === 'flange'
+                  ? 'フランジ本体の正面図（ボルト穴 φh）。'
+                  : drawingKind === 'through'
+                    ? '相手側（機器のノズル・当て板など）に、同じ PCD で通し穴 φh をあける図。'
+                    : `相手側に M${row.bolt} のめねじを立てる図（スタッドボルト用）。下穴を実線の円、ねじの谷の径を 3/4 の細線の円で描きます。`
+              }
+            />
             <NumberField
               label="図面の内径（任意）"
               value={input.bore}
               onChange={(value) => setInput({ ...input, bore: value })}
               placeholder={`空欄なら管外径 ${PIPE_OD[row.size]}`}
               unit="mm"
-              hint="0 を入れると、穴なし（閉止フランジ）の図になります。"
+              hint="空欄のときは SGP の管外径を参考として描きます（差込み溶接フランジの穴径ではありません）。0 を入れると穴なし（閉止フランジ）の図になります。"
               error={boreValid ? undefined : `0 または ${row.C - row.h} mm 未満の数値で入力してください（ボルト穴にかからない大きさ）`}
             />
             <button
@@ -397,31 +550,53 @@ export function FlangeBoltTool() {
               DXF をダウンロード（2D・正面図）
             </button>
             <p className="text-xs leading-relaxed text-zinc-500">
-              外形・内径・ボルト穴（OUTLINE）、PCD と中心線（CENTER）、寸法メモ（NOTE）の3レイヤー。単位 mm。3D（STEP）は今後対応予定です。
+              外形・内径・穴（OUTLINE）、PCD・中心線・穴の中心マーク（CENTER）、
+              {drawingKind === 'tap' && 'めねじの谷の径（THREAD）、'}
+              寸法メモ（NOTE）のレイヤー。単位 mm。φ は CAD の %%c で書いています。
+              {drawingKind !== 'flange' && '外形は参考（相手側の形に合わせて直してください）。'}
+              {drawingKind === 'tap' && 'ねじ深さ・下穴深さは入れていません。'}
             </p>
+            {drawingKind === 'tap' && (
+              <Citation code="ISO 2306" suffix={`の推奨ドリル径（M${row.bolt} 並目。6H の範囲内。ねじ下穴径ツールと同じ計算）`} />
+            )}
           </div>
         </div>
       </Card>
 
       <Card
         title={`JIS ${input.pressure} フランジ寸法表`}
-        index="04"
-        icon={Table2}
+        index="06"
         className="lg:col-span-2"
         flush
+        aside={<ExportInAside>{tableExport}</ExportInAside>}
       >
-        <p className="px-4 pt-3 text-xs text-zinc-500">単位: mm。行をタップするとそのサイズを選べます。</p>
+        <ExportInBody>{tableExport}</ExportInBody>
+        <p className="px-4 pt-3 text-xs leading-relaxed text-zinc-500">
+          単位: mm。行をタップするとそのサイズを選べます。ボルトの長さは今の条件（{conditionNote}）で計算。
+        </p>
         <div className="mt-2">
           <DataTable
             columns={columns}
             rows={sizes}
             rowKey={(r) => r.size}
             isHighlighted={(r) => r.size === row.size}
-            onRowClick={(r) => setInput({ ...input, size: r.size })}
+            onRowClick={(r) => selectFlange(input.pressure, r.size)}
             caption={`JIS ${input.pressure} フランジ寸法表`}
           />
         </div>
+        {tableHasUnverified && (
+          <div className="px-4 pt-2 pb-4">
+            <UnverifiedLegend>（公開前に規格原文で確認中。未確認の厚さから計算したボルト長さにも付けています）</UnverifiedLegend>
+          </div>
+        )}
       </Card>
+
+      <StickyResult
+        targetId={RESULT_CARD_ID}
+        label={`JIS ${input.pressure} ${row.size}・${boltName}`}
+        value={result?.length ? `M${row.bolt}×${result.length}${tUnverified ? '※' : ''}` : '—'}
+        unit={`${row.n}本${spanner ? `・スパナ${spanner}` : ''}`}
+      />
     </div>
   )
 }

@@ -99,6 +99,28 @@ export const FLANGES: Record<PressureClass, readonly FlangeRow[]> = {
 
 export const PRESSURE_CLASSES = Object.keys(FLANGES) as PressureClass[]
 
+/**
+ * 規格原文で未確認の値（docs/data-verification.md で確度 △ としたもの）。画面・コピー・表の書き出しで ※ を付ける。
+ * 原文で確認できたら、ここから消す（docs の表も合わせて直す）。
+ * - rows: その呼び径の行の寸法すべて（規格では括弧付きのサイズ。作成者の知識のみ）
+ * - t: フランジの厚さだけ（'all' はそのクラスの全サイズ）
+ */
+export interface UnverifiedSpec {
+  rows?: readonly string[]
+  t?: 'all' | readonly string[]
+}
+
+export const UNVERIFIED: Readonly<Partial<Record<PressureClass, UnverifiedSpec>>> = {
+  // 5K 50A の厚さは資料により 12 と 14。ボルトが長めになる 14 を採用
+  '5K': { t: ['50A'], rows: ['90A', '175A', '225A'] },
+  '10K': { rows: ['90A', '175A', '225A'] },
+  // 16K の厚さは全サイズ未確認（100A は別資料から 20 以下とも読める）
+  '16K': { t: 'all' },
+}
+
+/** ※ の凡例（画面・コピー・表の書き出しで同じ文言にする） */
+export const UNVERIFIED_LEGEND = '※ 規格原文で未確認の値'
+
 /** 六角ナットの高さ [mm]（JIS B 1181）。style1: 本体スタイル1の最大値 / ja1: 附属書JA 1種 */
 export const NUT_HEIGHT: Readonly<Record<number, { style1: number; ja1: number }>> = {
   10: { style1: 8.4, ja1: 8 },
