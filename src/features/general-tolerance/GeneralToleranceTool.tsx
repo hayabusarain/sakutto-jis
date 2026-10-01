@@ -12,7 +12,7 @@ import { StickyResult } from '../../components/ui/StickyResult'
 import { TableExport } from '../../components/ui/TableExport'
 import { useToolState } from '../../hooks/useToolState'
 import { copyText } from '../../lib/clipboard'
-import { parseNumber, trim } from '../../lib/format'
+import { commaNote, parseNumber, trim } from '../../lib/format'
 import { standardLabel } from '../../standards'
 import {
   angleLimits,
@@ -27,7 +27,14 @@ import {
   TABLES,
   type ToleranceKind,
 } from './calc'
-import { CLASS_NAMES, MIN_SIZE, TOLERANCE_CLASSES, type SizeRange, type ToleranceClass } from './data'
+import {
+  CLASS_NAMES,
+  MIN_SIZE,
+  TOLERANCE_CLASSES,
+  VERIFICATION_NOTE,
+  type SizeRange,
+  type ToleranceClass,
+} from './data'
 import { DEFAULT_INPUT, isGeneralToleranceInput, normalizeInput, STORAGE_KEY } from './state'
 
 const KIND_OPTIONS: { value: ToleranceKind; label: string }[] = [
@@ -65,7 +72,7 @@ function ClassPicker({ value, onChange }: { value: ToleranceClass; onChange: (va
               onChange={() => onChange(cls)}
               className="peer sr-only"
             />
-            <span className="flex h-12 cursor-pointer flex-col items-center justify-center rounded-sm leading-tight text-zinc-500 transition-colors peer-checked:bg-zinc-900 peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-orange-500">
+            <span className="flex h-12 cursor-pointer flex-col items-center justify-center rounded-sm leading-tight text-zinc-600 transition-colors peer-checked:bg-zinc-900 peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-orange-500">
               <span className="num text-base font-bold">{cls}</span>
               <span className="text-[11px] font-semibold whitespace-nowrap">{CLASS_NAMES[cls]}</span>
             </span>
@@ -77,7 +84,16 @@ function ClassPicker({ value, onChange }: { value: ToleranceClass; onChange: (va
   )
 }
 
-const EXPORT_NOTE = `典拠: ${standardLabel('JIS B 0405')}（サクッとJIS）`
+const EXPORT_NOTE = `典拠: ${standardLabel('JIS B 0405')}。${VERIFICATION_NOTE}（サクッとJIS）`
+
+/** 値の確認状況の注記（全表の値が規格原文で未照合のため） */
+function VerificationNote({ className = '' }: { className?: string }) {
+  return (
+    <p className={`text-xs leading-relaxed text-zinc-600 ${className}`}>
+      <span className="font-bold text-orange-700">※</span> {VERIFICATION_NOTE.replace(/^※\s*/, '')}
+    </p>
+  )
+}
 
 /** 図面の注記だけをコピーする（URL は付けない） */
 function NoteCopyButton({ text }: { text: string }) {
@@ -142,7 +158,7 @@ function ToleranceTable({
         const text = cellText(row.index, c)
         if (text === '—') return <span className="text-zinc-400">—</span>
         return row.index === highlightIndex && c === cls ? (
-          <span className="rounded-sm bg-orange-600 px-1.5 py-0.5 font-bold text-white">{text}</span>
+          <span className="rounded-sm bg-orange-700 px-1.5 py-0.5 font-bold text-white">{text}</span>
         ) : (
           text
         )
@@ -181,7 +197,10 @@ export function GeneralToleranceTool() {
 
   const size = parseNumber(input.d)
   const sizeDecimals = decimalsOfInput(input.d)
+  // 「1,200」（3桁区切り）・「12,5」（小数点）のどちらで読んだかを入力欄の下に出す
+  const sizeComma = commaNote(input.d)
   const angle = isAngle ? parseNumber(input.angle) : null
+  const angleComma = isAngle ? commaNote(input.angle) : null
   const angleValid = angle !== null && angle > 0 && angle < 360
 
   let sizeError: string | undefined
@@ -243,6 +262,7 @@ export function GeneralToleranceTool() {
         `区分: ${range?.label}${isAngle ? '（短い方の辺の長さ）' : ''}`,
         `図面の注記: ${note}`,
         `典拠: ${standardLabel('JIS B 0405')}`,
+        VERIFICATION_NOTE,
         '（サクッとJIS）',
       ]
     : []
@@ -278,7 +298,10 @@ export function GeneralToleranceTool() {
                   ? '4000 mm を超える寸法は表にありません。'
                   : undefined
             }
-            hint={kind === 'chamfer' ? 'C1 なら 1、R2.5 なら 2.5 を入力。' : undefined}
+            hint={
+              [sizeComma, kind === 'chamfer' ? 'C1 なら 1、R2.5 なら 2.5 を入力。' : null].filter(Boolean).join(' ') ||
+              undefined
+            }
           />
           {isAngle && (
             <NumberField
@@ -288,7 +311,7 @@ export function GeneralToleranceTool() {
               placeholder="90"
               unit="°"
               error={angleError}
-              hint="30′ は 0.5° です（例: 22°30′ → 22.5）。空欄なら許容差だけを表示します。"
+              hint={`${angleComma ? `${angleComma} ` : ''}30′ は 0.5° です（例: 22°30′ → 22.5）。空欄なら許容差だけを表示します。`}
             />
           )}
           <ClassPicker value={cls} onChange={(value) => setInput({ ...input, cls: value })} />
@@ -383,6 +406,7 @@ export function GeneralToleranceTool() {
 
         <div className="mt-3 space-y-1">
           <Citation code="JIS B 0405" suffix="の許容差（ISO 2768-1 と同じ値）" />
+          <VerificationNote />
         </div>
 
         <div className="mt-4">
@@ -441,6 +465,7 @@ export function GeneralToleranceTool() {
           単位: mm（角度の許容差は度・分）。区分の「30超〜120」は「30 を超え 120 以下」、「〜10」は「10
           以下」、「6超」は「6 を超えるもの」の意味です。入力した寸法の区分の行と、選んだ等級を強調しています。
         </p>
+        <VerificationNote className="px-4 pt-1" />
         <div className="mt-1">
           {(['linear', 'chamfer', 'angle'] as const).map((k) => (
             <ToleranceTable key={k} kind={k} highlightIndex={k === kind ? highlightIndex : null} cls={cls} />

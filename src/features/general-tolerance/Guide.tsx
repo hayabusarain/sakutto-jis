@@ -1,10 +1,16 @@
 import type { MouseEvent, ReactNode } from 'react'
 import { Faq, GuideSection } from '../../components/Guide'
 import { usePersistentState } from '../../hooks/usePersistentState'
-import { toolHref } from '../../lib/query'
+import { stateQuery } from '../../lib/query'
 import { formatTolerance, linearLimits, lookupTolerance, type ToleranceKind } from './calc'
 import { MIN_SIZE, type ToleranceClass } from './data'
-import { DEFAULT_INPUT, isGeneralToleranceInput, STORAGE_KEY, type GeneralToleranceInput } from './state'
+import {
+  DEFAULT_INPUT,
+  isGeneralToleranceInput,
+  normalizeInput,
+  STORAGE_KEY,
+  type GeneralToleranceInput,
+} from './state'
 
 /** 表の値（数値は data.ts から引く。手書きしない） */
 function tol(kind: ToleranceKind, cls: ToleranceClass, size: number): string {
@@ -37,13 +43,10 @@ function TryLink({ input, children }: { input: Partial<GeneralToleranceInput>; c
     setInput(next)
     document.getElementById('general-tolerance-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  const params = Object.fromEntries(
-    (Object.keys(next) as (keyof GeneralToleranceInput)[])
-      .filter((key) => next[key] !== DEFAULT_INPUT[key])
-      .map((key) => [key, next[key]]),
-  )
+  // ツールが URL に書くのと同じクエリ（開き直したときに同じ条件になる）
+  const query = stateQuery(next, DEFAULT_INPUT, normalizeInput)
   return (
-    <a href={toolHref('/general-tolerance', params)} onClick={handleClick}>
+    <a href={`/general-tolerance${query ? `?${query}` : ''}`} onClick={handleClick}>
       {children}
     </a>
   )

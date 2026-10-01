@@ -1,8 +1,42 @@
 /**
  * Oリングの寸法（JIS B 2401-1:2012）と、ハウジング（溝）の寸法（JIS B 2401-2:2012）[mm]。
  * P: 運動用・固定用 / G: 固定用。太さ d2 と溝の形は、太さのグループごとに決まる。
+ *
+ * 数値は旧 JIS B 2406:1991（付表1・付表2）の表から取った。2012年版で同じ値かは規格原文で未照合
+ * （docs/data-verification.md）。真空フランジ用の V 系列は載せていない。
  */
 export type ORingSeries = 'P' | 'G'
+
+/** 数値の出どころの注記（Oリングの典拠の近く・コピー・CSV に出す） */
+export const SOURCE_NOTE = '寸法は旧 JIS B 2406:1991 の表の値です（JIS B 2401:2012 でも同じ値かは規格原文で確認中）。'
+
+/**
+ * E の説明。JIS B 2406:1991 付表1 の注(2)「E は寸法 K の最大値と最小値の差で、同軸度の2倍に相当」。
+ * 半径方向の寸法 K は、軸心が e ずれると 2e だけ変わるので、軸心のずれ（偏心量）は E/2 まで。
+ */
+export const E_NOTE =
+  'E は、規格の図の寸法 K の最大値と最小値の差です（同軸度の2倍に相当。旧 JIS B 2406:1991 付表1 の注）。軸心のずれ（偏心量）に直すと E/2 以下です。'
+
+/** 運動用の注意。JIS B 2406:1991 付表1 の備考（2012年版の文言は未照合） */
+export const DYNAMIC_MATERIAL_NOTE = 'ただし 4種C（シリコーン・VMQ）など強度の低い材料は運動用に使わない。'
+
+/** Oリングの硬さ（デュロメータ硬さ タイプA） */
+export type ORingHardness = 70 | 90
+
+export const HARDNESSES: readonly ORingHardness[] = [70, 90]
+
+/** 使用圧力の区分の上限 [MPa]（上端を含む。「4.0 以下」「4.0 を超え 6.3 以下」…「16.0 を超え 25.0 以下」） */
+export const BACKUP_PRESSURE_LIMITS = [4.0, 6.3, 10.0, 16.0, 25.0] as const
+
+/**
+ * バックアップリングを使わないときの、すきま 2g の最大値 [mm]（旧 JIS B 2406:1991 表1）。
+ * すきま 2g がこの値を超えるときはバックアップリングを使う。適用は使用圧力 25.0 MPa 以下。
+ * 現行 JIS B 2401-2:2012 の表とは未照合（docs/data-verification.md で △）。
+ */
+export const NO_BACKUP_MAX_CLEARANCE: Record<ORingHardness, readonly number[]> = {
+  70: [0.35, 0.3, 0.15, 0.07, 0.03],
+  90: [0.65, 0.6, 0.5, 0.3, 0.17],
+}
 
 export interface CrossSectionGroup {
   /** 太さ d2 と許容差 */
@@ -14,7 +48,7 @@ export interface CrossSectionGroup {
   widths: readonly [number, number, number]
   /** 溝底の角の丸み R の最大値 */
   rMax: number
-  /** 偏心量 E の最大値 */
+  /** E の最大値（寸法 K の最大値と最小値の差 = 同軸度の2倍。軸心のずれは E/2 まで） */
   eMax: number
   /** d・D の寸法許容差（d は 0/−、D は +/0）。未確認は null */
   diaTol: number | null

@@ -1,3 +1,4 @@
+import { normalizeDigits, resolveCommas } from '../../lib/format'
 import {
   ANGLE_RANGES,
   ANGLE_TOLERANCES,
@@ -103,12 +104,12 @@ export function formatTolerance(kind: ToleranceKind, value: number): string {
   return kind === 'angle' ? formatPlusMinusAngle(value) : formatPlusMinusMm(value)
 }
 
-/** 入力した文字列の小数点以下の桁数（50.00 → 2）。上下の寸法をその桁でそろえるため */
+/**
+ * 入力した文字列の小数点以下の桁数（50.00 → 2）。上下の寸法をその桁でそろえるため。
+ * カンマは parseNumber と同じルールで読む（1,200 → 0 桁、12,5 → 1 桁）。
+ */
 export function decimalsOfInput(text: string): number {
-  const normalized = text
-    .trim()
-    .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
-    .replace(/[．。,，]/g, '.')
+  const normalized = resolveCommas(normalizeDigits(text.trim()))
   const match = /\.(\d+)$/.exec(normalized)
   return match ? match[1].length : 0
 }

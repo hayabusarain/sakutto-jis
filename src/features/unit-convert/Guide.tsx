@@ -1,12 +1,12 @@
 import type { MouseEvent, ReactNode } from 'react'
 import { Faq, GuideSection } from '../../components/Guide'
 import { usePersistentState } from '../../hooks/usePersistentState'
-import { toolHref } from '../../lib/query'
+import { stateQuery, toolHref } from '../../lib/query'
 import { Link } from '../../router/Link'
 import { pipeDimensions } from '../steel-pipe/calc'
 import { convert, findUnit, formatValue, isExact } from './calc'
 import type { Quantity } from './data'
-import { DEFAULT_INPUT, inputFor, isUnitConvertInput, STORAGE_KEY } from './state'
+import { DEFAULT_INPUT, inputFor, isUnitConvertInput, normalizeInput, STORAGE_KEY } from './state'
 
 /** 「1 kgf/cm² = 0.0980665 MPa」の形（数値は calc から計算する） */
 function eq(quantity: Quantity, value: number, fromId: string, toId: string): string {
@@ -34,14 +34,17 @@ function TryLink({
   children: ReactNode
 }) {
   const [, setInput] = usePersistentState(STORAGE_KEY, DEFAULT_INPUT, isUnitConvertInput)
+  const next = inputFor(q, v, from, to)
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
-    setInput(inputFor(q, v, from, to))
+    setInput(next)
     document.getElementById('unit-convert-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+  // ツールが URL に書くのと同じクエリ（開き直したときに同じ条件になる）
+  const query = stateQuery(next, DEFAULT_INPUT, normalizeInput)
   return (
-    <a href={toolHref('/unit-convert', { q, v, from, to })} onClick={handleClick}>
+    <a href={`/unit-convert${query ? `?${query}` : ''}`} onClick={handleClick}>
       {children}
     </a>
   )

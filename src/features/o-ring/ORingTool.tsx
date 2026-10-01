@@ -13,7 +13,7 @@ import { StickyResult } from '../../components/ui/StickyResult'
 import { TableExport } from '../../components/ui/TableExport'
 import { useToolState } from '../../hooks/useToolState'
 import { downloadText } from '../../lib/download'
-import { fixed, trim } from '../../lib/format'
+import { commaNote, fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { standardLabel } from '../../standards'
 import {
@@ -33,9 +33,10 @@ import {
   type HousingType,
   type ORing,
 } from './calc'
+import { BackupClearanceInfo } from './BackupClearance'
 import { grooveCallout } from './callout'
 import { CopyTextButton } from './CopyTextButton'
-import type { ORingSeries } from './data'
+import { DYNAMIC_MATERIAL_NOTE, E_NOTE, SOURCE_NOTE, type ORingSeries } from './data'
 import { cylinderGrooveDxf, flatGrooveDxf, grooveDxfFilename } from './drawing'
 import { oRingExportTable } from './export'
 import { GrooveSketch } from './GrooveSketch'
@@ -172,6 +173,7 @@ export function ORingTool() {
       : `溝（${isPiston ? 'ピストン型' : 'ロッド型'}）: ${dName} ${trim(ring.d)} / ${bigDName} ${trim(ring.D)} / 溝幅 ${trim(width)}（+0.25/0、BU${input.backup}個）/ R${trim(group.rMax)}以下`,
     `つぶし率 ${fixed(nominalSqueeze, 1)}%`,
     `典拠: ${standardLabel('JIS B 2401-1')} / ${standardLabel('JIS B 2401-2')}`,
+    SOURCE_NOTE,
     '（サクッとJIS）',
   ].join('\n')
 
@@ -255,7 +257,7 @@ export function ORingTool() {
                 onChange={changeSeries}
                 hint={
                   input.series === 'P'
-                    ? 'P は運動用・固定用の両方に使えます。'
+                    ? `P は運動用・固定用の両方に使えます（${DYNAMIC_MATERIAL_NOTE.replace(/。$/, '')}）。`
                     : 'G は固定用です。往復運動などの運動用には使えません。'
                 }
               />
@@ -280,6 +282,7 @@ export function ORingTool() {
                 placeholder={isPiston ? '例: 30' : '例: 20'}
                 unit="mm"
                 error={positiveError(input.mate)}
+                hint={commaNote(input.mate) ?? undefined}
               />
               <NumberField
                 label={`${isPiston ? '溝底径 d' : '溝底径 D'}（わかれば）`}
@@ -288,7 +291,7 @@ export function ORingTool() {
                 placeholder="空欄で可"
                 unit="mm"
                 error={positiveError(input.bottom) ?? bottomOrder}
-                hint="既存の部品を確かめるときに入れると、両方が合う番号にしぼります。"
+                hint={`${commaNote(input.bottom) ?? ''}既存の部品を確かめるときに入れると、両方が合う番号にしぼります。`}
               />
               {typeof mate === 'number' && !bottomOrder && bottom !== null && (
                 <div>
@@ -318,6 +321,7 @@ export function ORingTool() {
                   placeholder="例: 24.6"
                   unit="mm"
                   error={positiveError(input.d1)}
+                  hint={commaNote(input.d1) ?? undefined}
                 />
                 <NumberField
                   label="太さ d2"
@@ -326,11 +330,13 @@ export function ORingTool() {
                   placeholder="例: 3.5"
                   unit="mm"
                   error={positiveError(input.d2)}
+                  hint={commaNote(input.d2) ?? undefined}
                 />
               </div>
               <p className="-mt-2 text-xs leading-relaxed text-zinc-600">
                 使ったOリングは、つぶれや膨潤で寸法が変わっています。太さは何か所か測り、内径は伸ばさずに測ってください（外径を測ったときは
-                外径 − 2 × 太さ が内径）。インチ系（AS568）など JIS 以外のOリングは含みません。
+                外径 − 2 × 太さ が内径）。JIS B 2401 の P・G 系列だけを収録しています（真空フランジ用の V
+                系列や、インチ系 AS568 などは含みません）。
               </p>
               {typeof measuredD1 === 'number' && typeof measuredD2 === 'number' && (
                 <div>
@@ -360,13 +366,16 @@ export function ORingTool() {
           )}
           {!isFlat && input.mode !== 'mating' && housingControl}
           {!isFlat && (
-            <SegmentedControl
-              label="バックアップリング"
-              value={String(input.backup)}
-              options={BACKUP_OPTIONS}
-              onChange={(value) => setInput({ ...input, backup: Number(value) as 0 | 1 | 2 })}
-              hint="高い圧力やすきまが大きいときに、はみ出し防止で入れます。片側加圧は1個、両側加圧は2個。"
-            />
+            <div className="grid gap-2">
+              <SegmentedControl
+                label="バックアップリング"
+                value={String(input.backup)}
+                options={BACKUP_OPTIONS}
+                onChange={(value) => setInput({ ...input, backup: Number(value) as 0 | 1 | 2 })}
+                hint="高い圧力やすきまが大きいときに、はみ出し防止で入れます。片側加圧は1個、両側加圧は2個。"
+              />
+              <BackupClearanceInfo />
+            </div>
           )}
           <GrooveSketch
             d2={group.d2}
@@ -394,7 +403,7 @@ export function ORingTool() {
             {ring.series === 'G' && <span className="text-zinc-300">往復運動などの運動用には使えません。</span>}
           </span>
           内径 ±{trim(ring.d1Tol)}・太さ ±{trim(group.d2Tol)}（1種〜3種。内径の許容差は
-          4種C（シリコーン）で1.5倍、4種D（フッ素）で1.2倍）
+          4種C（シリコーン・VMQ）で1.5倍、4種D（フッ素・FKM）で1.2倍）
         </PrimaryResult>
 
         <div className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-zinc-200 bg-zinc-200 text-center">
@@ -457,7 +466,12 @@ export function ORingTool() {
                 value={withTol(ring.D, group.diaTol, 'plus')}
                 unit="mm"
               />
-              <ResultItem label="偏心量 E" value={`${trim(group.eMax)} 以下`} unit="mm" />
+              <ResultItem
+                label="溝の振れ E"
+                value={`${trim(group.eMax)} 以下`}
+                unit="mm"
+                note={`軸心のずれは ${trim(group.eMax / 2)} mm 以下（E/2）`}
+              />
             </>
           )}
           <ResultItem label="溝幅 b の許容差" value="+0.25/0" unit="mm" />
@@ -492,6 +506,8 @@ export function ORingTool() {
         <div className="mt-3 space-y-1">
           <Citation code="JIS B 2401-1" suffix="のOリング寸法" />
           <Citation code="JIS B 2401-2" detail={grooveLabel} suffix="のハウジング寸法" />
+          <p className="text-xs leading-relaxed text-zinc-600">{SOURCE_NOTE}</p>
+          {!flat && <p className="text-xs leading-relaxed text-zinc-600">{E_NOTE}</p>}
         </div>
 
         <div className="mt-4">
@@ -561,6 +577,10 @@ export function ORingTool() {
               つぶし率の範囲は、太さの許容差と溝の寸法許容差（円筒面は d・D、平面は深さ
               h）の両端を組み合わせた値で、規格の表に示されている範囲と同じ求め方です。実際には偏心やOリングの材料によっても変わります。伸び・縮みは基準寸法どうしの幾何計算です。
             </p>
+            <p>
+              溝の寸法の表（旧 JIS B 2406:1991）は、使用圧力 25.0 MPa 以下で使う溝が対象です。
+              {!flat && 'バックアップリングが要るかは、条件の欄の「バックアップリングが要るかの目安」を見てください。'}
+            </p>
           </FormulaInfo>
         </div>
 
@@ -583,8 +603,8 @@ export function ORingTool() {
               <CopyTextButton text={callout.join('\n')} label="図面指示をコピー" />
             </div>
             <p className="mt-2 text-xs leading-relaxed text-zinc-600">
-              数値は JIS B 2401-2
-              の表の値です。書き方（許容差の表し方・注記の位置）は社内の製図ルールに合わせてください。（
+              数値は JIS B 2401-2（旧 JIS B 2406:1991
+              の表の値）です。書き方（許容差の表し方・注記の位置）は社内の製図ルールに合わせてください。（
               ）は参考寸法です。
             </p>
           </div>

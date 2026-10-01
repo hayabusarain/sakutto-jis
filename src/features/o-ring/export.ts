@@ -1,7 +1,7 @@
 import type { ExportCell } from '../../components/ui/TableExport'
 import { standardLabel } from '../../standards'
 import { FLAT_DEPTH_TOL, findORing, flatGroove, oRingNumbers } from './calc'
-import type { ORingSeries } from './data'
+import { E_NOTE, SOURCE_NOTE, type ORingSeries } from './data'
 
 export interface ExportTable {
   title: string
@@ -11,7 +11,7 @@ export interface ExportTable {
   note: string
 }
 
-const NOTE = `典拠: ${standardLabel('JIS B 2401-1')}（Oリング）/ ${standardLabel('JIS B 2401-2')}（ハウジング）。溝幅 b の許容差は +0.25/0。サクッとJIS`
+const NOTE = `典拠: ${standardLabel('JIS B 2401-1')}（Oリング）/ ${standardLabel('JIS B 2401-2')}（ハウジング）。${SOURCE_NOTE}溝幅 b の許容差は +0.25/0。サクッとJIS`
 
 /**
  * 寸法表の書き出し（Excel・CSV 用）。画面の表より列を増やし、許容差は上・下を別の列にする。
@@ -65,7 +65,7 @@ export function oRingExportTable(series: ORingSeries, flat: boolean): ExportTabl
       '溝幅 b BU1個 [mm]',
       '溝幅 b BU2個 [mm]',
       '溝底の角 R 最大 [mm]',
-      '偏心量 E 最大 [mm]',
+      'E（K の最大−最小）最大 [mm]',
     ],
     rows: rings.map((ring) => {
       const tol = ring.group.diaTol
@@ -86,6 +86,6 @@ export function oRingExportTable(series: ORingSeries, flat: boolean): ExportTabl
         ring.group.eMax,
       ]
     }),
-    note: `${NOTE}。d はピストン型の溝底径・ロッド型の軸径、D はピストン型のシリンダ内径・ロッド型の溝底径。BU はバックアップリング`,
+    note: `${NOTE}。d はピストン型の溝底径・ロッド型の軸径、D はピストン型のシリンダ内径・ロッド型の溝底径。BU はバックアップリング。${E_NOTE}`,
   }
 }

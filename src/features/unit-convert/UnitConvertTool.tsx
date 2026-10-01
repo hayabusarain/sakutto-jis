@@ -13,6 +13,7 @@ import { Link } from '../../router/Link'
 import {
   absoluteToGauge,
   convert,
+  echoValue,
   findUnit,
   formatFeetInches,
   formatValue,
@@ -22,6 +23,7 @@ import {
   nearestInchFraction,
   parseValue,
   plainValue,
+  valueCommaNote,
 } from './calc'
 import { QUANTITIES, QUANTITY_KEYS, type Quantity, type UnitDef } from './data'
 import { DEFAULT_INPUT, isUnitConvertInput, normalizeInput, STORAGE_KEY, type PressureRef } from './state'
@@ -58,7 +60,7 @@ function QuantityTabs({ value, onChange }: { value: Quantity; onChange: (value: 
               onChange={() => onChange(key)}
               className="peer sr-only"
             />
-            <span className="flex h-10 cursor-pointer items-center justify-center rounded-sm text-sm font-semibold whitespace-nowrap text-zinc-500 transition-colors peer-checked:bg-zinc-900 peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-orange-500">
+            <span className="flex h-10 cursor-pointer items-center justify-center rounded-sm text-sm font-semibold whitespace-nowrap text-zinc-600 transition-colors peer-checked:bg-zinc-900 peer-checked:text-white peer-focus-visible:outline-2 peer-focus-visible:outline-orange-500">
               {QUANTITIES[key].label}
             </span>
           </label>
@@ -240,7 +242,9 @@ export function UnitConvertTool() {
   }
   const swap = () => setInput({ ...input, from: input.to, to: input.from })
 
-  const valueText = value === null ? '' : formatValue(value)
+  // 入力した値は6桁に丸めずに見せる（換算結果だけを丸める）
+  const valueText = value === null ? '' : echoValue(value)
+  const comma = valueCommaNote(input.v)
   const refText = isPressure ? `（${REF_TEXT[input.ref]}）` : ''
   const mark = (x: number) => (isExact(x) ? '=' : '≒')
   const rows = quantity.units.map((unit) => ({ unit, value: value === null ? null : convert(value, from, unit) }))
@@ -313,13 +317,14 @@ export function UnitConvertTool() {
             allowFraction={isLength && (from.id === 'in' || from.id === 'ft')}
             error={error}
             hint={
-              isLength
+              comma ??
+              (isLength
                 ? 'インチは分数でも入力できます（例: 1-1/4、3/8）。'
                 : isTemperature
                   ? '氷点下は ± ボタンでマイナスにできます。'
                   : isPressure
                     ? '真空（大気圧より低い）はマイナスのゲージ圧で入力できます。'
-                    : '1,000 のような3桁区切りも入力できます。'
+                    : 'カンマは 1,000 なら3桁区切り、0,5 なら小数点として読みます。')
             }
           />
           <UnitPicker label="入力の単位" units={quantity.units} value={from.id} onChange={changeFrom} />
@@ -418,7 +423,7 @@ export function UnitConvertTool() {
                   </span>
                   <span className="shrink-0 text-right">
                     <span className="num block text-base font-semibold break-all text-zinc-900 sm:text-lg">
-                      {row.value === null ? '—' : formatValue(row.value)}
+                      {row.value === null ? '—' : isFrom ? echoValue(row.value) : formatValue(row.value)}
                     </span>
                     {note && <span className="num block text-[11px] text-zinc-500">{note}</span>}
                   </span>

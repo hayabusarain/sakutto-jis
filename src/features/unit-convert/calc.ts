@@ -1,3 +1,4 @@
+import { commaNote, normalizeDigits, resolveCommas } from '../../lib/format'
 import { INCH, QUANTITIES, QUANTITY_KEYS, STANDARD_ATMOSPHERE, type Quantity, type UnitDef } from './data'
 
 /** 量の中から単位を探す */
@@ -36,32 +37,25 @@ export function absoluteToGauge(value: number, unit: UnitDef): number {
 // ---------------------------------------------------------------------------
 // 入力の読み取り
 
-const THOUSANDS = /^-?\d{1,3}(,\d{3})+(\.\d+)?$/
 const DECIMAL = /^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i
 // 1-1/4、1 1/4、3/8、-1/2 など（帯分数の区切りはハイフンか空白）
 const FRACTION = /^(-)?(?:(\d+)[ -])?(\d+)\/(\d+)$/
 
 /**
- * 入力欄の文字列を数値にする。全角数字、3桁区切りのカンマ（1,000）、
- * 小数点のカンマ（8,5）、インチの分数（1-1/4・1 1/4・3/8）、末尾のインチ記号（″ "）に対応。
- * 読めないときは null。
+ * 入力欄の文字列を数値にする。全角数字、カンマ（サイト共通のルール: 1,000 は3桁区切り、
+ * 0,125・8,5 は小数点。lib/format の resolveCommas）、インチの分数（1-1/4・1 1/4・3/8）、
+ * 末尾のインチ記号（″ "）に対応。読めないときは null。
  */
 export function parseValue(text: string): number | null {
-  let s = text
-    .trim()
-    .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
-    .replace(/[．。]/g, '.')
-    .replace(/，/g, ',')
+  let s = normalizeDigits(text.trim())
     .replace(/[／⁄]/g, '/')
-    .replace(/[－ー−‐–—]/g, '-')
     .replace(/[\s　]+/g, ' ')
     .replace(/ ?- ?/g, '-')
     .replace(/ ?["″”]$/, '')
     .trim()
   if (s === '') return null
 
-  if (THOUSANDS.test(s)) s = s.replace(/,/g, '')
-  else s = s.replace(/,/g, '.')
+  s = resolveCommas(s)
 
   if (DECIMAL.test(s)) {
     const value = Number(s)
@@ -77,6 +71,14 @@ export function parseValue(text: string): number | null {
     return minus ? -value : value
   }
   return null
+}
+
+/**
+ * 入力にカンマがあったとき、どう読んだかの説明（lib/format の commaNote）。
+ * 末尾のインチ記号（0,125″）は外して見る。カンマが無い・読めないときは null。
+ */
+export function valueCommaNote(text: string): string | null {
+  return commaNote(text.trim().replace(/[\s　]*["″”]$/, ''))
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +151,21 @@ export function formatValue(value: number, sig = SIGNIFICANT_DIGITS): string {
     return `${m}×10${[...e].map((char) => SUPERSCRIPT[char]).join('')}`
   }
   return groupThousands(plainValue(value, sig))
+}
+
+/**
+ * 入力した値を見せるときの表記（結果の文・「入力」の行・コピー）。換算結果と違って6桁に丸めず、
+ * 3桁区切りだけを付ける（1234567 → 1,234,567、1250.125 → 1,250.125）。
+ * 有効数字が12桁を超える値（分数 1/3 など）や、とても大きい・小さい値は formatValue（12桁）で書く。
+ */
+export function echoValue(value: number): string {
+  if (!Number.isFinite(value)) return '—'
+  if (value === 0) return '0'
+  const abs = Math.abs(value)
+  const plain = String(value)
+  const significant = plain.replace(/^-|\./g, '').replace(/^0+/, '')
+  if (abs < 1e-6 || abs >= 1e21 || significant.length > 12) return formatValue(value, 12)
+  return groupThousands(plain)
 }
 
 /** 入力欄に戻すときの表記（3桁区切りなし・有効数字6桁） */

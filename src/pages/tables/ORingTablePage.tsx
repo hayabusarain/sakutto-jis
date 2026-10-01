@@ -6,7 +6,7 @@ import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { TableExport } from '../../components/ui/TableExport'
 import { FLAT_DEPTH_TOL, grooveDepth } from '../../features/o-ring/calc'
-import type { ORingSeries } from '../../features/o-ring/data'
+import { DYNAMIC_MATERIAL_NOTE, E_NOTE, SOURCE_NOTE, type ORingSeries } from '../../features/o-ring/data'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { Link } from '../../router/Link'
@@ -21,7 +21,7 @@ const rowLinkClass =
 const SERIES_TEXT: Record<ORingSeries, { use: string; note: string; example: string }> = {
   P: {
     use: '運動用・固定用',
-    note: 'P はピストン・ロッドなどの運動用にも、固定用にも使えます。',
+    note: `P はピストン・ロッドなどの運動用にも、固定用にも使えます（${DYNAMIC_MATERIAL_NOTE.replace(/。$/, '')}）。`,
     example: 'P20',
   },
   G: {
@@ -38,7 +38,10 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
   const groups = oRingGroupRanges(series)
   const numbers = `${rows[0].ring.no}〜${rows[rows.length - 1].ring.no}`
   const example = rows.find((row) => row.ring.no === text.example) ?? rows[0]
-  const boundaryNumbers = groups.slice(1).map((group) => group.first).filter((no) => no.endsWith('A'))
+  // A 付きで、A の付かない同じ数字の番号もあるもの（P 系列: P10A・P22A・P48A・P50A・P150A）
+  const aNumbers = rows
+    .map((row) => row.ring.no)
+    .filter((no) => no.endsWith('A') && rows.some((row) => row.ring.no === no.slice(0, -1)))
 
   const groupColumns: Column<ORingGroupRange>[] = [
     { key: 'range', header: '呼び番号', align: 'left', cell: (g) => (g.first === g.last ? g.first : `${g.first}〜${g.last}`) },
@@ -49,7 +52,7 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
     { key: 'b2', header: 'BU2個', cell: (g) => fixed(g.group.widths[2], 1) },
     { key: 'tol', header: 'd・D 許容差', cell: (g) => (g.group.diaTol === null ? '—' : trim(g.group.diaTol)) },
     { key: 'r', header: 'R 最大', cell: (g) => trim(g.group.rMax) },
-    { key: 'e', header: '偏心 E 最大', cell: (g) => trim(g.group.eMax) },
+    { key: 'e', header: 'E 最大（K の最大−最小）', cell: (g) => trim(g.group.eMax) },
     { key: 'fh', header: '平面 深さ h', cell: (g) => fixed(g.group.flatDepth, 1) },
     { key: 'fb', header: '平面 溝幅 b', cell: (g) => fixed(g.group.flatWidth, 1) },
   ]
@@ -143,7 +146,7 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
         <Card title={`${series} 系列 太さごとの溝寸法`} index="01" icon={Layers} flush>
           <TableNote>
             <p>
-              単位: mm。溝の深さ・溝幅・R・偏心量は、Oリングの太さのグループごとに決まります。BU はバックアップリングの数です。
+              単位: mm。溝の深さ・溝幅・R・E は、Oリングの太さのグループごとに決まります。BU はバックアップリングの数です。
             </p>
             <p>
               d・D 許容差は、d が 0/−、D が +/0 の値。溝幅 b の許容差は +0.25/0、平面の溝の深さ h の許容差は ±{FLAT_DEPTH_TOL} です。
@@ -159,6 +162,7 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
           </div>
           <div className="space-y-1 p-4">
             <Citation code="JIS B 2401-2" suffix="のハウジングの形状・寸法" />
+            <p className="text-xs leading-relaxed text-zinc-600">{SOURCE_NOTE}</p>
           </div>
         </Card>
 
@@ -174,7 +178,7 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
               filename={`o-ring_${series}`}
               headers={exportHeaders}
               rows={exportRows}
-              note={`典拠: JIS B 2401-1:2012 / JIS B 2401-2:2012。${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
+              note={`典拠: JIS B 2401-1:2012 / JIS B 2401-2:2012。${SOURCE_NOTE}${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
             />
           </div>
           <div className="mt-2">
@@ -189,6 +193,7 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
           <div className="space-y-1 p-4">
             <Citation code="JIS B 2401-1" suffix="のOリング寸法" />
             <Citation code="JIS B 2401-2" suffix="のハウジング寸法（円筒面・平面）" />
+            <p className="text-xs leading-relaxed text-zinc-600">{SOURCE_NOTE}</p>
           </div>
         </Card>
 
@@ -201,15 +206,16 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
               平面の溝（固定用）は、内側から圧力がかかる内圧用は溝の外径、外側から圧力がかかる外圧用（真空など）は溝の内径が規格で決まっています。
             </li>
             <li>
-              内径 d1 の許容差は 1種〜3種の値です。4種C（シリコーンゴム）は 1.5 倍、4種D（フッ素ゴム）は 1.2 倍になります。
+              内径 d1 の許容差は 1種〜3種の値です。4種C（シリコーンゴム・VMQ）は 1.5 倍、4種D（フッ素ゴム・FKM）は 1.2
+              倍になります（旧 JIS B 2406:1991 の注による）。
             </li>
-            {boundaryNumbers.length > 0 && (
+            {aNumbers.length > 0 && (
               <li>
-                {boundaryNumbers.join('・')}
-                は、太さが変わる境目の番号です。数字が同じ番号（{boundaryNumbers.map((no) => no.slice(0, -1)).join('・')}
-                ）とは太さが違うので注意してください。
+                {aNumbers.join('・')} は、数字が同じ番号（{aNumbers.map((no) => no.slice(0, -1)).join('・')}
+                ）より一つ太いOリングです（d は同じで D が違います）。注文・図面で取り違えないよう注意してください。
               </li>
             )}
+            <li>{E_NOTE}</li>
           </ul>
           <div className="mt-4">
             <FormulaInfo>

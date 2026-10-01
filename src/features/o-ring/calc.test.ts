@@ -6,11 +6,16 @@ import {
   flatGroove,
   flatSqueezeRange,
   grooveDepth,
+  needsBackupRing,
+  noBackupMaxClearance,
   oRingNumbers,
+  pressureBandLabel,
+  pressureBandShortLabel,
   squeeze,
   squeezeRange,
   stretch,
 } from './calc'
+import { BACKUP_PRESSURE_LIMITS, HARDNESSES, NO_BACKUP_MAX_CLEARANCE } from './data'
 
 describe('findORing', () => {
   it('P20: 19.8 × 2.4、ハウジング d20 / D24、溝幅 3.2', () => {
@@ -161,5 +166,52 @@ describe('flatGroove', () => {
 
   it('平面溝の充てん率（P20）= π/4×2.4² ÷ (3.2×1.8) = 78.5%', () => {
     expect(flatFillRatio(findORing('P', 'P20')!)).toBeCloseTo(78.5, 1)
+  })
+})
+
+describe('バックアップリングなしで使えるすきま 2g（旧 JIS B 2406:1991 表1）', () => {
+  it('表の値（硬さ 70・90 × 圧力の5区分）', () => {
+    expect(NO_BACKUP_MAX_CLEARANCE[70]).toEqual([0.35, 0.3, 0.15, 0.07, 0.03])
+    expect(NO_BACKUP_MAX_CLEARANCE[90]).toEqual([0.65, 0.6, 0.5, 0.3, 0.17])
+    expect(BACKUP_PRESSURE_LIMITS).toEqual([4.0, 6.3, 10.0, 16.0, 25.0])
+  })
+
+  it('圧力が高いほど小さく（増えない）、硬さ 90 は 70 より大きい', () => {
+    for (const hardness of HARDNESSES) {
+      const values = NO_BACKUP_MAX_CLEARANCE[hardness]
+      expect(values).toHaveLength(BACKUP_PRESSURE_LIMITS.length)
+      for (let i = 1; i < values.length; i++) expect(values[i]).toBeLessThanOrEqual(values[i - 1])
+    }
+    NO_BACKUP_MAX_CLEARANCE[70].forEach((value, i) => expect(NO_BACKUP_MAX_CLEARANCE[90][i]).toBeGreaterThan(value))
+  })
+
+  it('区分の上端はその区分に含む。25.0 MPa を超えると表の対象外', () => {
+    expect(noBackupMaxClearance(70, 0)).toEqual({ status: 'ok', index: 0, max: 0.35 })
+    expect(noBackupMaxClearance(70, 4)).toEqual({ status: 'ok', index: 0, max: 0.35 })
+    expect(noBackupMaxClearance(70, 4.01)).toEqual({ status: 'ok', index: 1, max: 0.3 })
+    expect(noBackupMaxClearance(90, 10)).toEqual({ status: 'ok', index: 2, max: 0.5 })
+    expect(noBackupMaxClearance(90, 16.5)).toEqual({ status: 'ok', index: 4, max: 0.17 })
+    expect(noBackupMaxClearance(70, 25)).toEqual({ status: 'ok', index: 4, max: 0.03 })
+    expect(noBackupMaxClearance(70, 25.1)).toEqual({ status: 'above' })
+    expect(noBackupMaxClearance(70, -1)).toEqual({ status: 'invalid' })
+    expect(noBackupMaxClearance(70, Number.NaN)).toEqual({ status: 'invalid' })
+  })
+
+  it('すきまが最大値を超えたらバックアップリングを使う', () => {
+    // 硬さ 70・10 MPa は 0.15 まで
+    expect(needsBackupRing(70, 10, 0.15)).toBe(false)
+    expect(needsBackupRing(70, 10, 0.2)).toBe(true)
+    // 硬さ 90 なら 0.5 まで
+    expect(needsBackupRing(90, 10, 0.2)).toBe(false)
+    expect(needsBackupRing(70, 30, 0.01)).toBeNull()
+  })
+
+  it('区分の表記', () => {
+    expect(pressureBandLabel(0)).toBe('4.0 以下')
+    expect(pressureBandLabel(1)).toBe('4.0 を超え 6.3 以下')
+    expect(pressureBandLabel(4)).toBe('16.0 を超え 25.0 以下')
+    expect(pressureBandShortLabel(0)).toBe('〜4.0')
+    expect(pressureBandShortLabel(1)).toBe('4.0超〜6.3')
+    expect(pressureBandShortLabel(4)).toBe('16.0超〜25.0')
   })
 })

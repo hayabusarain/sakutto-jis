@@ -11,8 +11,9 @@ function deviation(upper: number, lower: number): string {
 const BACKUP_LABELS = ['バックアップリングなし', 'バックアップリング1個', 'バックアップリング2個'] as const
 
 /**
- * 図面に書く溝の指示（参考）。数値は JIS B 2401-2 の表から。1行に1項目。
+ * 図面に書く溝の指示（参考）。数値は JIS B 2401-2（旧 JIS B 2406:1991 の表の値）から。1行に1項目。
  * 円筒面は d・D と溝幅、平面は規格で決まる側の径・溝幅・深さ。反対側の径は（ ）の参考寸法にする。
+ * E は「偏心量」と書くと軸心のずれ（E/2 が正しい上限）と読まれるので、定義（K の最大−最小）と軸心のずれを併記する。
  */
 export function grooveCallout(ring: ORing, groove: GrooveKind, housing: HousingType, backup: 0 | 1 | 2): string[] {
   const { group } = ring
@@ -25,7 +26,7 @@ export function grooveCallout(ring: ORing, groove: GrooveKind, housing: HousingT
       ...(housing === 'piston' ? [`シリンダ内径 ${D}`, `溝底径 ${d}`] : [`軸径 ${d}`, `溝底径 ${D}`]),
       `溝幅 ${trim(group.widths[backup])} +0.25/0`,
       `溝底の角 R${trim(group.rMax)}以下`,
-      `偏心量 ${trim(group.eMax)}以下`,
+      `溝の振れ E（K の最大−最小）${trim(group.eMax)}以下（軸心のずれ ${trim(group.eMax / 2)}以下）`,
       `Oリング ${ring.no}（内径 ${trim(ring.d1)} × 太さ ${trim(group.d2)}）`,
     ]
   }

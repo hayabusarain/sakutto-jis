@@ -124,6 +124,9 @@ describe('parsePositive', () => {
     expect(parsePositive('  ')).toBeUndefined()
     expect(parsePositive('３０')).toBe(30)
     expect(parsePositive('24,6')).toBe(24.6)
+    // カンマはサイト共通のルール（3桁区切りか小数点か）
+    expect(parsePositive('1,200')).toBe(1200)
+    expect(parsePositive('0,125')).toBe(0.125)
     expect(parsePositive('0')).toBeNull()
     expect(parsePositive('-5')).toBeNull()
     expect(parsePositive('abc')).toBeNull()
