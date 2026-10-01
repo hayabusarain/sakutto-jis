@@ -1,9 +1,25 @@
 import { ArrowRight, BookOpen, ChevronRight, Info } from 'lucide-react'
-import { useId } from 'react'
+import { Fragment, useId } from 'react'
+import { UnverifiedMark } from '../../features/flange-bolt/Unverified'
 import type { SummaryCard, SummarySection, SummaryTable } from '../../lib/quickSearch'
 import { standardLabel, STANDARDS } from '../../standards'
 import { QueryChips } from './QueryChips'
 import { SearchLink } from './SearchLink'
+
+/** 文章の中の ※（規格原文で未確認の印）を、各ツールと同じオレンジで目立たせる */
+function WithMarks({ text }: { text: string }) {
+  const parts = text.split('※')
+  return (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={index}>
+          {index > 0 && <span className="font-bold text-orange-700">※</span>}
+          {part}
+        </Fragment>
+      ))}
+    </>
+  )
+}
 
 /** 欄の数に合わせた並べ方（カードの幅で2列・3列にする。奇数のときは最後の欄を広げて隙間を作らない） */
 function gridClass(count: number): string {
@@ -46,15 +62,20 @@ function TableView({ table }: { table: SummaryTable }) {
                         className="num inline-flex min-h-10 items-center gap-0.5 text-zinc-900 underline decoration-zinc-300 underline-offset-4 hover:decoration-orange-600"
                       >
                         {cell}
+                        {row.unverified?.[index] && <UnverifiedMark />}
                         <ChevronRight className="size-3.5 text-orange-600" aria-hidden />
                       </SearchLink>
                     ) : (
-                      <span className="num inline-flex min-h-10 items-center text-zinc-500">{cell}</span>
+                      <span className="num inline-flex min-h-10 items-center text-zinc-500">
+                        {cell}
+                        {row.unverified?.[index] && <UnverifiedMark />}
+                      </span>
                     )}
                   </th>
                 ) : (
                   <td key={index} className="num px-1 py-1.5 text-zinc-800">
                     {cell}
+                    {row.unverified?.[index] && <UnverifiedMark />}
                   </td>
                 ),
               )}
@@ -84,7 +105,9 @@ function SectionView({ section }: { section: SummarySection }) {
               <dt className={`min-w-0 text-sm ${row.primary ? 'font-semibold text-zinc-900' : 'text-zinc-600'}`}>
                 {row.label}
                 {row.note && (
-                  <span className="mt-0.5 block text-[11px] leading-snug font-normal text-zinc-500">{row.note}</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug font-normal text-zinc-500">
+                    <WithMarks text={row.note} />
+                  </span>
                 )}
               </dt>
               <dd className="ml-auto flex items-baseline gap-1 text-right whitespace-nowrap">
@@ -92,6 +115,7 @@ function SectionView({ section }: { section: SummarySection }) {
                   className={`num font-semibold text-zinc-900 ${row.primary ? 'text-3xl font-bold tracking-tight' : 'text-lg'}`}
                 >
                   {row.value}
+                  {row.unverified && <UnverifiedMark large={row.primary} />}
                 </span>
                 {row.unit && <span className="text-xs text-zinc-500">{row.unit}</span>}
               </dd>
@@ -103,6 +127,12 @@ function SectionView({ section }: { section: SummarySection }) {
       {section.table && <TableView table={section.table} />}
 
       {section.note && <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">{section.note}</p>}
+
+      {section.legend && (
+        <p className="mt-2 text-[11px] leading-relaxed text-zinc-600">
+          <WithMarks text={section.legend} />
+        </p>
+      )}
 
       {section.links && section.links.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-1.5">

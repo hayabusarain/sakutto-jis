@@ -3,9 +3,15 @@
  * 関連する寸法を各ツールのデータと計算関数（features/＊）からまとめて求める。
  * 画面に依存しない純粋関数だけを置く（表示は components/QuickSearch.tsx）。
  */
-import { BOLT_SIZES, type BoltSize } from '../features/bolt-size/data'
-import { boltLength, findFlange } from '../features/flange-bolt/calc'
-import { FLANGES, PRESSURE_CLASSES, type PressureClass } from '../features/flange-bolt/data'
+import {
+  BOLT_SIZES,
+  isUnverified as isBoltUnverified,
+  UNVERIFIED as BOLT_UNVERIFIED,
+  type BoltSize,
+  type CheckedField,
+} from '../features/bolt-size/data'
+import { boltLength, findFlange, isRowUnverified, isUnverified as isFlangeUnverified } from '../features/flange-bolt/calc'
+import { FLANGES, PRESSURE_CLASSES, UNVERIFIED_LEGEND, type PressureClass } from '../features/flange-bolt/data'
 import {
   findORing,
   flatGroove,
@@ -33,12 +39,14 @@ import {
   availableGrade,
   engagementPercent,
   findSize,
-  holeStep,
+  formatHole,
   minorDiameterLimits,
   pitchesOf,
   recommendHole,
+  threadName,
+  threadsForDrill,
 } from '../features/tap-drill/calc'
-import { METRIC_SIZES, type ToleranceGrade } from '../features/tap-drill/data'
+import { METRIC_SIZES, TOLERANCE_GRADES, type ToleranceGrade } from '../features/tap-drill/data'
 import type { StandardCode } from '../standards'
 import { fixed, trim } from './format'
 import { toolHref } from './query'
@@ -65,7 +73,8 @@ export const SEARCH_EXAMPLES: readonly string[] = [
   'PF3/8',
   '10K 50A',
   '二面幅17',
-  'レンチ14',
+  '六角レンチ14',
+  'φ8.5',
 ]
 
 // ---------------------------------------------------------------------------
@@ -99,10 +108,14 @@ function fraction(numerator: number, denominator: number): string | null {
 
 /**
  * インチの呼びを「1/2」「1 1/2」「2」の形にそろえる（PIPE_SIZES.b・PIPE_THREAD_SIZES.size と同じ形）。
- * 「1-1/2」「1・1/2」「11/2」（1 1/2 の打ち間違い）「1.5」も受け付ける。読めなければ null。
+ * 「1-1/2」「1・1/2」「1.1/2」（カタログの書き方）「11/2」（1 1/2 の打ち間違い）「1.5」も受け付ける。読めなければ null。
  */
 export function canonicalInch(text: string): string | null {
-  const t = text.trim().replace(/[・-]/g, ' ').replace(/\s+/g, ' ')
+  const t = text
+    .trim()
+    .replace(/(\d)\.(?=\d+\/)/, '$1 ')
+    .replace(/[・-]/g, ' ')
+    .replace(/\s+/g, ' ')
   let m = t.match(/^(\d+)$/)
   if (m) return String(Number(m[1]))
 
@@ -166,11 +179,31 @@ export type Interpretation =
       /** P で明示されたピッチ（長さとは見なさない） */
       pitchExplicit: boolean
       grade: ToleranceGrade | null
+      /** ボルトの長さ（「M16×1.5×50」の 50、「M12L50」の 50） */
+      length?: number
+      /** 長さの書き方（注記に出す。例: 「×50」「L50」） */
+      lengthText?: string
+      /** おねじの公差域クラス（「M10-6g」の 6g）。下穴の計算には使わない */
+      externalClass?: string
+      /** 大文字の「6G」で入力された（めねじの公差位置 G の意味かもしれない） */
+      upperG?: boolean
     }
   | { type: 'pipe'; nominal: Nominal; spec: PipeSpec | null }
-  | { type: 'flange'; pressure: string; nominal: Nominal }
+  | {
+      type: 'flange'
+      pressure: string
+      nominal: Nominal
+      /** 「10K 50」のように A・B を付けずに入れた呼び径（A 呼称を優先し、そのフランジが無ければ B 呼称として読む） */
+      bare?: string
+    }
   | { type: 'flangePressure'; pressure: string }
-  | { type: 'oring'; series: ORingSeries; no: string }
+  | {
+      type: 'oring'
+      series: ORingSeries
+      no: string
+      /** 「1A-P20」「4D-G50」の材料の記号（寸法には使わない） */
+      material?: string
+    }
   | {
       type: 'pipeThread'
       /** 入力した記号（R・RC・RP・G・PT・PS・PF） */
@@ -180,31 +213,65 @@ export type Interpretation =
       /** そろえた呼び（読めなければ null） */
       size: string | null
       sizeText: string
+      /** G おねじの有効径の公差の等級（「G1/2A」の A） */
+      gClass?: 'A' | 'B'
     }
   | { type: 'acrossFlats'; s: number }
   | { type: 'hexKey'; s: number }
+  /** 手持ちのドリル径から、立てられるねじを探す（「φ8.5」「キリ8.5」「下穴10.2」） */
+  | { type: 'drill'; drill: number }
   | { type: 'number'; text: string }
   | { type: 'unsupported'; message: string }
 
-const METRIC_HINT = /(?:^|[^A-Z])M\s*[\dIL]*\d/
-const METRIC = /^M\s*([\dIL]*\d[\dIL]*(?:\.\d+)?)(?:\s*(X|P|\s)\s*(\d+(?:\.\d+)?))?(?:\s*-?\s*([4-7])\s*H)?$/
+const NUMBER = String.raw`\d+(?:\.\d+)?`
+/** M の直後の I・L は 1 の打ち間違いとみなす（先頭の1文字だけ。「MI2」→ M12。「M12L50」の L は長さ） */
+const METRIC_HINT = /(?:^|[^A-Z])M\s*[IL]?\d/
+const METRIC = new RegExp(
+  String.raw`^M\s*([IL]?\d+(?:\.\d+)?)` +
+    // ×ピッチ（または長さ）
+    String.raw`(?:\s*(X|P|\s)\s*(${NUMBER}))?` +
+    // ×長さ（「M16×1.5×50」）
+    String.raw`(?:\s*X\s*(${NUMBER}))?` +
+    // めねじの等級「-6H」（はめあい「-6H/6g」も受け付ける）か、おねじの公差域クラス「-6g」「-5g6g」
+    String.raw`(?:\s*-?\s*([4-7])\s*H(?:\s*\/\s*[3-9]\s*[EFGH](?:\s*[3-9]\s*[EFGH])?)?|\s*-?\s*([3-9]\s*[EFG](?:\s*[3-9]\s*[EFGH])?))?$`,
+)
+/** ボルトの長さ「L50」「×L50」「-L50」（ねじの呼びの数字の後ろ） */
+const METRIC_LENGTH = /^(M.*\d)\s*(?:X|-)?\s*L\s*(\d+(?:\.\d+)?)$/
+
+/** ドリル径の言い方（「φ8.5」「ドリル8.5」「キリ8.5」「下穴10.2」「8.5キリ」）。φ・ø は大文字にした Φ・Ø も */
+const DRILL_WORD = String.raw`(?:[ΦØ⌀Ф]|ドリル径?|キリ|きり|タップ下穴径?|下穴径?)`
+const DRILL_SUFFIX = String.raw`(?:の?ドリル|の?キリ|の?きり)`
+const DRILL = new RegExp(
+  String.raw`^${DRILL_WORD}\s*(${NUMBER})\s*(?:MM)?(?:\s*${DRILL_SUFFIX})?$|^(${NUMBER})\s*(?:MM)?\s*${DRILL_SUFFIX}$`,
+)
 
 /** 六角棒スパナ（六角レンチ）の言い方。「六角穴付きボルト」は含めない */
 const HEX_KEY_WORDS = /六角レンチ|六角棒|ヘキサゴン|ヘックス|HEX|L型レンチ|Lレンチ|アーレン|六角穴(?!付)/
-/** スパナ・メガネなど、ボルト頭・ナットの二面幅で呼ぶ工具 */
-const FLATS_WORDS = /二面幅|対辺|スパナ|メガネ|ソケット|モンキー|^S(?=\s*\d)/
+/** スパナ・メガネ・ボックスなど、ボルト頭・ナットの二面幅で呼ぶ工具 */
+const FLATS_WORDS = /二面幅|対辺|スパナ|メガネ|ソケット|モンキー|ボックス|ラチェット|^S(?=\s*\d)/
+/** 「レンチ」だけでは六角レンチかスパナ類か決められない（両方で探す） */
 const WRENCH_WORD = /レンチ/
 
-const SPEC_PATTERN = String.raw`SGP|SCH\s*40|SCH\s*80`
+/** 鋼管の規格。Sch40・Sch80 は「STPG370 Sch40」のように材料記号を付けて書かれることもある（JIS G 3454） */
+const STPG = String.raw`(?:STPG\s*(?:370|410)?\s*-?\s*)?`
+const SPEC_PATTERN = String.raw`SGP|${STPG}SCH\s*40|${STPG}SCH\s*80`
 const NOMINAL_PATTERN = String.raw`[\d\s./\-・]+[AB]`
-const FLANGE_FORWARD = new RegExp(String.raw`^(\d{1,2})\s*K\s*[-/]?\s*(${NOMINAL_PATTERN})$`)
-const FLANGE_REVERSE = new RegExp(String.raw`^(${NOMINAL_PATTERN})\s*[-/]?\s*(\d{1,2})\s*K$`)
+/** フランジ「10K 50A」「10K 50」（A・B の無い数字も呼び径とみなす） */
+const FLANGE_FORWARD = new RegExp(String.raw`^(\d{1,2})\s*K\s*[-/]?\s*(?:(${NOMINAL_PATTERN})|(\d{1,3}))$`)
+/** 「50A 10K」「50 10K」（数字だけのときは区切りが要る） */
+const FLANGE_REVERSE = new RegExp(
+  String.raw`^(?:(${NOMINAL_PATTERN})\s*[-/]?\s*|(\d{1,3})\s*[-/\s]\s*)(\d{1,2})\s*K$`,
+)
 const PIPE = new RegExp(
   String.raw`^(?:(${SPEC_PATTERN})\s*)?(${NOMINAL_PATTERN})(?:\s*(${SPEC_PATTERN}))?$`,
 )
-const ORING = /^(P|G)\s*(\d+(?:\.\d+)?)\s*(A?)$/
-const PIPE_THREAD = /^(RC|RP|R|G|PT|PS|PF)\s*(\d[\d\s./\-・]*?)\s*B?$/
-const BARE_NUMBER = /^\d+(?:\.\d+)?$|^\d+(?:[ \-・]?\d+)?\/\d+$/
+/** Oリング「P20」「P-20」「P22A」 */
+const ORING = /^(P|G)\s*-?\s*(\d+(?:\.\d+)?)\s*(A?)$/
+/** 袋・カタログの材料の記号（「1A-P20」「4D-G50」「NBR-90 P20」）。Oリングの番号の前に付いたときだけ外す */
+const ORING_MATERIAL = /^((?:[1-4]\s*[A-E]?|NBR|FKM|VMQ|EPDM|HNBR|ACM)(?:-?\d{2})?(?:-\d)?)[\s-]+(?=[PG]\s*-?\s*\d)/
+/** 管用ねじ。末尾の A・B は G おねじの等級（G1/2A）。R・Rc・Rp の B は B 呼称（Rc1/2B）として読み飛ばす */
+const PIPE_THREAD = /^(RC|RP|R|G|PT|PS|PF)\s*-?\s*(\d[\d\s./\-・]*?)\s*([AB])?$/
+const BARE_NUMBER = /^\d+(?:\.\d+)?$|^\d+(?:[ \-・.]?\d+)?\/\d+$/
 
 const THREAD_PREFIX: Record<string, { kinds: PipeThreadKind[]; old: 'PT' | 'PS' | 'PF' | null }> = {
   R: { kinds: ['R'], old: null },
@@ -218,7 +285,7 @@ const THREAD_PREFIX: Record<string, { kinds: PipeThreadKind[]; old: 'PT' | 'PS' 
 
 function toSpec(text: string | undefined): PipeSpec | null {
   if (!text) return null
-  const t = text.replace(/\s/g, '')
+  const t = text.replace(/[\s-]/g, '').replace(/^STPG(?:370|410)?/, '')
   if (t === 'SGP') return 'sgp'
   if (t === 'SCH40') return 'sch40'
   if (t === 'SCH80') return 'sch80'
@@ -231,25 +298,59 @@ function singleNumber(q: string): number | null {
   return numbers && numbers.length === 1 ? Number(numbers[0]) : null
 }
 
-function parseMetric(q: string): Interpretation | null {
+/**
+ * メートルねじを読む。q は normalizeQuery 済みの文字、raw は入力したままの文字
+ * （おねじの公差域クラス 6g と、めねじの公差位置 G の 6G を見分けるため、大文字・小文字を見る）。
+ */
+function parseMetric(q: string, raw: string): Interpretation | null {
   if (!METRIC_HINT.test(q)) return null
-  // 「M12の下穴」「六角穴付きボルト M12」のような日本語や CAP などの語は外して読む
-  const s = q
+  // 「M12の下穴」「六角穴付きボルト M12」のような日本語や CAP などの語は外して読む。末尾の「mm」も外す
+  let s = q
     .replace(/[^A-Z0-9./\s-]/g, ' ')
     .replace(/\b(?:CAP|HEX|BOLT|NUT|TAP|SCREW|SUS|JIS)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+    .replace(/(\d)\s*MM$/, '$1')
+
+  let length: number | undefined
+  let lengthText: string | undefined
+  const l = s.match(METRIC_LENGTH)
+  if (l) {
+    s = l[1]
+    length = Number(l[2])
+    lengthText = `L${trim(length)}`
+  }
+
   const m = s.match(METRIC)
   if (!m) return null
-  const d = Number(m[1].replace(/[IL]/g, '1'))
-  const second = m[3] === undefined ? null : Number(m[3])
-  return {
+  const result: Extract<Interpretation, { type: 'metric' }> = {
     type: 'metric',
-    d,
-    second,
+    d: Number(m[1].replace(/^[IL]/, '1')),
+    second: m[3] === undefined ? null : Number(m[3]),
     pitchExplicit: m[2] === 'P',
-    grade: m[4] === undefined ? null : (Number(m[4]) as ToleranceGrade),
+    grade: m[5] === undefined ? null : (Number(m[5]) as ToleranceGrade),
   }
+  if (m[4] !== undefined) {
+    // 「×ピッチ×長さ」と「L長さ」の両方があると、どちらが長さか決められない
+    if (length !== undefined) return null
+    length = Number(m[4])
+    lengthText = `×${trim(length)}`
+  }
+  if (length !== undefined) {
+    result.length = length
+    result.lengthText = lengthText
+  }
+  if (m[6] !== undefined) {
+    result.externalClass = m[6].replace(/\s/g, '').toLowerCase()
+    const typed = raw.normalize('NFKC')
+    if (/[3-9]\s*G/.test(typed) && !/[3-9]\s*g/.test(typed)) result.upperG = true
+  }
+  return result
+}
+
+/** A・B を付けずに入れたフランジの呼び径（数字）。ひとまず A 呼称で持ち、buildFlange で B 呼称とも比べる */
+function bareFlange(pressure: string, bare: string): Interpretation {
+  return { type: 'flange', pressure, nominal: { system: 'A', a: `${Number(bare)}A` }, bare: String(Number(bare)) }
 }
 
 /**
@@ -270,8 +371,14 @@ export function parseQuery(raw: string): Interpretation[] {
     return [{ type: 'unsupported', message: 'ウイットねじ（W）は収録していません。' }]
   }
 
-  const metric = parseMetric(q)
+  const metric = parseMetric(q, raw)
   if (metric) return [metric]
+
+  const drill = q.match(DRILL)
+  if (drill) {
+    const value = Number(drill[1] ?? drill[2])
+    return value > 0 ? [{ type: 'drill', drill: value }] : []
+  }
 
   if (HEX_KEY_WORDS.test(q)) {
     const s = singleNumber(q)
@@ -282,8 +389,9 @@ export function parseQuery(raw: string): Interpretation[] {
     return s === null ? [] : [{ type: 'acrossFlats', s }]
   }
   if (WRENCH_WORD.test(q)) {
+    // 「レンチ」だけなら、六角レンチ（六角穴付きボルト）とスパナ類（二面幅）の両方で探す
     const s = singleNumber(q)
-    return s === null ? [] : [{ type: 'hexKey', s }]
+    return s === null ? [] : [{ type: 'hexKey', s }, { type: 'acrossFlats', s }]
   }
 
   // 「Oリング」「JIS」「鋼管」などの語を外し、呼びの部分だけにする
@@ -298,13 +406,17 @@ export function parseQuery(raw: string): Interpretation[] {
 
   let m = s.match(FLANGE_FORWARD)
   if (m) {
+    const pressure = `${Number(m[1])}K`
+    if (m[3] !== undefined) return [bareFlange(pressure, m[3])]
     const nominal = parseNominal(m[2])
-    if (nominal) return [{ type: 'flange', pressure: `${Number(m[1])}K`, nominal }]
+    if (nominal) return [{ type: 'flange', pressure, nominal }]
   }
   m = s.match(FLANGE_REVERSE)
   if (m) {
+    const pressure = `${Number(m[3])}K`
+    if (m[2] !== undefined) return [bareFlange(pressure, m[2])]
     const nominal = parseNominal(m[1])
-    if (nominal) return [{ type: 'flange', pressure: `${Number(m[2])}K`, nominal }]
+    if (nominal) return [{ type: 'flange', pressure, nominal }]
   }
   m = s.match(/^(\d{1,2})\s*K$/)
   if (m) return [{ type: 'flangePressure', pressure: `${Number(m[1])}K` }]
@@ -316,22 +428,32 @@ export function parseQuery(raw: string): Interpretation[] {
   }
 
   const results: Interpretation[] = []
-  m = s.match(ORING)
+  const material = s.match(ORING_MATERIAL)
+  m = (material ? s.slice(material[0].length) : s).match(ORING)
   if (m) {
     const series = m[1] as ORingSeries
-    results.push({ type: 'oring', series, no: `${series}${Number(m[2])}${m[3]}` })
+    const oring: Extract<Interpretation, { type: 'oring' }> = { type: 'oring', series, no: `${series}${Number(m[2])}${m[3]}` }
+    if (material) oring.material = material[1].replace(/\s/g, '')
+    results.push(oring)
   }
   m = s.match(PIPE_THREAD)
   if (m) {
     const prefix = THREAD_PREFIX[m[1]]
-    results.push({
-      type: 'pipeThread',
-      prefix: m[1],
-      kinds: prefix.kinds,
-      old: prefix.old,
-      size: canonicalInch(m[2]),
-      sizeText: m[2].trim(),
-    })
+    const suffix = m[3] as 'A' | 'B' | undefined
+    const isG = prefix.kinds.includes('G')
+    // 末尾の A は G おねじの等級のときだけ読む（R1/2A などは読まない）
+    if (suffix !== 'A' || isG) {
+      const thread: Extract<Interpretation, { type: 'pipeThread' }> = {
+        type: 'pipeThread',
+        prefix: m[1],
+        kinds: prefix.kinds,
+        old: prefix.old,
+        size: canonicalInch(m[2]),
+        sizeText: m[2].trim(),
+      }
+      if (suffix && isG) thread.gClass = suffix
+      results.push(thread)
+    }
   }
   if (results.length > 0) return results
 
@@ -350,10 +472,14 @@ export interface SummaryRow {
   note?: string
   /** そのカードで一番見てほしい値（大きく表示する） */
   primary?: boolean
+  /** 規格原文で未確認の値（各ツールと同じく ※ を付ける） */
+  unverified?: boolean
 }
 
 export interface SummaryTableRow {
   cells: readonly string[]
+  /** 規格原文で未確認のセル（cells と同じ並び。※ を付ける） */
+  unverified?: readonly boolean[]
   /** 行を押したときに開くツール（条件付き） */
   href?: string
   highlight?: boolean
@@ -377,6 +503,8 @@ export interface SummarySection {
   /** 補足のリンク（細目の下穴・ねじの種類など） */
   links?: SummaryLink[]
   note?: string
+  /** ※ の凡例（規格原文で未確認の値を出したときだけ。「※ 規格原文で未確認の値（…）」） */
+  legend?: string
   /** 典拠の規格 */
   standards: StandardCode[]
   /** 詳しく見るツール（条件付き） */
@@ -440,6 +568,20 @@ function metricName(d: number, p: number): string {
   return size?.coarse === p ? `M${trim(d)}` : `M${trim(d)}×${trim(p)}`
 }
 
+/** ※ の凡例（各ツールと同じ文言）。detail には何が未確認かを書く */
+function legendOf(detail: string): string {
+  return `${UNVERIFIED_LEGEND}（${detail}）`
+}
+
+/** ボルト・ナットの値のうち、規格原文で未確認のものの説明（bolt-size/data の UNVERIFIED の note） */
+function boltUnverifiedNotes(items: readonly { field: CheckedField; d: number }[]): string[] {
+  return unique(
+    items
+      .filter((item) => isBoltUnverified(item.field, item.d))
+      .flatMap((item) => BOLT_UNVERIFIED.filter((entry) => entry.field === item.field).map((entry) => entry.note)),
+  )
+}
+
 /** ボルトの呼び径 d を使うフランジを、呼び圧力ごとに「25A〜100A」の形でまとめる */
 export function flangesUsingBolt(d: number): { pressure: PressureClass; ranges: string[]; first: string }[] {
   const result: { pressure: PressureClass; ranges: string[]; first: string }[] = []
@@ -467,13 +609,13 @@ function tapDrillSection(d: number, p: number, grade: ToleranceGrade): SummarySe
   const size = findSize(d)!
   const limits = minorDiameterLimits(d, p, grade)
   const rec = recommendHole(d, p, grade)
-  const digits = holeStep(p) < 0.1 ? 2 : 1
   const params: Record<string, number> = grade === 6 ? { d, p } : { d, p, grade }
 
   const rows: SummaryRow[] = [
     {
       label: `下穴径の目安（${grade}H）`,
-      value: rec ? fixed(rec.hole, digits) : '—',
+      // 表示はねじ下穴径ツールと同じ（2.5・14.0・2.65）
+      value: rec ? formatHole(rec.hole) : '—',
       unit: 'mm',
       primary: true,
       note: rec
@@ -496,10 +638,9 @@ function tapDrillSection(d: number, p: number, grade: ToleranceGrade): SummarySe
     .map((other) => {
       const otherGrade = availableGrade(d, other, 6)
       const otherRec = recommendHole(d, other, otherGrade)
-      const otherDigits = holeStep(other) < 0.1 ? 2 : 1
       const kind = other === size.coarse ? '並目' : '細目'
       return {
-        label: `${kind} ×${trim(other)} → ${otherRec ? fixed(otherRec.hole, otherDigits) : '—'}${otherGrade === 6 ? '' : `（${otherGrade}H）`}`,
+        label: `${kind} ×${trim(other)} → ${otherRec ? formatHole(otherRec.hole) : '—'}${otherGrade === 6 ? '' : `（${otherGrade}H）`}`,
         href: toolHref(SEARCH_TOOL_PATHS.tapDrill, otherGrade === 6 ? { d, p: other } : { d, p: other, grade: otherGrade }),
       }
     })
@@ -518,12 +659,19 @@ function tapDrillSection(d: number, p: number, grade: ToleranceGrade): SummarySe
 }
 
 function boltSection(bolt: BoltSize, fine: boolean): SummarySection {
+  const jaUnverified = isBoltUnverified('sJa', bolt.d)
+  const spotFaceUnverified = isBoltUnverified('spotFace', bolt.d)
   const rows: SummaryRow[] = [
     {
       label: '二面幅（スパナ）',
       value: trim(bolt.sIso),
       unit: 'mm',
-      note: bolt.sIso === bolt.sJa ? 'JIS本体・旧JIS とも同じ' : `旧JIS（附属書JA）は ${trim(bolt.sJa)} mm`,
+      // 旧JIS の値が未確認のときは「とも同じ」と言い切らない（M3 は資料により 5.5 と 5）
+      note: jaUnverified
+        ? `旧JIS（附属書JA）は ${trim(bolt.sJa)}※ mm（規格原文で未確認）`
+        : bolt.sIso === bolt.sJa
+          ? 'JIS本体・旧JIS とも同じ'
+          : `旧JIS（附属書JA）は ${trim(bolt.sJa)} mm`,
     },
     {
       label: '六角レンチ（六角穴付きボルト）',
@@ -537,7 +685,7 @@ function boltSection(bolt: BoltSize, fine: boolean): SummarySection {
       unit: 'mm',
       note: `1級 ${trim(bolt.holes[0])}・3級 ${trim(bolt.holes[2])}`,
     },
-    { label: 'ざぐり径（六角ボルト用）', value: trim(bolt.spotFace), unit: 'mm' },
+    { label: 'ざぐり径（六角ボルト用）', value: trim(bolt.spotFace), unit: 'mm', unverified: spotFaceUnverified },
   ]
   if (bolt.counterbore) {
     rows.push({
@@ -547,10 +695,16 @@ function boltSection(bolt: BoltSize, fine: boolean): SummarySection {
       note: '設計でよく使われる参考値（規格本体の規定ではない）',
     })
   }
+  // ※ を付けた値の説明（二面幅の旧JIS・ざぐり径。ボルト穴 4級はここには出さない）
+  const unverifiedNotes = boltUnverifiedNotes([
+    { field: 'sJa', d: bolt.d },
+    { field: 'spotFace', d: bolt.d },
+  ])
   return {
     title: 'ボルト・ナット',
     rows,
     note: fine ? `呼び径 M${bolt.d} の値です（寸法表は並目のもの）。` : undefined,
+    legend: unverifiedNotes.length > 0 ? legendOf(unverifiedNotes.join('、')) : undefined,
     standards: ['JIS B 1180', 'JIS B 1181', 'JIS B 1176', 'JIS B 1001'],
     href: toolHref(SEARCH_TOOL_PATHS.boltSize, { d: bolt.d }),
     linkLabel: '二面幅・座ぐり',
@@ -574,7 +728,7 @@ function buildMetric(i: Extract<Interpretation, { type: 'metric' }>): Built {
   if (i.second !== null) {
     if (pitchesOf(size).includes(i.second)) {
       p = i.second
-    } else if (!i.pitchExplicit && i.second > d / 2) {
+    } else if (!i.pitchExplicit && i.length === undefined && i.second > d / 2) {
       notes.push(`「×${trim(i.second)}」はボルトの長さとみなし、${size.coarse === null ? '細目' : '並目'}の M${d} で表示しています。`)
     } else {
       return fail(
@@ -587,9 +741,20 @@ function buildMetric(i: Extract<Interpretation, { type: 'metric' }>): Built {
   } else if (size.coarse === null) {
     notes.push(`M${d} は並目がないため、細目 ${trim(p)} mm で表示しています。`)
   }
+  if (i.length !== undefined) {
+    notes.push(`「${i.lengthText}」はボルトの長さとみなし、${metricName(d, p)} で表示しています。`)
+  }
 
   const coarse = p === size.coarse
   const grade = availableGrade(d, p, i.grade ?? 6)
+  if (i.externalClass) {
+    // おねじの公差域クラス（6g など）は、めねじの下穴の計算には使わない
+    notes.push(
+      i.upperG
+        ? `「${i.externalClass.toUpperCase()}」は、おねじの公差域クラス ${i.externalClass} か、めねじの公差位置 G です。めねじは H だけを収録しているため、下穴は ${grade}H で表示しています。`
+        : `「${i.externalClass}」はおねじの公差域クラスです。下穴は相手のめねじ（${grade}H）の値で表示しています。`,
+    )
+  }
   if (i.grade !== null && grade !== i.grade) {
     notes.push(`ピッチ ${trim(p)} mm には ${i.grade}H の規定がないため、${grade}H で表示しています。`)
   } else if (i.grade === null && grade !== 6) {
@@ -602,25 +767,40 @@ function buildMetric(i: Extract<Interpretation, { type: 'metric' }>): Built {
   const sections: SummarySection[] = [tapDrillSection(d, p, grade)]
 
   const bolt = BOLT_SIZES.find((b) => b.d === d)
+  const boltFirst = BOLT_SIZES[0].d
+  const boltLast = BOLT_SIZES.at(-1)!.d
   if (bolt) {
     sections.push(boltSection(bolt, !coarse))
+  } else if (d > boltFirst && d < boltLast) {
+    // 範囲の途中で抜けている呼び径（M33・M7 など）は「M3〜M36 を収録」と書くと収録しているように読める
+    notes.push(
+      `M${trim(d)} の二面幅・ボルト穴は収録していません（収録: ${BOLT_SIZES.map((b) => `M${b.d}`).join('・')}）。`,
+    )
   } else {
-    notes.push(`二面幅・ボルト穴は M${BOLT_SIZES[0].d}〜M${BOLT_SIZES.at(-1)!.d} を収録しています。`)
+    notes.push(`二面幅・ボルト穴は M${boltFirst}〜M${boltLast} を収録しています。`)
   }
 
   const flanges = coarse ? flangesUsingBolt(d) : []
   if (flanges.length > 0) {
+    // 寸法すべてが未確認の行（5K・10K の 90A など）を含む範囲には ※ を付ける
+    const unverifiedSizes = flanges.map((f) =>
+      FLANGES[f.pressure].filter((row) => row.bolt === d && isRowUnverified(f.pressure, row.size)).map((row) => row.size),
+    )
+    const unverifiedList = flanges.flatMap((f, index) => unverifiedSizes[index].map((size) => `${f.pressure} ${size}`))
     sections.push({
       title: `M${d} のボルトを使うフランジ`,
       rows: [],
       table: {
         caption: `M${d} のボルトを使うフランジ（JIS B 2220）`,
         columns: ['呼び圧力', '呼び径'],
-        rows: flanges.map((f) => ({
+        rows: flanges.map((f, index) => ({
           cells: [f.pressure, f.ranges.join('、')],
+          unverified: [false, unverifiedSizes[index].length > 0],
           href: toolHref(SEARCH_TOOL_PATHS.flange, { pressure: f.pressure, size: f.first }),
         })),
       },
+      legend:
+        unverifiedList.length > 0 ? legendOf(`寸法が未確認の呼び径を含む: ${unverifiedList.join('・')}`) : undefined,
       standards: ['JIS B 2220'],
       href: toolHref(SEARCH_TOOL_PATHS.flange, {
         pressure: flanges.find((f) => f.pressure === '10K')?.pressure ?? flanges[0].pressure,
@@ -665,6 +845,21 @@ function pipeSizeFail(nominal: Nominal): Built {
 
 const SPEC_KEYS = Object.keys(PIPE_SPECS) as PipeSpec[]
 
+/**
+ * G めねじの推奨下穴径の行。JIS B 0202 に下穴径の規定は無く、めねじ内径の許容範囲から求めた計算値なので、
+ * ラベルと注記でそれと分かるようにする（管用ねじツールと同じ）
+ */
+function gDrillRow(thread: PipeThreadSize, primary = false): SummaryRow {
+  const limits = gMinorLimits(thread)
+  return {
+    label: 'G めねじの推奨下穴径（計算値）',
+    value: fixed(gRecommendedDrill(thread), 1),
+    unit: 'mm',
+    primary,
+    note: `めねじ内径の許容範囲 ${fixed(limits.min, 3)}〜${fixed(limits.max, 3)} mm の中央付近の 0.1mm 刻みの径。規格の値ではありません`,
+  }
+}
+
 function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
   const size = resolvePipeSize(i.nominal)
   if (!size) return pipeSizeFail(i.nominal)
@@ -694,7 +889,7 @@ function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
             : { cells: [PIPE_SPECS[key].label, '—', '—', '—'] }
         }),
       },
-      note: '厚さ・内径は mm、質量は 1m あたり。Sch40・Sch80 は STPG370（JIS G 3454）。',
+      note: '厚さ・内径は mm、質量は 1m あたり（めっき無しの値）。Sch40・Sch80 は STPG370（JIS G 3454）。',
       standards: ['JIS G 3452', 'JIS G 3454'],
       href: toolHref(SEARCH_TOOL_PATHS.steelPipe, { spec, a }),
       linkLabel: '鋼管の重量計算',
@@ -713,7 +908,7 @@ function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
           note: `ピッチ ${fixed(threadPitch(thread.tpi), 4)} mm`,
         },
         { label: '外径 d（基準径の位置）', value: fixed(thread.d, 3), unit: 'mm' },
-        { label: 'G めねじの推奨下穴径', value: fixed(gRecommendedDrill(thread), 1), unit: 'mm' },
+        gDrillRow(thread),
       ],
       links: THREAD_LINK_KINDS.map((kind) => ({
         label: `${kind}${thread.size}`,
@@ -731,18 +926,28 @@ function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
   })
   if (flangeRows.length > 0) {
     const main = flangeRows.find((f) => f.pressure === '10K') ?? flangeRows[0]
+    // 寸法すべてが未確認の行（5K・10K の 90A・175A・225A）は、フランジのツールと同じく ※ を付ける
+    const unverifiedPressures = flangeRows.filter(({ pressure }) => isRowUnverified(pressure, a)).map((f) => f.pressure)
     sections.push({
       title: `フランジ（${a}）`,
       rows: [],
       table: {
         caption: `${a} のフランジ寸法（JIS B 2220）`,
         columns: ['呼び圧力', '外径 D', 'PCD', '穴', 'ボルト'],
-        rows: flangeRows.map(({ pressure, row }) => ({
-          cells: [pressure, trim(row.D), trim(row.C), `${row.n}-φ${trim(row.h)}`, `M${row.bolt}`],
-          href: toolHref(SEARCH_TOOL_PATHS.flange, { pressure, size: a }),
-        })),
+        rows: flangeRows.map(({ pressure, row }) => {
+          const rowUnverified = isRowUnverified(pressure, a)
+          return {
+            cells: [pressure, trim(row.D), trim(row.C), `${row.n}-φ${trim(row.h)}`, `M${row.bolt}`],
+            unverified: [false, rowUnverified, rowUnverified, rowUnverified, rowUnverified],
+            href: toolHref(SEARCH_TOOL_PATHS.flange, { pressure, size: a }),
+          }
+        }),
       },
       note: '単位 mm。穴は「数-径」。',
+      legend:
+        unverifiedPressures.length > 0
+          ? legendOf(`${unverifiedPressures.join('・')} の ${a} は寸法すべて`)
+          : undefined,
       standards: ['JIS B 2220'],
       href: toolHref(SEARCH_TOOL_PATHS.flange, { pressure: main.pressure, size: a }),
       linkLabel: 'フランジ・ボルト長さ',
@@ -778,8 +983,18 @@ function buildFlange(i: Extract<Interpretation, { type: 'flange' }>): Built {
       PRESSURE_CLASSES.map((p) => `${p} ${nominalLabel(i.nominal)}`),
     )
   }
-  const size = resolvePipeSize(i.nominal)
-  if (!size) return pipeSizeFail(i.nominal)
+  // 「10K 50」のような数字だけの呼び径は A 呼称を優先し、そのフランジが無ければ B 呼称（10K 2 → 2B = 50A）
+  let nominal = i.nominal
+  if (i.bare !== undefined) {
+    const asB: Nominal = { system: 'B', b: i.bare }
+    const hasFlange = (n: Nominal) => {
+      const s = resolvePipeSize(n)
+      return s !== undefined && findFlange(pressure, s.a) !== undefined
+    }
+    if (!hasFlange(nominal) && hasFlange(asB)) nominal = asB
+  }
+  const size = resolvePipeSize(nominal)
+  if (!size) return pipeSizeFail(nominal)
   const a = size.a
   const row = findFlange(pressure, a)
   if (!row) {
@@ -810,16 +1025,25 @@ function buildFlange(i: Extract<Interpretation, { type: 'flange' }>): Built {
     rounding: BOLT_LENGTH_ASSUMPTION.rounding,
   })
 
+  // 規格原文で未確認の値（フランジのツールと同じく ※ を付ける）。ボルト長さは厚さ t から計算するので t と同じ扱い
+  const rowUnverified = isRowUnverified(pressure, a)
+  const tUnverified = isFlangeUnverified(pressure, a, 't')
+
   const sections: SummarySection[] = [
     {
       title: 'フランジ寸法',
       rows: [
-        { label: '外径 D', value: trim(row.D), unit: 'mm' },
-        { label: 'ボルト穴中心円の径（PCD）', value: trim(row.C), unit: 'mm' },
-        { label: 'ボルト穴（数-径）', value: `${row.n}-φ${trim(row.h)}`, unit: 'mm' },
-        { label: 'ボルト', value: `M${row.bolt} × ${row.n}本` },
-        { label: '厚さ t', value: trim(row.t), unit: 'mm', note: '座（RF）の高さを含む' },
+        { label: '外径 D', value: trim(row.D), unit: 'mm', unverified: rowUnverified },
+        { label: 'ボルト穴中心円の径（PCD）', value: trim(row.C), unit: 'mm', unverified: rowUnverified },
+        { label: 'ボルト穴（数-径）', value: `${row.n}-φ${trim(row.h)}`, unit: 'mm', unverified: rowUnverified },
+        { label: 'ボルト', value: `M${row.bolt} × ${row.n}本`, unverified: rowUnverified },
+        { label: '厚さ t', value: trim(row.t), unit: 'mm', note: '座（RF）の高さを含む', unverified: tUnverified },
       ],
+      legend: rowUnverified
+        ? legendOf(`${pressure} ${a} は寸法すべて`)
+        : tUnverified
+          ? legendOf(`${pressure} ${a} のフランジ厚さ t`)
+          : undefined,
       standards: ['JIS B 2220'],
       href: toolHref(SEARCH_TOOL_PATHS.flange, { pressure, size: a }),
       linkLabel: 'フランジ寸法・図面',
@@ -832,27 +1056,39 @@ function buildFlange(i: Extract<Interpretation, { type: 'flange' }>): Built {
           value: hex.length === null ? '—' : `M${row.bolt}×${hex.length}`,
           // L = 2t + G + m + 山数 × P（5mm 刻みに切り上げ）
           note: `${trim(row.t)} × 2 + ${BOLT_LENGTH_ASSUMPTION.gasket} + ${trim(hex.nutHeight)} + ${BOLT_LENGTH_ASSUMPTION.threads} × ${trim(hex.pitch)} = ${trim(hex.required, 2)} → 5mm 刻みに切り上げ`,
+          unverified: tUnverified && hex.length !== null,
         },
         {
           label: 'スタッドボルト（両ナット）',
           value: stud.length === null ? '—' : `M${row.bolt}×${stud.length}`,
           note: `${trim(row.t)} × 2 + ${BOLT_LENGTH_ASSUMPTION.gasket} + ${trim(stud.nutHeight)} × 2 + ${BOLT_LENGTH_ASSUMPTION.threads} × ${trim(stud.pitch)} × 2 = ${trim(stud.required, 2)} → 5mm 刻みに切り上げ`,
+          unverified: tUnverified && stud.length !== null,
         },
       ],
       links: [{ label: 'スタッドボルトで計算', href: toolHref(SEARCH_TOOL_PATHS.flange, linkParams('stud')) }],
       note: `フランジ厚さ × 2 + ガスケット ${BOLT_LENGTH_ASSUMPTION.gasket}mm + ナット高さ（JIS本体）+ ${BOLT_LENGTH_ASSUMPTION.threads} 山出し、座金なしの条件。条件を変えるときはツールで計算してください。`,
+      legend: tUnverified
+        ? `※ ${pressure} ${a} のフランジ厚さ t は規格原文で未確認のため、長さも確認してください。`
+        : undefined,
       standards: ['JIS B 1180', 'JIS B 1181'],
       href: toolHref(SEARCH_TOOL_PATHS.flange, linkParams('hex')),
       linkLabel: 'ボルト長さを計算',
     },
   ]
 
+  const notes: string[] = []
+  if (i.bare !== undefined) {
+    notes.push(`「${i.bare}」は ${nominal.system === 'A' ? `${a} ` : `${nominal.b}B（${a}）`}として表示しています。`)
+  } else if (nominal.system === 'B') {
+    notes.push(`${nominal.b}B は ${a} です。`)
+  }
+
   return {
     card: {
       key: `flange-${pressure}-${a}`,
       kind: '鋼製管フランジ',
       title: `${pressure} ${a}`,
-      notes: i.nominal.system === 'B' ? [`${i.nominal.b}B は ${a} です。`] : [],
+      notes,
       sections,
       related: unique([
         ...PRESSURE_CLASSES.filter((p) => p !== pressure && findFlange(p, a)).map((p) => `${p} ${a}`),
@@ -871,13 +1107,18 @@ function buildORing(i: Extract<Interpretation, { type: 'oring' }>): Built {
   const ring = findORing(i.series, i.no)
   const numbers = oRingNumbers(i.series)
   if (!ring) {
+    // A の付かない同じ番号（P20A → P20）があれば、それを一番の候補にする
+    const withoutA = i.no.endsWith('A') ? i.no.slice(0, -1) : null
     return fail(
       `${i.no} は JIS B 2401 の ${i.series} 系列（${numbers[0]}〜${numbers.at(-1)}）にありません。`,
-      neighbors(
-        numbers.filter((no) => !no.endsWith('A')),
-        oRingNumberValue,
-        oRingNumberValue(i.no),
-      ),
+      unique([
+        ...(withoutA && findORing(i.series, withoutA) ? [withoutA] : []),
+        ...neighbors(
+          numbers.filter((no) => !no.endsWith('A')),
+          oRingNumberValue,
+          oRingNumberValue(i.no),
+        ),
+      ]),
       `Oリングの ${i.series} 系列は ${numbers[0]}〜${numbers.at(-1)}`,
     )
   }
@@ -937,12 +1178,20 @@ function buildORing(i: Extract<Interpretation, { type: 'oring' }>): Built {
     },
   ]
 
+  const notes: string[] = []
+  if (i.material) {
+    notes.push(`「${i.material}」は材料の種類の記号として外し、${ring.no} の寸法を表示しています。`)
+    // 4種C・4種D は内径の許容差が 1種〜3種 と違う（倍率はOリングのツールに記載）
+    if (i.material.startsWith('4')) notes.push('4種（4C・4D など）は内径の許容差が 1種〜3種 と違います。許容差はツールで確認してください。')
+  }
+  if (ring.series === 'G') notes.push('G は固定用です。往復運動などの運動用には P を使います。')
+
   return {
     card: {
       key: `oring-${ring.no}`,
       kind: ring.series === 'P' ? 'Oリング P（運動用・固定用）' : 'Oリング G（固定用）',
       title: ring.no,
-      notes: ring.series === 'G' ? ['G は固定用です。往復運動などの運動用には P を使います。'] : [],
+      notes,
       sections,
       related: [],
     },
@@ -963,7 +1212,7 @@ function buildPipeThread(i: Extract<Interpretation, { type: 'pipeThread' }>): Bu
   const typed = i.prefix === 'RC' ? 'Rc' : i.prefix === 'RP' ? 'Rp' : i.prefix
   if (!thread) {
     return fail(
-      `${typed}${i.sizeText} は管用ねじの呼び（${THREAD_SIZE_RANGE}）にありません。`,
+      `${typed}${i.sizeText}${i.gClass ?? ''} は管用ねじの呼び（${THREAD_SIZE_RANGE}）にありません。`,
       [],
       `管用ねじの呼びは ${THREAD_SIZE_RANGE}`,
     )
@@ -975,6 +1224,12 @@ function buildPipeThread(i: Extract<Interpretation, { type: 'pipeThread' }>): Bu
   const notes: string[] = []
   if (i.old === 'PT') notes.push(`旧JIS の PT${size} は、今の JIS では R${size}（おねじ）・Rc${size}（めねじ）です。`)
   else if (i.old) notes.push(`旧JIS の ${i.old}${size} は、今の JIS では ${names.join('・')} です。`)
+  if (i.gClass) {
+    // 管用ねじツールの図面指示と同じ: G のおねじは有効径の公差の等級（A級・B級）を付けて書く
+    notes.push(
+      `${typed}${size}${i.gClass} は G のおねじ（有効径の公差 ${i.gClass}級）です。下の値は等級によらない基準寸法です。`,
+    )
+  }
 
   const rows: SummaryRow[] = [
     {
@@ -990,16 +1245,7 @@ function buildPipeThread(i: Extract<Interpretation, { type: 'pipeThread' }>): Bu
   if (thread.pipeA) rows.push({ label: '対応する管', value: thread.pipeA })
 
   const work: SummaryRow[] = []
-  if (i.kinds.includes('G')) {
-    const limits = gMinorLimits(thread)
-    work.push({
-      label: 'G めねじの推奨下穴径',
-      value: fixed(gRecommendedDrill(thread), 1),
-      unit: 'mm',
-      primary: true,
-      note: `めねじ内径の許容範囲 ${fixed(limits.min, 3)}〜${fixed(limits.max, 3)} mm の中央付近`,
-    })
-  }
+  if (i.kinds.includes('G')) work.push(gDrillRow(thread, true))
   if (i.kinds.includes('Rc')) {
     const inner = rcInnerMinorDiameter(thread)
     work.push({
@@ -1062,10 +1308,20 @@ function buildPipeThread(i: Extract<Interpretation, { type: 'pipeThread' }>): Bu
   }
 }
 
-function acrossFlatsLabel(bolt: BoltSize, s: number): { standard: string; other: string } {
-  if (bolt.sIso === s && bolt.sJa === s) return { standard: 'JIS本体・旧JIS', other: '' }
-  if (bolt.sIso === s) return { standard: 'JIS本体（ISO）', other: `旧JIS は ${trim(bolt.sJa)}` }
-  return { standard: '旧JIS（附属書JA）', other: `JIS本体は ${trim(bolt.sIso)}` }
+/**
+ * 二面幅の表の「該当する規格」「備考」。旧JIS（附属書JA）の値が規格原文で未確認（M3）なら、
+ * その値を書いたセルに ※ を付ける（standardMark・otherMark）
+ */
+function acrossFlatsLabel(
+  bolt: BoltSize,
+  s: number,
+): { standard: string; other: string; standardMark: boolean; otherMark: boolean } {
+  const ja = isBoltUnverified('sJa', bolt.d)
+  if (bolt.sIso === s && bolt.sJa === s) return { standard: 'JIS本体・旧JIS', other: '', standardMark: ja, otherMark: false }
+  if (bolt.sIso === s) {
+    return { standard: 'JIS本体（ISO）', other: `旧JIS は ${trim(bolt.sJa)}`, standardMark: false, otherMark: ja }
+  }
+  return { standard: '旧JIS（附属書JA）', other: `JIS本体は ${trim(bolt.sIso)}`, standardMark: ja, otherMark: false }
 }
 
 function buildAcrossFlats(s: number): Built {
@@ -1075,9 +1331,11 @@ function buildAcrossFlats(s: number): Built {
     return fail(
       `二面幅 ${trim(s)} mm の六角ボルト・ナットは、収録範囲（M${BOLT_SIZES[0].d}〜M${BOLT_SIZES.at(-1)!.d}）にありません。`,
       neighbors(values, (v) => v, s).map((v) => `二面幅${trim(v)}`),
+      `二面幅 ${trim(s)} mm の六角ボルト・ナットは収録範囲にありません`,
     )
   }
   const hexKeyMatch = BOLT_SIZES.some((bolt) => bolt.capKey === s)
+  const unverifiedNotes = boltUnverifiedNotes(matches.map((bolt) => ({ field: 'sJa' as const, d: bolt.d })))
   return {
     card: {
       key: `flats-${s}`,
@@ -1098,19 +1356,21 @@ function buildAcrossFlats(s: number): Built {
             caption: `二面幅 ${trim(s)} mm の六角ボルト・ナット`,
             columns: ['ねじ', '該当する規格', '備考'],
             rows: matches.map((bolt) => {
-              const { standard, other } = acrossFlatsLabel(bolt, s)
+              const { standard, other, standardMark, otherMark } = acrossFlatsLabel(bolt, s)
               return {
                 cells: [`M${bolt.d}`, standard, other || '—'],
+                unverified: [false, standardMark, otherMark],
                 href: toolHref(SEARCH_TOOL_PATHS.boltSize, { d: bolt.d }),
               }
             }),
           },
+          legend: unverifiedNotes.length > 0 ? legendOf(unverifiedNotes.join('、')) : undefined,
           standards: ['JIS B 1180', 'JIS B 1181'],
           href: toolHref(SEARCH_TOOL_PATHS.boltSize, { d: matches[0].d }),
           linkLabel: '二面幅・座ぐり',
         },
       ],
-      related: unique([...matches.map((bolt) => `M${bolt.d}`), ...(hexKeyMatch ? [`レンチ${trim(s)}`] : [])]),
+      related: unique([...matches.map((bolt) => `M${bolt.d}`), ...(hexKeyMatch ? [`六角レンチ${trim(s)}`] : [])]),
     },
   }
 }
@@ -1121,7 +1381,8 @@ function buildHexKey(s: number): Built {
     const values = unique(BOLT_SIZES.map((bolt) => bolt.capKey))
     return fail(
       `六角レンチ ${trim(s)} mm の六角穴付きボルトは、収録範囲（M${BOLT_SIZES[0].d}〜M${BOLT_SIZES.at(-1)!.d}）にありません。`,
-      neighbors(values, (v) => v, s).map((v) => `レンチ${trim(v)}`),
+      neighbors(values, (v) => v, s).map((v) => `六角レンチ${trim(v)}`),
+      `六角レンチ ${trim(s)} mm に合う六角穴付きボルトは収録範囲にありません`,
     )
   }
   const flatsMatch = BOLT_SIZES.some((bolt) => bolt.sIso === s || bolt.sJa === s)
@@ -1160,6 +1421,71 @@ function buildHexKey(s: number): Built {
   }
 }
 
+/** ドリル径の逆引きで、カードの表に出す数 */
+const DRILL_ROWS = 6
+
+/**
+ * 逆引き: そのドリル径で立てられるメートルねじ（ねじ下穴径ツールの「このドリルで立てられるねじ」と同じ計算）。
+ * めねじ内径 D1 の許容範囲（6H。6H の規定が無いピッチは規定のある等級）にドリル径が入るねじを、並目 → 細目の順に出す。
+ */
+function buildDrill(drill: number): Built {
+  const label = `φ${trim(drill)}`
+  const matches = threadsForDrill(drill, 6)
+  if (matches.length === 0) {
+    // 6H で1つも無いときは、ほかの等級なら入るねじを案内する（ツールと同じ）
+    const others = TOLERANCE_GRADES.filter((g) => g !== 6)
+      .map((grade) => ({ grade, matches: threadsForDrill(drill, grade).filter((m) => m.grade === grade) }))
+      .filter((entry) => entry.matches.length > 0)
+    return fail(
+      `${label} のドリルが、めねじ内径の許容範囲（6H）に入るメートルねじ（M${METRIC_SIZES[0].d}〜M${METRIC_SIZES.at(-1)!.d}）はありません。${others
+        .map((entry) => `${entry.grade}H なら ${entry.matches.map((m) => threadName(m.d, m.p)).join('・')}。`)
+        .join('')}`,
+      others.flatMap((entry) => entry.matches.slice(0, 3).map((m) => `${threadName(m.d, m.p)}-${entry.grade}H`)),
+    )
+  }
+
+  const shown = matches.slice(0, DRILL_ROWS)
+  const drillText = trim(drill)
+  const first = shown[0]
+  return {
+    card: {
+      key: `drill-${drillText}`,
+      kind: 'ドリル径からねじを探す',
+      title: label,
+      notes: [],
+      sections: [
+        {
+          title: 'このドリルで立てられるねじ',
+          rows: [],
+          table: {
+            caption: `${label} のドリルで立てられるメートルねじ`,
+            columns: ['ねじ', '種類', '等級', 'ひっかかり率'],
+            rows: shown.map((m) => ({
+              cells: [
+                threadName(m.d, m.p),
+                `${m.kind === 'coarse' ? '並目' : '細目'}${m.choice === 1 ? '' : `（第${m.choice}選択）`}`,
+                `${m.grade}H`,
+                `${fixed(m.engagement, 1)}%`,
+              ],
+              href: toolHref(
+                SEARCH_TOOL_PATHS.tapDrill,
+                m.grade === 6 ? { d: m.d, p: m.p, drill: drillText } : { d: m.d, p: m.p, grade: m.grade, drill: drillText },
+              ),
+            })),
+          },
+          note: `めねじ内径 D1 の許容範囲に ${label} が入るねじ（並目 → 細目の順）。ひっかかり率は ${label} で立てたときの値。${
+            matches.length > shown.length ? `ほかに ${matches.length - shown.length} 件あります。` : ''
+          }`,
+          standards: ['JIS B 0209-1'],
+          href: toolHref(SEARCH_TOOL_PATHS.tapDrill, { d: first.d, p: first.p, drill: drillText }),
+          linkLabel: 'ねじ下穴径ツールで見る',
+        },
+      ],
+      related: unique(shown.filter((m) => m.kind === 'coarse').map((m) => threadName(m.d, m.p))),
+    },
+  }
+}
+
 /** 数字だけの入力に、当てはまりそうな呼びを挙げる */
 export function numberSuggestions(text: string): string[] {
   const suggestions: string[] = []
@@ -1176,7 +1502,11 @@ export function numberSuggestions(text: string): string[] {
       if (findORing(series, no)) suggestions.push(no)
     }
     if (BOLT_SIZES.some((bolt) => bolt.sIso === value || bolt.sJa === value)) suggestions.push(`二面幅${trim(value)}`)
-    if (BOLT_SIZES.some((bolt) => bolt.capKey === value)) suggestions.push(`レンチ${trim(value)}`)
+    if (BOLT_SIZES.some((bolt) => bolt.capKey === value)) suggestions.push(`六角レンチ${trim(value)}`)
+    // 小数（8.5・10.2 など）はドリル径のことが多い。そのドリルで立てられるねじがあれば候補に出す
+    if (value > 0 && (!Number.isInteger(value) || suggestions.length === 0) && threadsForDrill(value, 6).length > 0) {
+      suggestions.push(`φ${trim(value)}`)
+    }
   }
   return unique(suggestions)
 }
@@ -1204,6 +1534,8 @@ function build(i: Interpretation): Built {
       return buildAcrossFlats(i.s)
     case 'hexKey':
       return buildHexKey(i.s)
+    case 'drill':
+      return buildDrill(i.drill)
     case 'number': {
       const suggestions = numberSuggestions(i.text)
       return fail(
@@ -1271,14 +1603,33 @@ export interface SearchableTool {
   navLabel: string
   seoTitle?: string
   description: string
+  /** 名前・説明に無いが、現場でよく使う呼び方 */
+  keywords?: readonly string[]
 }
 
-/** 「フランジ」「下穴」などの言葉で、ツールを探す（空白区切りの語がすべて含まれるもの） */
+/**
+ * ツールの別の呼び方（現場の言い方・ひらがな・カタカナ書き）。ツールの名前や説明に無い言葉でも見つかるようにする。
+ * キーはツールのパス（src/tools/registry.ts）。
+ */
+export const TOOL_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  '/flange-bolt-length': ['フランジボルト', 'ガスケット', '管フランジ', 'スタッドボルト'],
+  '/steel-pipe': ['パイプ', '配管', 'ガス管', '白管', '黒管', 'STPG'],
+  '/pipe-thread': ['PT', 'PF', 'PS', 'テーパねじ', '平行ねじ', 'くだようねじ', 'かんようねじ'],
+  '/tap-drill': ['タップ', 'タップ穴', 'キリ', 'ドリル', 'めねじ'],
+  '/bolt-size': ['ざぐり', 'スパナ', 'メガネレンチ', '六角レンチ', 'ボルト穴', 'キャップボルト', 'ナット'],
+  '/o-ring': ['オーリング', 'Oリング', 'パッキン', 'シール'],
+  '/thread-identify': ['ピッチゲージ', 'ねじの見分け', '見分け方'],
+  '/general-tolerance': ['公差', '寸法公差', '普通許容差'],
+  '/unit-convert': ['変換', '単位', 'ニュートン', 'パスカル'],
+}
+
+/** 「フランジ」「下穴」「タップ」などの言葉で、ツールを探す（空白区切りの語がすべて含まれるもの） */
 export function matchTools<T extends SearchableTool>(raw: string, tools: readonly T[]): T[] {
   const terms = normalizeQuery(raw).split(' ').filter(Boolean)
   if (terms.length === 0) return []
   return tools.filter((tool) => {
-    const text = normalizeQuery(`${tool.name} ${tool.navLabel} ${tool.seoTitle ?? ''} ${tool.description}`)
+    const keywords = [...(tool.keywords ?? []), ...(TOOL_ALIASES[tool.path] ?? [])]
+    const text = normalizeQuery(`${tool.name} ${tool.navLabel} ${tool.seoTitle ?? ''} ${tool.description} ${keywords.join(' ')}`)
     return terms.every((term) => text.includes(term))
   })
 }

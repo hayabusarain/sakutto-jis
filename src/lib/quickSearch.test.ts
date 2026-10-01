@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { BOLT_SIZES } from '../features/bolt-size/data'
-import { boltLength } from '../features/flange-bolt/calc'
-import { FLANGES, PRESSURE_CLASSES } from '../features/flange-bolt/data'
+import {
+  BOLT_SIZES,
+  isUnverified as isBoltUnverified,
+  UNVERIFIED as BOLT_UNVERIFIED,
+  UNVERIFIED_LEGEND as BOLT_UNVERIFIED_LEGEND,
+} from '../features/bolt-size/data'
+import { boltLength, isRowUnverified, isUnverified } from '../features/flange-bolt/calc'
+import { FLANGES, PRESSURE_CLASSES, UNVERIFIED_LEGEND } from '../features/flange-bolt/data'
 import { oRingNumbers } from '../features/o-ring/calc'
 import { findPipeThread, gRecommendedDrill } from '../features/pipe-thread/calc'
 import { PIPE_THREAD_SIZES } from '../features/pipe-thread/data'
 import { PIPE_SIZES } from '../features/steel-pipe/data'
+import { threadName, threadsForDrill } from '../features/tap-drill/calc'
 import { METRIC_SIZES } from '../features/tap-drill/data'
 import { TOOLS } from '../tools/registry'
 import {
@@ -20,6 +26,7 @@ import {
   quickSearch,
   SEARCH_EXAMPLES,
   SEARCH_TOOL_PATHS,
+  TOOL_ALIASES,
   type SummaryCard,
   type SummarySection,
 } from './quickSearch'
@@ -76,6 +83,10 @@ describe('canonicalInch / parseNominal', () => {
     expect(canonicalInch('1.5')).toBe('1 1/2')
     expect(canonicalInch('0.375')).toBe('3/8')
     expect(canonicalInch('2.0')).toBe('2')
+    // カタログの「1.1/2」（1 と 1/2 の間の点）
+    expect(canonicalInch('1.1/2')).toBe('1 1/2')
+    expect(canonicalInch('1.1/4')).toBe('1 1/4')
+    expect(canonicalInch('2.1/2')).toBe('2 1/2')
   })
 
   it('読めないものは null', () => {
@@ -114,6 +125,38 @@ describe('parseQuery', () => {
     expect(parseQuery('M5.5')).toEqual([{ ...base, d: 5.5 }])
   })
 
+  it('長さ付きの書き方（M16×1.5×50・M12L50・M12×L50）', () => {
+    const base = { type: 'metric', second: null, pitchExplicit: false, grade: null }
+    for (const text of ['M16×1.5×50', 'm16x1.5x50', 'M16 × 1.5 × 50', 'M16×1.5×50mm']) {
+      expect(parseQuery(text), text).toEqual([{ ...base, d: 16, second: 1.5, length: 50, lengthText: '×50' }])
+    }
+    expect(parseQuery('M3x0.5x10')).toEqual([{ ...base, d: 3, second: 0.5, length: 10, lengthText: '×10' }])
+    for (const text of ['M12L50', 'M12×L50', 'M12 L50', 'M12-L50', 'M12 L=50', 'M12L50mm']) {
+      expect(parseQuery(text), text).toEqual([{ ...base, d: 12, length: 50, lengthText: 'L50' }])
+    }
+    expect(parseQuery('M12×1.25L30')).toEqual([{ ...base, d: 12, second: 1.25, length: 30, lengthText: 'L30' }])
+    expect(parseQuery('M12mm')).toEqual([{ ...base, d: 12 }])
+  })
+
+  it('I・L を 1 とみなすのは M の直後だけ（M10L を M101 と読まない）', () => {
+    const base = { type: 'metric', second: null, pitchExplicit: false, grade: null }
+    expect(parseQuery('ML2')).toEqual([{ ...base, d: 12 }])
+    expect(parseQuery('M10L')).toEqual([])
+    expect(parseQuery('M1L')).toEqual([])
+    expect(parseQuery('M8L20')).toEqual([{ ...base, d: 8, length: 20, lengthText: 'L20' }])
+  })
+
+  it('公差域クラス（めねじ 6H・はめあい 6H/6g・おねじ 6g）', () => {
+    const base = { type: 'metric', second: null, pitchExplicit: false, grade: null }
+    expect(parseQuery('M12-6H/6g')).toEqual([{ ...base, d: 12, grade: 6 }])
+    expect(parseQuery('M10-6g')).toEqual([{ ...base, d: 10, externalClass: '6g' }])
+    expect(parseQuery('M10 6g')).toEqual([{ ...base, d: 10, externalClass: '6g' }])
+    expect(parseQuery('M12×1.25-6g')).toEqual([{ ...base, d: 12, second: 1.25, externalClass: '6g' }])
+    expect(parseQuery('M10-5g6g')).toEqual([{ ...base, d: 10, externalClass: '5g6g' }])
+    // 大文字の 6G はめねじの公差位置 G の可能性もある
+    expect(parseQuery('M10-6G')).toEqual([{ ...base, d: 10, externalClass: '6g', upperG: true }])
+  })
+
   it('鋼管の呼び径（A・B）と規格', () => {
     expect(parseQuery('50A')).toEqual([{ type: 'pipe', nominal: { system: 'A', a: '50A' }, spec: null }])
     expect(parseQuery('50a')).toEqual([{ type: 'pipe', nominal: { system: 'A', a: '50A' }, spec: null }])
@@ -133,7 +176,24 @@ describe('parseQuery', () => {
     expect(parseQuery('50A 10K')).toEqual([f])
     expect(parseQuery('ＪＩＳ１０Ｋ　５０Ａ')).toEqual([f])
     expect(parseQuery('10K 2B')).toEqual([{ ...f, nominal: { system: 'B', b: '2' } }])
+    expect(parseQuery('10K 1.1/4B')).toEqual([{ ...f, nominal: { system: 'B', b: '1 1/4' } }])
     expect(parseQuery('10K')).toEqual([{ type: 'flangePressure', pressure: '10K' }])
+  })
+
+  it('フランジの呼び径は A・B を付けない数字でもよい（10K 50）', () => {
+    const f = { type: 'flange', pressure: '10K', nominal: { system: 'A', a: '50A' }, bare: '50' }
+    for (const text of ['10K 50', '10k50', '10K-50', '50 10K', '50-10K']) {
+      expect(parseQuery(text), text).toEqual([f])
+    }
+    // 区切りの無い「5010K」は読まない
+    expect(parseQuery('5010K')).toEqual([])
+  })
+
+  it('鋼管の規格は STPG370 Sch40 のようにも書ける', () => {
+    const p = { type: 'pipe', nominal: { system: 'A', a: '50A' } }
+    expect(parseQuery('STPG370 Sch40 50A')).toEqual([{ ...p, spec: 'sch40' }])
+    expect(parseQuery('50A STPG410-Sch80')).toEqual([{ ...p, spec: 'sch80' }])
+    expect(parseQuery('1.1/2B')).toEqual([{ type: 'pipe', nominal: { system: 'B', b: '1 1/2' }, spec: null }])
   })
 
   it('Oリング（P・G、A 付き）', () => {
@@ -142,6 +202,31 @@ describe('parseQuery', () => {
     expect(parseQuery('P 22.4')).toEqual([{ type: 'oring', series: 'P', no: 'P22.4' }])
     expect(parseQuery('OリングP20')).toEqual([{ type: 'oring', series: 'P', no: 'P20' }])
     expect(parseQuery('O-ring p20')).toEqual([{ type: 'oring', series: 'P', no: 'P20' }])
+  })
+
+  it('Oリングの袋・カタログの書き方（P-20・1A-P20・4D-G50）', () => {
+    expect(parseQuery('P-20')).toEqual([{ type: 'oring', series: 'P', no: 'P20' }])
+    expect(parseQuery('p - 22a')).toEqual([{ type: 'oring', series: 'P', no: 'P22A' }])
+    expect(parseQuery('1A-P20')).toEqual([{ type: 'oring', series: 'P', no: 'P20', material: '1A' }])
+    expect(parseQuery('1A P20')).toEqual([{ type: 'oring', series: 'P', no: 'P20', material: '1A' }])
+    expect(parseQuery('1A-P-20')).toEqual([{ type: 'oring', series: 'P', no: 'P20', material: '1A' }])
+    expect(parseQuery('4C-P10A')).toEqual([{ type: 'oring', series: 'P', no: 'P10A', material: '4C' }])
+    expect(parseQuery('NBR-70 P20')).toEqual([{ type: 'oring', series: 'P', no: 'P20', material: 'NBR-70' }])
+    // G は Oリングと管用ねじの両方の候補（4D-G50 の 4D は材料）
+    expect(parseQuery('4D-G50')).toEqual([{ type: 'oring', series: 'G', no: 'G50', material: '4D' }])
+    expect(parseQuery('G-50').map((i) => i.type)).toEqual(['oring', 'pipeThread'])
+    // 分数は Oリングとは読まない
+    expect(parseQuery('G-1/2').map((i) => i.type)).toEqual(['pipeThread'])
+  })
+
+  it('ドリル径（φ8.5・ドリル8.5・キリ8.5・下穴10.2・8.5キリ）', () => {
+    for (const text of ['φ8.5', 'Φ8.5', 'ø8.5', 'Ø 8.5', '⌀8.5', 'φ8.5mm', 'ドリル8.5', 'ドリル径 8.5', 'キリ8.5', 'きり8.5', '下穴8.5', '下穴径8.5', '8.5キリ', '8.5のキリ', '8.5mmドリル', 'ｷﾘ8.5']) {
+      expect(parseQuery(text), text).toEqual([{ type: 'drill', drill: 8.5 }])
+    }
+    expect(parseQuery('下穴10.2')).toEqual([{ type: 'drill', drill: 10.2 }])
+    expect(parseQuery('φ0')).toEqual([])
+    // M の呼びがあれば、ねじの下穴として読む
+    expect(parseQuery('M12の下穴')[0].type).toBe('metric')
   })
 
   it('管用ねじ（今の記号と旧JIS記号）', () => {
@@ -162,6 +247,32 @@ describe('parseQuery', () => {
     expect(parseQuery('PF3/8')).toEqual([t('PF', ['G'], 'PF', '3/8')])
     expect(parseQuery('ＰＦ３／８')).toEqual([t('PF', ['G'], 'PF', '3/8')])
     expect(parseQuery('PT½')).toEqual([t('PT', ['R', 'Rc'], 'PT', '1/2')])
+    // カタログの「1.1/4」
+    expect(parseQuery('Rc1.1/4')).toEqual([t('RC', ['Rc'], null, '1 1/4')])
+    expect(parseQuery('PT1.1/2')).toEqual([t('PT', ['R', 'Rc'], 'PT', '1 1/2')])
+  })
+
+  it('G おねじの等級（G1/2A・G1/2B）。R・Rc・Rp の A は読まない', () => {
+    const g = (prefix: string, old: string | null, gClass: string) => ({
+      type: 'pipeThread',
+      prefix,
+      kinds: ['G'],
+      old,
+      size: '1/2',
+      sizeText: '1/2',
+      gClass,
+    })
+    expect(parseQuery('G1/2A')).toEqual([g('G', null, 'A')])
+    expect(parseQuery('Ｇ１／２Ａ')).toEqual([g('G', null, 'A')])
+    expect(parseQuery('G 1/2 A')).toEqual([g('G', null, 'A')])
+    expect(parseQuery('G1/2B')).toEqual([g('G', null, 'B')])
+    expect(parseQuery('PF1/2A')).toEqual([g('PF', 'PF', 'A')])
+    expect(parseQuery('R1/2A')).toEqual([])
+    expect(parseQuery('Rc1/2A')).toEqual([])
+    // Rc の B は B 呼称（等級は付けない）
+    expect(parseQuery('Rc1/2B')).toEqual([
+      { type: 'pipeThread', prefix: 'RC', kinds: ['Rc'], old: null, size: '1/2', sizeText: '1/2' },
+    ])
   })
 
   it('G は分数なら管用ねじ、整数なら Oリングと管用ねじの両方の候補にする', () => {
@@ -175,8 +286,18 @@ describe('parseQuery', () => {
     for (const text of ['二面幅17', 'スパナ17', '17mm スパナ', 'スパナ 17mm', '17スパナ', 'S17', 'ソケットレンチ 17', 'メガネレンチ17']) {
       expect(parseQuery(text), text).toEqual([{ type: 'acrossFlats', s: 17 }])
     }
-    for (const text of ['レンチ14', '六角レンチ 14', '六角棒スパナ14', 'ヘックス14', 'hex 14']) {
+    for (const text of ['六角レンチ 14', '六角棒スパナ14', 'ヘックス14', 'hex 14']) {
       expect(parseQuery(text), text).toEqual([{ type: 'hexKey', s: 14 }])
+    }
+    // 「レンチ」だけなら六角レンチとスパナ類の両方で探す
+    for (const text of ['レンチ14', 'トルクレンチ14', '14mmレンチ']) {
+      expect(parseQuery(text), text).toEqual([
+        { type: 'hexKey', s: 14 },
+        { type: 'acrossFlats', s: 14 },
+      ])
+    }
+    for (const text of ['ボックスレンチ13', 'ラチェット13']) {
+      expect(parseQuery(text), text).toEqual([{ type: 'acrossFlats', s: 13 }])
     }
     expect(parseQuery('二面幅5.5')).toEqual([{ type: 'acrossFlats', s: 5.5 }])
     // 数字が2つ以上あると決められない
@@ -297,6 +418,57 @@ describe('quickSearch: メートルねじ', () => {
     expect(pitch.suggestions).toEqual(['M10', 'M10×1.25', 'M10×1', 'M10×0.75'])
   })
 
+  it('下穴径の表示はねじ下穴径ツールと同じ（2.5・4.2・0.8。2.50 としない）', () => {
+    expect(row(section(card('M3'), 'ねじ下穴'), '下穴径の目安').value).toBe('2.5')
+    expect(row(section(card('M4'), 'ねじ下穴'), '下穴径の目安').value).toBe('3.3')
+    const m5 = section(card('M5'), 'ねじ下穴')
+    expect(row(m5, '下穴径の目安').value).toBe('4.2')
+    expect(m5.links?.map((l) => l.label)).toEqual(['細目 ×0.5 → 4.5'])
+    expect(section(card('M1'), 'ねじ下穴').links?.map((l) => l.label)).toEqual(['細目 ×0.2 → 0.8（4H）'])
+    // 0.05mm 刻みの径は2桁、整数は小数1桁（ツールの formatHole と同じ）
+    for (const size of METRIC_SIZES) {
+      for (const p of [size.coarse, ...size.fine].filter((v): v is number => v !== null)) {
+        const value = row(section(card(`M${size.d}×${p}`), 'ねじ下穴'), '下穴径の目安').value
+        expect(value, `M${size.d}×${p}`).toMatch(/^\d+\.(?:\d|\d5)$/)
+      }
+    }
+  })
+
+  it('長さ付き（M16×1.5×50・M12L50）は長さを外して表示し、注記を添える', () => {
+    for (const text of ['M16×1.5×50', 'M16x1.5x50mm']) {
+      const c = card(text)
+      expect(c.title).toBe('M16×1.5')
+      expect(c.notes.join('')).toContain('「×50」はボルトの長さ')
+    }
+    expect(card('M12×1.25×30').title).toBe('M12×1.25')
+    expect(card('M3x0.5x10').title).toBe('M3')
+    for (const text of ['M12L50', 'M12×L50', 'M12 L50']) {
+      const c = card(text)
+      expect(c.title, text).toBe('M12')
+      expect(c.notes.join(''), text).toContain('「L50」はボルトの長さ')
+    }
+    // ×ピッチ×長さ のピッチが無いときは、ピッチの候補を出す
+    expect(quickSearch('M16×3×50')).toMatchObject({ status: 'invalid' })
+    expect(quickSearch('M16×3×50').messages[0]).toContain('ピッチ 3 mm はありません')
+  })
+
+  it('おねじの公差域クラス（M10-6g）は下穴の計算に使わないことを添えて表示する', () => {
+    const c = card('M10-6g')
+    expect(c.title).toBe('M10')
+    expect(c.notes.join('')).toContain('「6g」はおねじの公差域クラス')
+    expect(row(section(c, 'ねじ下穴'), '下穴径の目安（6H）').value).toBe('8.5')
+    expect(card('M12×1.25-6g').title).toBe('M12×1.25')
+    expect(card('M10-6G').notes.join('')).toContain('公差位置 G')
+  })
+
+  it('二面幅・ボルト穴が無い呼び径（M33・M7）は「収録していない」と書く', () => {
+    expect(card('M33').notes.join('')).toContain('M33 の二面幅・ボルト穴は収録していません')
+    expect(card('M33').notes.join('')).toContain('M30・M36')
+    expect(card('M7').notes.join('')).toContain('M7 の二面幅・ボルト穴は収録していません')
+    // 範囲の外は、収録範囲を書く
+    expect(card('M2').notes.join('')).toContain('M3〜M36 を収録')
+  })
+
   it('収録している全サイズ・全ピッチでカードを作れる', () => {
     for (const size of METRIC_SIZES) {
       for (const p of [size.coarse, ...size.fine].filter((v): v is number => v !== null)) {
@@ -381,6 +553,34 @@ describe('quickSearch: 鋼管・フランジ', () => {
     })
   })
 
+  it('A・B の無い数字（10K 50）は A 呼称で読み、無ければ B 呼称（10K 2 → 50A）', () => {
+    const c = card('10k 50')
+    expect(c.title).toBe('10K 50A')
+    expect(c.notes[0]).toBe('「50」は 50A として表示しています。')
+    const b = card('10K 2')
+    expect(b.title).toBe('10K 50A')
+    expect(b.notes[0]).toBe('「2」は 2B（50A）として表示しています。')
+    expect(card('50 10K').title).toBe('10K 50A')
+    expect(card('10K 1.1/4B').title).toBe('10K 32A')
+  })
+
+  it('カタログの「1.1/2B」も読む', () => {
+    expect(card('1.1/2B').title).toBe('40A（1 1/2B）')
+    expect(card('1.1/4B').title).toBe('32A（1 1/4B）')
+    expect(card('STPG370 Sch40 50A').title).toBe('50A（2B）')
+    const pipe = section(card('STPG370 Sch40 50A'), '鋼管')
+    expect(pipe.table?.rows.find((r) => r.highlight)?.cells[0]).toBe('Sch40')
+  })
+
+  it('G めねじの推奨下穴径は計算値と分かるようにする', () => {
+    const thread = section(card('50A'), '管用ねじ')
+    const g = row(thread, 'G めねじの推奨下穴径')
+    expect(g.label).toBe('G めねじの推奨下穴径（計算値）')
+    expect(g.value).toBe('57.0')
+    expect(g.note).toContain('許容範囲')
+    expect(g.note).toContain('規格の値ではありません')
+  })
+
   it('無いサイズ・呼び圧力は理由と候補を出す', () => {
     const noSize = quickSearch('16K 90A')
     expect(noSize.status).toBe('invalid')
@@ -436,6 +636,23 @@ describe('quickSearch: Oリング', () => {
   it('無い番号は前後の番号を候補に出す', () => {
     expect(quickSearch('P19')).toMatchObject({ status: 'invalid', suggestions: ['P18', 'P20'] })
     expect(quickSearch('G27')).toMatchObject({ status: 'invalid', suggestions: ['G25', 'G30'] })
+    // A の付かない同じ番号があれば、それを最初に出す
+    expect(quickSearch('P20A').suggestions[0]).toBe('P20')
+    expect(quickSearch('G50A').suggestions).toContain('G50')
+  })
+
+  it('袋・カタログの書き方（P-20・1A-P20・4D-G50）でも同じカードを出す', () => {
+    for (const text of ['P-20', '1A-P20', '1A P20', '1a-p20']) {
+      const c = card(text)
+      expect(c.title, text).toBe('P20')
+      expect(row(section(c, 'Oリング'), '内径 d1 × 太さ d2').value).toBe('19.8 × 2.4')
+    }
+    expect(card('1A-P20').notes[0]).toContain('「1A」は材料の種類の記号')
+    const g = card('4D-G50')
+    expect(g.title).toBe('G50')
+    expect(g.notes.join('')).toContain('4種')
+    expect(card('P-22A').title).toBe('P22A')
+    expect(card('4C-P10A').title).toBe('P10A')
   })
 
   it('全番号でカードを作れる', () => {
@@ -472,6 +689,24 @@ describe('quickSearch: 管用ねじ', () => {
     const g = card('G1/4')
     expect(g.title).toBe('G1/4')
     expect(link(section(g, '基準寸法').href).params).toEqual({ size: '1/4', kind: 'G' })
+  })
+
+  it('G1/2A（図面指示の書き方）は G1/2 のおねじ A級として出す', () => {
+    for (const text of ['G1/2A', 'Ｇ１／２Ａ', 'G 1/2 A']) {
+      const c = card(text)
+      expect(c.title, text).toBe('G1/2')
+      expect(c.notes.join(''), text).toContain('G のおねじ（有効径の公差 A級）')
+    }
+    expect(card('G1/2B').notes.join('')).toContain('B級')
+    expect(card('PF1/2A').title).toBe('G1/2')
+    expect(row(section(card('G1/2'), 'ねじ加工'), 'G めねじの推奨下穴径').label).toBe('G めねじの推奨下穴径（計算値）')
+    expect(quickSearch('R1/2A').status).toBe('unknown')
+  })
+
+  it('カタログの「1.1/4」（Rc1.1/4・G1.1/2）も読む', () => {
+    expect(card('Rc1.1/4').title).toBe('Rc1 1/4')
+    expect(card('G1.1/2').title).toBe('G1 1/2')
+    expect(card('PT1.1/2').title).toBe('R1 1/2・Rc1 1/2')
   })
 
   it('G2 は管用平行ねじ（Oリング G 系列には無い）と理由を添える', () => {
@@ -536,7 +771,46 @@ describe('quickSearch: 二面幅・六角レンチ', () => {
 
   it('当てはまらない寸法は前後の寸法を候補に出す', () => {
     expect(quickSearch('二面幅15')).toMatchObject({ status: 'invalid', suggestions: ['二面幅13', '二面幅16'] })
-    expect(quickSearch('レンチ15')).toMatchObject({ status: 'invalid', suggestions: ['レンチ14', 'レンチ17'] })
+    expect(quickSearch('六角レンチ15')).toMatchObject({ status: 'invalid', suggestions: ['六角レンチ14', '六角レンチ17'] })
+    // 「レンチ15」は六角レンチにもスパナにも無いので、両方の候補を出す
+    const wrench = quickSearch('レンチ15')
+    expect(wrench.status).toBe('invalid')
+    expect(wrench.messages).toHaveLength(2)
+    expect(wrench.suggestions).toEqual(['六角レンチ14', '六角レンチ17', '二面幅13', '二面幅16'])
+  })
+
+  it('「レンチ13」はスパナ（二面幅 13 = M8）として出し、六角レンチに無い理由を添える', () => {
+    for (const text of ['レンチ13', 'トルクレンチ13', '13mmレンチ']) {
+      const c = card(text)
+      expect(c.title).toBe('二面幅 13 mm')
+      expect(c.notes[0]).toContain('六角レンチ 13 mm')
+      expect(section(c, '六角ボルト・ナット').table?.rows.map((r) => r.cells[0])).toEqual(['M8'])
+    }
+    expect(card('ボックスレンチ13').title).toBe('二面幅 13 mm')
+    // 「レンチ24」は M16 のスパナ
+    expect(section(card('レンチ24'), '六角ボルト・ナット').table?.rows.map((r) => r.cells[0])).toEqual(['M16'])
+  })
+
+  it('「レンチ14」は六角レンチだけ、「レンチ17」は両方に当てはまる', () => {
+    const key = card('レンチ14')
+    expect(key.title).toBe('六角レンチ 14 mm')
+    expect(key.notes[0]).toContain('二面幅 14 mm')
+    const both = quickSearch('レンチ17')
+    expect(both.status).toBe('found')
+    expect(both.cards.map((c) => c.title)).toEqual(['六角レンチ 17 mm', '二面幅 17 mm'])
+    expect(both.messages[0]).toContain('両方')
+  })
+
+  it('二面幅 5.5（M3）は旧JIS の値が未確認なので ※ を付ける', () => {
+    const s = section(card('二面幅5.5'), '六角ボルト・ナット')
+    expect(s.table?.rows[0].cells).toEqual(['M3', 'JIS本体・旧JIS', '—'])
+    expect(s.table?.rows[0].unverified).toEqual([false, true, false])
+    expect(s.legend).toContain('規格原文で未確認')
+    expect(s.legend).toContain('M3')
+    // 確認済みの二面幅には付けない
+    const ok = section(card('二面幅17'), '六角ボルト・ナット')
+    expect(ok.table?.rows.every((r) => !r.unverified?.some(Boolean))).toBe(true)
+    expect(ok.legend).toBeUndefined()
   })
 
   it('全サイズの二面幅・六角レンチでカードを作れる', () => {
@@ -548,16 +822,187 @@ describe('quickSearch: 二面幅・六角レンチ', () => {
   })
 })
 
+describe('quickSearch: 規格原文で未確認の値（※）', () => {
+  /** カードのどこかに ※ を付けているか（行の値・表のセル・文章の ※） */
+  function hasMark(c: SummaryCard): boolean {
+    return c.sections.some(
+      (s) =>
+        s.rows.some((r) => r.unverified || r.note?.includes('※')) ||
+        (s.table?.rows ?? []).some((r) => r.unverified?.some(Boolean)),
+    )
+  }
+
+  it('凡例はフランジ・ボルトのツールと同じ文言', () => {
+    expect(UNVERIFIED_LEGEND).toBe(BOLT_UNVERIFIED_LEGEND)
+  })
+
+  it('16K 50A: 厚さ t と、t から計算したボルト長さに ※。外径などには付けない', () => {
+    const c = card('16K 50A')
+    const dims = section(c, 'フランジ寸法')
+    expect(row(dims, '厚さ t')).toMatchObject({ value: '16', unverified: true })
+    expect(row(dims, '外径 D').unverified).toBe(false)
+    expect(dims.legend).toBe(`${UNVERIFIED_LEGEND}（16K 50A のフランジ厚さ t）`)
+    const lengths = section(c, 'ボルト長さ')
+    expect(row(lengths, '六角ボルト')).toMatchObject({ value: 'M16×60', unverified: true })
+    expect(row(lengths, 'スタッドボルト')).toMatchObject({ value: 'M16×80', unverified: true })
+    expect(lengths.legend).toContain('長さも確認してください')
+  })
+
+  it('16K 100A・5K 50A（厚さが未確認）にも ※', () => {
+    const c = card('16K 100A')
+    expect(row(section(c, 'フランジ寸法'), '厚さ t')).toMatchObject({ value: '22', unverified: true })
+    expect(row(section(c, 'ボルト長さ'), '六角ボルト')).toMatchObject({ value: 'M20×75', unverified: true })
+    const five = card('5K 50A')
+    expect(row(section(five, 'フランジ寸法'), '厚さ t')).toMatchObject({ value: '14', unverified: true })
+    expect(row(section(five, 'ボルト長さ'), '六角ボルト').unverified).toBe(true)
+  })
+
+  it('5K 90A（寸法すべてが未確認）は全部の値に ※', () => {
+    const c = card('5K 90A')
+    const dims = section(c, 'フランジ寸法')
+    expect(dims.rows.every((r) => r.unverified)).toBe(true)
+    expect(dims.legend).toBe(`${UNVERIFIED_LEGEND}（5K 90A は寸法すべて）`)
+    expect(section(c, 'ボルト長さ').rows.every((r) => r.unverified)).toBe(true)
+  })
+
+  it('10K 50A（確認済み）には ※ も凡例も出さない', () => {
+    const c = card('10K 50A')
+    expect(hasMark(c)).toBe(false)
+    expect(c.sections.every((s) => s.legend === undefined)).toBe(true)
+  })
+
+  it('UNVERIFIED のすべての項目で、フランジのカードに ※ が付く', () => {
+    for (const pressure of PRESSURE_CLASSES) {
+      for (const flange of FLANGES[pressure]) {
+        const c = card(`${pressure} ${flange.size}`)
+        const dims = section(c, 'フランジ寸法')
+        const rowMark = isRowUnverified(pressure, flange.size)
+        const tMark = isUnverified(pressure, flange.size, 't')
+        const label = `${pressure} ${flange.size}`
+        expect(row(dims, '外径 D').unverified, label).toBe(rowMark)
+        expect(row(dims, '厚さ t').unverified, label).toBe(tMark)
+        expect(row(section(c, 'ボルト長さ'), '六角ボルト').unverified, label).toBe(tMark)
+        expect(dims.legend !== undefined, label).toBe(rowMark || tMark)
+      }
+    }
+  })
+
+  it('90A の管のカード: フランジ表の 5K・10K の行に ※', () => {
+    const flange = section(card('90A'), 'フランジ')
+    expect(flange.table?.rows.map((r) => [r.cells[0], r.unverified])).toEqual([
+      ['5K', [false, true, true, true, true]],
+      ['10K', [false, true, true, true, true]],
+    ])
+    expect(flange.legend).toBe(`${UNVERIFIED_LEGEND}（5K・10K の 90A は寸法すべて）`)
+    // 確認済みのサイズには付けない
+    const ok = section(card('50A'), 'フランジ')
+    expect(ok.table?.rows.every((r) => !r.unverified?.some(Boolean))).toBe(true)
+    expect(ok.legend).toBeUndefined()
+  })
+
+  it('M16 のボルトを使うフランジ: 未確認の 90A を含む範囲に ※', () => {
+    const s = section(card('M16'), 'M16 のボルトを使うフランジ')
+    expect(s.table?.rows.map((r) => [r.cells[0], r.unverified?.[1]])).toEqual([
+      ['5K', true],
+      ['10K', true],
+      ['16K', false],
+      ['20K', false],
+    ])
+    expect(s.legend).toContain('5K 90A・10K 90A')
+    expect(section(card('M12'), 'M12 のボルトを使うフランジ').legend).toBeUndefined()
+  })
+
+  it('ざぐり径はすべてのサイズで ※（JIS B 1001 で未確認）', () => {
+    for (const bolt of BOLT_SIZES) {
+      const s = section(card(`M${bolt.d}`), 'ボルト・ナット')
+      expect(row(s, 'ざぐり径').unverified, `M${bolt.d}`).toBe(isBoltUnverified('spotFace', bolt.d))
+      expect(s.legend, `M${bolt.d}`).toContain("ざぐり径 D'")
+      // 確認済みの値には付けない
+      expect(row(s, '二面幅').unverified).toBeUndefined()
+      expect(row(s, 'ボルト穴径').unverified).toBeUndefined()
+    }
+  })
+
+  it('M3 の旧JIS の二面幅は「とも同じ」と言い切らず ※ を付ける', () => {
+    const s = section(card('M3'), 'ボルト・ナット')
+    const flats = row(s, '二面幅')
+    expect(flats.value).toBe('5.5')
+    expect(flats.note).not.toContain('とも同じ')
+    expect(flats.note).toBe('旧JIS（附属書JA）は 5.5※ mm（規格原文で未確認）')
+    expect(s.legend).toContain('M3 ナットの二面幅')
+    // M6 は確認済みなので「とも同じ」のまま
+    expect(row(section(card('M6'), 'ボルト・ナット'), '二面幅').note).toBe('JIS本体・旧JIS とも同じ')
+  })
+
+  it('bolt-size の UNVERIFIED（画面に出す項目）はすべてクイック検索でも ※ になる', () => {
+    for (const entry of BOLT_UNVERIFIED) {
+      if (entry.field === 'hole4') continue // ボルト穴 4級はクイック検索に出さない
+      const sizes = entry.sizes === 'all' ? BOLT_SIZES.map((b) => b.d) : entry.sizes
+      for (const d of sizes) {
+        expect(hasMark(card(`M${d}`)), `M${d} ${entry.field}`).toBe(true)
+      }
+    }
+  })
+})
+
+describe('quickSearch: ドリル径の逆引き', () => {
+  it('キリ8.5 は M10 並目（ツールの逆引きと同じ）', () => {
+    for (const text of ['キリ8.5', 'φ8.5', 'ドリル8.5', '8.5キリ']) {
+      const c = card(text)
+      expect(c.title, text).toBe('φ8.5')
+      const s = section(c, 'このドリルで立てられるねじ')
+      expect(s.table?.rows[0].cells, text).toEqual(['M10', '並目', '6H', '92.4%'])
+      expect(link(s.table!.rows[0].href!)).toEqual({ path: '/tap-drill', params: { d: '10', p: '1.5', drill: '8.5' } })
+      expect(s.standards).toEqual(['JIS B 0209-1'])
+    }
+  })
+
+  it('下穴10.2・Φ10.2 は M12 が先頭（細目・第3選択の M11×0.75 も出す）', () => {
+    for (const text of ['下穴10.2', 'Φ10.2']) {
+      const rows = section(card(text), 'このドリルで立てられるねじ').table!.rows
+      expect(rows.map((r) => r.cells[0])).toEqual(['M12', 'M11×0.75'])
+      expect(rows[1].cells[1]).toBe('細目（第3選択）')
+    }
+  })
+
+  it('結果はツールの threadsForDrill と同じ並び', () => {
+    for (const drill of [2.5, 4.2, 5, 6.8, 14, 0.75]) {
+      const expected = threadsForDrill(drill, 6).slice(0, 6)
+      const rows = section(card(`φ${drill}`), 'このドリルで立てられるねじ').table!.rows
+      expect(rows.map((r) => r.cells[0]), String(drill)).toEqual(expected.map((m) => threadName(m.d, m.p)))
+      expect(rows.map((r) => r.cells[2]), String(drill)).toEqual(expected.map((m) => `${m.grade}H`))
+    }
+    // 6H の規定が無いピッチ（M1）は等級もリンクに付ける
+    const m1 = section(card('φ0.75'), 'このドリルで立てられるねじ').table!.rows[0]
+    expect(link(m1.href!).params).toEqual({ d: '1', p: '0.25', grade: '5', drill: '0.75' })
+  })
+
+  it('立てられるねじが無いドリル径は理由を出す', () => {
+    const result = quickSearch('φ100')
+    expect(result.status).toBe('invalid')
+    expect(result.messages[0]).toContain('φ100')
+  })
+})
+
 describe('quickSearch: 数字だけ・対象外・未入力', () => {
   it('数字だけなら、当てはまりそうな呼びを候補に出す', () => {
-    expect(quickSearch('17')).toMatchObject({ status: 'invalid', suggestions: ['M17', '二面幅17', 'レンチ17'] })
+    expect(quickSearch('17')).toMatchObject({ status: 'invalid', suggestions: ['M17', '二面幅17', '六角レンチ17'] })
     expect(numberSuggestions('50')).toEqual(['M50', '50A', 'P50', 'G50'])
     expect(numberSuggestions('1/2')).toEqual(['1/2B', 'Rc1/2', 'G1/2'])
+    expect(numberSuggestions('1.1/2')).toEqual(['1 1/2B', 'Rc1 1/2', 'G1 1/2'])
     expect(numberSuggestions('9999')).toEqual([])
+    // 小数はドリル径の逆引きも候補にする
+    expect(numberSuggestions('8.5')).toEqual(['φ8.5'])
+    expect(numberSuggestions('10.2')).toEqual(['φ10.2'])
   })
 
   it('候補はそのまま検索できる', () => {
-    for (const suggestion of [...numberSuggestions('50'), ...numberSuggestions('1/2'), ...numberSuggestions('17')]) {
+    for (const suggestion of [
+      ...numberSuggestions('50'),
+      ...numberSuggestions('1/2'),
+      ...numberSuggestions('17'),
+      ...numberSuggestions('8.5'),
+    ]) {
       expect(quickSearch(suggestion).status, suggestion).toBe('found')
     }
   })
@@ -587,7 +1032,7 @@ describe('リンクとツール', () => {
 
   it('カードのリンクは、すべて登録済みのツールを指す', () => {
     const paths = new Set(TOOLS.map((tool) => tool.path))
-    for (const query of [...SEARCH_EXAMPLES, 'PT1/2', 'M1', '50A Sch80']) {
+    for (const query of [...SEARCH_EXAMPLES, 'PT1/2', 'M1', '50A Sch80', 'キリ10.2', '90A', '16K 50A', 'レンチ17']) {
       for (const c of quickSearch(query).cards) {
         for (const s of c.sections) {
           const hrefs = [s.href, ...(s.links ?? []).map((l) => l.href), ...(s.table?.rows ?? []).flatMap((r) => (r.href ? [r.href] : []))]
@@ -607,5 +1052,24 @@ describe('リンクとツール', () => {
     expect(matchTools('フランジ ボルト', tools).map((t) => t.path)).toEqual(['/a'])
     expect(matchTools('', tools)).toEqual([])
     expect(matchTools('フランジ', TOOLS).map((t) => t.path)).toContain('/flange-bolt-length')
+  })
+
+  it('現場の言い方（タップ・ざぐり・パイプ・オーリング）でもツールが見つかる', () => {
+    const paths = (word: string) => matchTools(word, TOOLS).map((t) => t.path)
+    expect(paths('タップ')).toContain('/tap-drill')
+    expect(paths('キリ')).toContain('/tap-drill')
+    expect(paths('ざぐり')).toContain('/bolt-size')
+    expect(paths('パイプ')).toContain('/steel-pipe')
+    expect(paths('ガス管')).toContain('/steel-pipe')
+    expect(paths('オーリング')).toContain('/o-ring')
+    expect(paths('ｵｰﾘﾝｸﾞ')).toContain('/o-ring')
+    // 「オーリング」だけでは呼びとして読めないので、ツール名の検索に回る
+    expect(quickSearch('オーリング').status).toBe('unknown')
+    // 別名のキーはすべて登録済みのツール
+    const registered = new Set(TOOLS.map((tool) => tool.path))
+    for (const path of Object.keys(TOOL_ALIASES)) expect(registered.has(path), path).toBe(true)
+    // ツールの keywords も使う
+    const custom = { path: '/a', name: 'A', navLabel: 'A', description: 'a', keywords: ['あいことば'] }
+    expect(matchTools('あいことば', [custom]).map((t) => t.path)).toEqual(['/a'])
   })
 })
