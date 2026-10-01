@@ -6,6 +6,7 @@ import { unitMassText } from '../../features/steel-pipe/calc'
 import {
   flangeTableMarks,
   flangeTableRows,
+  flangeTableStatus,
   flangeUnverified,
   oRingGrooveRows,
   oRingGroupRanges,
@@ -72,6 +73,13 @@ describe('flangeTableMarks（寸法表の ※）', () => {
   it('確認済みの行は付けない（10K 100A・20K 50A）', () => {
     expect(marksOf('10K', '100A')).toEqual({ size: false, t: false, lengths: false })
     expect(marksOf('20K', '50A')).toEqual({ size: false, t: false, lengths: false })
+  })
+
+  it('CSV の確認状況も ※ と同じ範囲（厚さだけ未確認の行はボルト長さも要確認）', () => {
+    expect(flangeTableStatus(flangeTableRows('16K')[0])).toBe('要確認（厚さ・ボルト長さ）')
+    expect(flangeTableStatus(flangeTableRows('5K').find((r) => r.size === '50A')!)).toBe('要確認（厚さ・ボルト長さ）')
+    expect(flangeTableStatus(flangeTableRows('10K').find((r) => r.size === '90A')!)).toBe('要確認（行全体）')
+    expect(flangeTableStatus(flangeTableRows('10K').find((r) => r.size === '100A')!)).toBe('')
   })
 
   it('10K・20K の表には、未確認の厚さから計算したボルト長さは無い', () => {

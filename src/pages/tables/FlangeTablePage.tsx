@@ -13,7 +13,13 @@ import { SITE } from '../../site'
 import { standardLabel } from '../../standards'
 import { ActionLink, ChipNav, PageHeader, TableNote, UnverifiedMark } from '../content/PageHeader'
 import { screwPath } from '../screws/screwPages'
-import { flangeTableMarks, flangeTableRows, TABLE_BOLT_CONDITIONS, type FlangeTableRow } from './tableData'
+import {
+  flangeTableMarks,
+  flangeTableRows,
+  flangeTableStatus,
+  TABLE_BOLT_CONDITIONS,
+  type FlangeTableRow,
+} from './tableData'
 import { FLANGE_TABLE_PAGES, FLANGE_TOOL_PATH, PIPE_TABLE_PAGES } from './tablePages'
 
 const rowLinkClass =
@@ -99,7 +105,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
     r.t,
     r.hex.length,
     r.stud.length,
-    r.unverified.row ? '要確認（行全体）' : r.unverified.t ? '要確認（厚さ）' : '',
+    flangeTableStatus(r),
   ])
   const exportNote = [
     `典拠: ${standardLabel('JIS B 2220')}（${pressure}・並形）`,

@@ -180,7 +180,7 @@ export function PipeThreadTool() {
     `外径 ${fixed(thread.d, 3)} / 有効径 ${fixed(thread.d2, 3)} / 谷径 ${fixed(thread.d1, 3)} mm`,
     primary.value ? `${primary.label}: ${primary.value} mm` : '',
     input.kind === 'G'
-      ? `（めねじ内径の許容範囲 ${fixed(gLimits.min, 3)}〜${fixed(gLimits.max, 3)} mm の中央付近。規格の値ではありません）`
+      ? `（下穴径は規格の値ではなく、めねじ内径の許容範囲 ${fixed(gLimits.min, 3)}〜${fixed(gLimits.max, 3)} mm の中央付近から求めた計算値）`
       : '',
     `典拠: ${standardLabel(kind.standard)}`,
     '（サクッとJIS）',
@@ -386,7 +386,7 @@ export function PipeThreadTool() {
         }
       >
         <p className="px-4 pt-3 text-xs text-zinc-500">
-          管用ねじ（R・Rc・Rp・G）の寸法表。単位: mm。外径・有効径・谷径はテーパねじでは基準径の位置の値（G と共通）。G 下穴・Rc 奥端内径は基準寸法から求めた計算値で、規格の値ではありません。行をタップするとそのサイズを選べます。
+          管用ねじ（R・Rc・Rp・G）の寸法表。単位: mm。外径・有効径・谷径はテーパねじでは基準径の位置の値（G と共通）。G 下穴・Rc 奥端内径は規格の寸法から求めた計算値で、規格の値ではありません。行をタップするとそのサイズを選べます。
         </p>
         <div className="mt-2">
           <DataTable

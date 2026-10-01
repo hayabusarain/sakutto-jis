@@ -73,6 +73,14 @@ export function flangeTableMarks(row: Pick<FlangeTableRow, 'unverified'>): Flang
   return { size: row.unverified.row, t: tOnly, lengths: tOnly }
 }
 
+/** 表をコピー・CSV に書く「確認状況」（画面で ※ を付ける欄と同じ範囲） */
+export function flangeTableStatus(row: Pick<FlangeTableRow, 'unverified'>): string {
+  const marks = flangeTableMarks(row)
+  if (marks.size) return '要確認（行全体）'
+  if (marks.t || marks.lengths) return '要確認（厚さ・ボルト長さ）'
+  return ''
+}
+
 /* ---------------- 鋼管 ---------------- */
 
 export function pipeTableRows(spec: PipeSpec): PipeDimensions[] {
