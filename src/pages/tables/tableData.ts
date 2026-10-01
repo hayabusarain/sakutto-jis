@@ -54,6 +54,33 @@ export function flangeTableRows(pressure: PressureClass): FlangeTableRow[] {
   })
 }
 
+/** 寸法表で ※ を付ける欄 */
+export interface FlangeTableMarks {
+  /** 呼び径の欄（行全体が未確認） */
+  size: boolean
+  /** 厚さ t の欄 */
+  t: boolean
+  /** 六角ボルト・スタッドボルトの長さの欄（未確認の厚さから計算した長さ） */
+  lengths: boolean
+}
+
+/**
+ * ※ を付ける欄。行全体が未確認の行は呼び径の欄だけに付け、厚さだけが未確認の行は
+ * 厚さと、その厚さから計算したボルト長さに付ける（ツールの表と同じ考え方）。
+ */
+export function flangeTableMarks(row: Pick<FlangeTableRow, 'unverified'>): FlangeTableMarks {
+  const tOnly = row.unverified.t && !row.unverified.row
+  return { size: row.unverified.row, t: tOnly, lengths: tOnly }
+}
+
+/** 表をコピー・CSV に書く「確認状況」（画面で ※ を付ける欄と同じ範囲） */
+export function flangeTableStatus(row: Pick<FlangeTableRow, 'unverified'>): string {
+  const marks = flangeTableMarks(row)
+  if (marks.size) return '要確認（行全体）'
+  if (marks.t || marks.lengths) return '要確認（厚さ・ボルト長さ）'
+  return ''
+}
+
 /* ---------------- 鋼管 ---------------- */
 
 export function pipeTableRows(spec: PipeSpec): PipeDimensions[] {

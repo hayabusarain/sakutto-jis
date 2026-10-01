@@ -44,6 +44,18 @@ function samePatternSizes(a: PressureClass, b: PressureClass): string[] {
 const sizeList = (sizes: readonly string[]) => sizes.join('・')
 
 const SAME_5K_10K = samePatternSizes('5K', '10K')
+/** 5K と 10K の両方にある呼び径 */
+const COMMON_5K_10K = FLANGES['5K'].filter((row) => findFlange('10K', row.size)).length
+/** 5K と 10K で PCD が違う呼び径の数（すべてで違えば、どのサイズでもボルトが通らない） */
+const PCD_DIFFERS_5K_10K = FLANGES['5K'].filter((row) => {
+  const other = findFlange('10K', row.size)
+  return other !== undefined && other.C !== row.C
+}).length
+/** 5K と 10K で穴数または穴径が違う呼び径の数 */
+const HOLES_DIFFER_5K_10K = FLANGES['5K'].filter((row) => {
+  const other = findFlange('10K', row.size)
+  return other !== undefined && (other.n !== row.n || other.h !== row.h)
+}).length
 const SAME_10K_16K = samePatternSizes('10K', '16K')
 const SAME_10K_20K = samePatternSizes('10K', '20K')
 const SAME_16K_20K = samePatternSizes('16K', '20K')
@@ -146,7 +158,9 @@ export function FlangeBoltGuide() {
       <Faq q="5K と 10K のフランジはボルトでつながる？">
         {SAME_5K_10K.length === 0 ? (
           <p>
-            つながりません。このツールの表（{SIZE_RANGE}）では、5K と 10K でボルト穴の位置（PCD）・数・穴径がすべてのサイズで違います。例えば 50A は 5K が PCD {K5_50A.C}・{K5_50A.n}-φ{K5_50A.h}（M{K5_50A.bolt}）、10K が PCD {K10_50A.C}・{K10_50A.n}-φ{K10_50A.h}（M{K10_50A.bolt}）です。
+            つながりません。このツールの表（{SIZE_RANGE}）では、5K と 10K でボルト穴の位置（PCD）が
+            {PCD_DIFFERS_5K_10K === COMMON_5K_10K ? 'すべてのサイズで' : `${COMMON_5K_10K} サイズのうち ${PCD_DIFFERS_5K_10K} サイズで`}
+            違います（穴数や穴径も {COMMON_5K_10K} サイズのうち {HOLES_DIFFER_5K_10K} サイズで違います）。例えば 50A は 5K が PCD {K5_50A.C}・{K5_50A.n}-φ{K5_50A.h}（M{K5_50A.bolt}）、10K が PCD {K10_50A.C}・{K10_50A.n}-φ{K10_50A.h}（M{K10_50A.bolt}）です。
           </p>
         ) : (
           <p>5K と 10K でボルト穴が同じ呼び径: {sizeList(SAME_5K_10K)}</p>
@@ -160,7 +174,10 @@ export function FlangeBoltGuide() {
           。それより大きいサイズは穴数や PCD が変わります（例: 50A は 10K が {K10_50A.n}穴、16K が {K16_50A.n}穴）。
         </p>
         <p>
-          16K と 20K は、表の {COMMON_16K_20K} サイズのうち {SAME_16K_20K.length} サイズでボルト穴が同じで、厚さ t が違う（{THICKNESS_DIFFERS_16K_20K} サイズ）ことで見分けます。ただし 16K の厚さは規格原文で確認できていない値（※）です。
+          {SAME_16K_20K.length === COMMON_16K_20K
+            ? '16K と 20K は表のすべてのサイズでボルト穴（PCD・穴数・穴径）が同じで、'
+            : `16K と 20K は、表の ${COMMON_16K_20K} サイズのうち ${SAME_16K_20K.length} サイズでボルト穴が同じで、`}
+          厚さ t が違う（{THICKNESS_DIFFERS_16K_20K} サイズ）ことで見分けます。ただし 16K の厚さは規格原文で確認できていない値（※）です。
         </p>
       </Faq>
 

@@ -60,6 +60,19 @@ export function roundSignificant(value: number, digits: number): number {
   return Number((rounded * 10 ** exponent).toPrecision(digits + 2))
 }
 
+/** 単位質量を表示する有効数字の桁数（JIS の表と同じ） */
+export const UNIT_MASS_DIGITS = 3
+
+/**
+ * 単位質量 [kg/m] の表示。JIS の表と同じ有効数字3桁で、末尾の 0 も残す
+ * （15.0 → 「15.0」、4.1 → 「4.10」、0.419 → 「0.419」、129 → 「129」）。
+ */
+export function unitMassText(massPerM: number): string {
+  const text = massPerM.toPrecision(UNIT_MASS_DIGITS)
+  // 1000 以上・0.001 未満は指数表記になるので、ふつうの数字に戻す（鋼管の単位質量では起きない）
+  return text.includes('e') ? String(Number(text)) : text
+}
+
 function round(value: number, digits: number): number {
   const factor = 10 ** digits
   return Math.round(value * factor) / factor
@@ -80,6 +93,22 @@ export function nearestAvailableSize(spec: PipeSpec, a: string): string | null {
   if (WALL[spec][a]) return a
   const nearest = nearestByOd(size.od, sizesOf(spec))
   return nearest?.size.a ?? null
+}
+
+/** その呼び径がある規格（SGP → Sch40 → Sch80 の順） */
+export function specsWithSize(a: string): PipeSpec[] {
+  return PIPE_SPEC_KEYS.filter((spec) => WALL[spec][a] != null)
+}
+
+/**
+ * 規格に無い呼び径を近いサイズに置き換えたときの知らせ（置き換えていなければ null）。
+ * 例: 「Sch40 に 175A は無いため（175A は SGP のみ）、外径が近い 150A にしました。」
+ */
+export function sizeChangeNotice(spec: PipeSpec, from: string, to: string): string | null {
+  if (from === to) return null
+  const others = specsWithSize(from).map((key) => PIPE_SPECS[key].label)
+  const reason = others.length > 0 ? `（${from} は ${others.join('・')} のみ）` : ''
+  return `${PIPE_SPECS[spec].label} に ${from} は無いため${reason}、外径が近い ${to} にしました。`
 }
 
 // ---- 質量 ----

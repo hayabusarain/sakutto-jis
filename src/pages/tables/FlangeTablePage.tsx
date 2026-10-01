@@ -13,11 +13,30 @@ import { SITE } from '../../site'
 import { standardLabel } from '../../standards'
 import { ActionLink, ChipNav, PageHeader, TableNote, UnverifiedMark } from '../content/PageHeader'
 import { screwPath } from '../screws/screwPages'
-import { flangeTableRows, TABLE_BOLT_CONDITIONS, type FlangeTableRow } from './tableData'
+import {
+  flangeTableMarks,
+  flangeTableRows,
+  flangeTableStatus,
+  TABLE_BOLT_CONDITIONS,
+  type FlangeTableRow,
+} from './tableData'
 import { FLANGE_TABLE_PAGES, FLANGE_TOOL_PATH, PIPE_TABLE_PAGES } from './tablePages'
 
 const rowLinkClass =
   '-my-2 inline-flex min-h-10 items-center underline decoration-zinc-300 underline-offset-4 hover:decoration-orange-600'
+
+/**
+ * ボルト長さのセル。未確認の厚さ t から計算した長さには、厚さと同じく ※ を付ける
+ * （行全体が未確認の行は、呼び径の欄の ※ で示す）
+ */
+function BoltLengthCell({ length, row }: { length: number | null; row: FlangeTableRow }) {
+  return (
+    <>
+      {length ?? '—'}
+      {length !== null && flangeTableMarks(row).lengths && <UnverifiedMark />}
+    </>
+  )
+}
 
 export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
   const meta = FLANGE_TABLE_PAGES.find((page) => page.pressure === pressure)!
@@ -25,6 +44,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
   const sizes = `${rows[0].size}〜${rows[rows.length - 1].size}`
   const unverifiedRows = rows.filter((row) => row.unverified.row).map((row) => row.size)
   const unverifiedT = rows.some((row) => row.unverified.t)
+  const markedLengths = rows.some((row) => flangeTableMarks(row).lengths)
   const example = rows.find((row) => row.size === '50A') ?? rows[0]
   const bolts = [...new Set(rows.map((row) => row.bolt))].sort((a, b) => a - b)
   const { gasket, threads } = TABLE_BOLT_CONDITIONS
@@ -40,7 +60,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
             {r.size}
             <span className="sr-only">（{pressure}）のボルト長さを計算する</span>
           </Link>
-          {r.unverified.row && <UnverifiedMark />}
+          {flangeTableMarks(r).size && <UnverifiedMark />}
         </>
       ),
     },
@@ -55,12 +75,12 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
       cell: (r) => (
         <>
           {r.t}
-          {r.unverified.t && !r.unverified.row && <UnverifiedMark />}
+          {flangeTableMarks(r).t && <UnverifiedMark />}
         </>
       ),
     },
-    { key: 'hex', header: '六角ボルト長さ', cell: (r) => r.hex.length ?? '—' },
-    { key: 'stud', header: 'スタッド長さ', cell: (r) => r.stud.length ?? '—' },
+    { key: 'hex', header: '六角ボルト長さ', cell: (r) => <BoltLengthCell length={r.hex.length} row={r} /> },
+    { key: 'stud', header: 'スタッド長さ', cell: (r) => <BoltLengthCell length={r.stud.length} row={r} /> },
   ]
 
   const exportHeaders = [
@@ -85,7 +105,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
     r.t,
     r.hex.length,
     r.stud.length,
-    r.unverified.row ? '要確認（行全体）' : r.unverified.t ? '要確認（厚さ）' : '',
+    flangeTableStatus(r),
   ])
   const exportNote = [
     `典拠: ${standardLabel('JIS B 2220')}（${pressure}・並形）`,
@@ -134,7 +154,9 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
             </p>
             {(unverifiedRows.length > 0 || unverifiedT) && (
               <p className="font-semibold text-orange-800">
-                ※ は規格原文での確認が済んでいない値です。重要な用途では JIS B 2220 の原文で確認してください。
+                ※ は規格原文での確認が済んでいない値です
+                {markedLengths && '（未確認の厚さから計算したボルト長さにも付けています）'}
+                。重要な用途では JIS B 2220 の原文で確認してください。
               </p>
             )}
           </TableNote>
@@ -170,10 +192,16 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
               </li>
             )}
             {pressure === '5K' && (
-              <li>50A の厚さは資料により 12 と 14 があり、ボルトが長めになる 14 を載せています（※）。</li>
+              <li>
+                50A の厚さは資料により 12 と 14 があり、ボルトが長めになる 14 を載せています（※）。50A
+                のボルト長さ（※）も、この厚さ 14 で計算しています。
+              </li>
             )}
             {pressure === '16K' && (
-              <li>16K の厚さ（※）は規格原文での確認が済んでいません。厚さから求めたボルト長さも、目安としてご覧ください。</li>
+              <li>
+                16K の厚さ（※）は規格原文での確認が済んでいません。厚さから計算したボルト長さにも ※
+                を付けています。目安としてご覧ください。
+              </li>
             )}
             {(pressure === '16K' || pressure === '20K') && (
               <li>

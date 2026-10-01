@@ -14,6 +14,7 @@ import {
   pipeWeight,
   sizesOf,
   unitMass,
+  unitMassText,
 } from './calc'
 import { PIPE_SIZES, PIPE_SPECS, WALL } from './data'
 
@@ -92,7 +93,7 @@ export function SteelPipeGuide() {
         <p>
           SGP {SGP50.size.a} なら {MASS_FACTOR} × {fixed(SGP50.t, 1)} × ({fixed(SGP50.od, 1)} − {fixed(SGP50.t, 1)}) ={' '}
           <span className="num">{trim(unitMass(SGP50.od, SGP50.t), 4)}</span> → 有効数字3桁で{' '}
-          <span className="num">{trim(SGP50.massPerM)}</span> kg/m。長さ {EXAMPLE_LENGTH} m の1本なら{' '}
+          <span className="num">{unitMassText(SGP50.massPerM)}</span> kg/m。長さ {EXAMPLE_LENGTH} m の1本なら{' '}
           <span className="num">{fixed(SGP50_WEIGHT.mass, 1)}</span> kg です。
         </p>
       </Faq>

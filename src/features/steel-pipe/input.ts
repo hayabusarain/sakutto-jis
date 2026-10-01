@@ -1,3 +1,4 @@
+import { fromQuery } from '../../lib/query'
 import { nearestAvailableSize, pipeDimensions, PIPE_SPEC_KEYS } from './calc'
 import { PIPE_SIZES, type PipeSpec } from './data'
 
@@ -61,6 +62,20 @@ export function parseSizeA(raw: string): string | null {
   if (/^\d+$/.test(text)) return byA(text) ?? byB(text)
   if (/^(?:\d+[ .-])?\d+\/\d+$/.test(text)) return byB(text)
   return null
+}
+
+/**
+ * URL の規格・呼び径で、その規格に無い呼び径（Sch40 の 175A など）を指定していたとき、
+ * 置き換え前と後の呼び径（normalizeSteelPipeInput と同じ置き換え）。置き換えていなければ null。
+ * 画面で「150A にしました」と知らせるのに使う。
+ */
+export function urlSizeChange(search: string): { spec: PipeSpec; from: string; to: string } | null {
+  const query = fromQuery(search, DEFAULT_INPUT)
+  if (!query || !query.keys.includes('a')) return null
+  const from = parseSizeA(String(query.state.a))
+  if (from === null) return null
+  const next = normalizeSteelPipeInput(query.state)
+  return next.a === from ? null : { spec: next.spec, from, to: next.a }
 }
 
 /**
