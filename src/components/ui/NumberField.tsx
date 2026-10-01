@@ -73,7 +73,7 @@ export function NumberField({
             <button
               type="button"
               onClick={fix.onClick}
-              className="h-8 rounded-sm border border-orange-400 bg-orange-50 px-2 text-xs font-semibold text-orange-900 hover:bg-orange-100"
+              className="h-10 rounded-sm border border-orange-400 bg-orange-50 px-3 text-xs font-semibold text-orange-900 hover:bg-orange-100"
             >
               {fix.label}
             </button>

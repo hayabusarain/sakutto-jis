@@ -112,7 +112,7 @@ export function HomePage() {
         <section key={category} className="mt-8" aria-labelledby={`category-${category}`}>
           <h2
             id={`category-${category}`}
-            className="flex items-center gap-3 text-sm font-bold tracking-wider text-zinc-500"
+            className="flex items-center gap-3 text-sm font-bold tracking-wider text-zinc-600"
           >
             {CATEGORY_LABELS[category]}
             <span className="h-px flex-1 bg-zinc-300" aria-hidden />
@@ -155,7 +155,7 @@ export function HomePage() {
       <section className="mt-10" aria-labelledby="tables">
         <h2
           id="tables"
-          className="flex items-center gap-3 text-sm font-bold tracking-wider text-zinc-500"
+          className="flex items-center gap-3 text-sm font-bold tracking-wider text-zinc-600"
         >
           <Table2 className="size-4 shrink-0" aria-hidden />
           寸法表を一覧で見る
@@ -174,7 +174,7 @@ export function HomePage() {
       <section className="mt-10" aria-labelledby="features">
         <h2
           id="features"
-          className="flex items-center gap-3 text-sm font-bold tracking-wider text-zinc-500"
+          className="flex items-center gap-3 text-sm font-bold tracking-wider text-zinc-600"
         >
           安心して使っていただくために
           <span className="h-px flex-1 bg-zinc-300" aria-hidden />

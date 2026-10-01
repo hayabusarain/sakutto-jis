@@ -9,12 +9,21 @@ export function ToolNav() {
   const listRef = useRef<HTMLUListElement>(null)
   const activeRef = useRef<HTMLAnchorElement>(null)
 
-  // スマホで選択中のツールが見切れないよう、バーの横スクロール位置だけを合わせる
+  // スマホで選択中のツールが見切れないよう、バーの横スクロール位置だけを合わせる。
+  // 文字の大きさや画面の幅が変わってタブの幅が変わったときも、合わせ直す
   useEffect(() => {
     const list = listRef.current
     const active = activeRef.current
     if (!list || !active) return
-    list.scrollLeft = active.offsetLeft - (list.clientWidth - active.offsetWidth) / 2
+    const center = () => {
+      list.scrollLeft = active.offsetLeft - (list.clientWidth - active.offsetWidth) / 2
+    }
+    center()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(center)
+    observer.observe(list)
+    observer.observe(active)
+    return () => observer.disconnect()
   }, [pathname])
 
   return (

@@ -23,6 +23,11 @@
     body.has-sticky-result {
       padding-bottom: calc(4rem + env(safe-area-inset-bottom));
     }
+
+    /* キーボードで移った先（表の行・入力欄など）が、画面下の結果バーの裏に隠れないようにする */
+    html:has(> body.has-sticky-result) {
+      scroll-padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+    }
   }
 
   /* 文字を大きく（ヘッダーの切り替え）。Tailwind は rem 基準なので全体が拡大される */
@@ -45,17 +50,94 @@
   letter-spacing: -0.01em;
 }
 
+/*
+ * 印刷の直前に、表が紙の幅に収まるかを DataTable が測るための仮の見た目。
+ * 下の @media print の表と同じ文字の大きさ・余白で、折り返したときの最小の幅にする
+ */
+.print-measure table {
+  width: min-content;
+  font-size: 9pt;
+}
+
+.print-measure th,
+.print-measure td {
+  padding-inline: 4px;
+  white-space: normal;
+}
+
+.print-measure thead th {
+  font-size: 8pt;
+}
+
 /* 印刷（現場に持っていく・図面に添付する）ときは、白地で結果と表だけを見やすく */
 @media print {
   @page {
     margin: 12mm;
   }
 
+  /* 横に長い表のための横向きのページ（[data-print-wide] を参照） */
+  @page wide {
+    size: landscape;
+  }
+
   body {
     background: white;
   }
 
+  /*
+   * 画面では縦・横にスクロールして見る表や式も、紙では途中で切れないよう全部を出す。
+   * （DataTable・Formula は部品の側でも指定している。ここは他の表のための保険）
+   */
+  .overflow-auto,
+  .overflow-x-auto {
+    overflow: visible;
+    max-height: none;
+  }
+
+  /*
+   * A4 縦の幅に列が収まるよう、表は小さめの文字にして、セルの中で折り返せるようにする。
+   * 上の .print-measure（印刷前に幅を測るための仮の見た目）と同じ値にしておくこと
+   */
+  table {
+    font-size: 9pt;
+  }
+
+  th,
+  td {
+    padding-inline: 4px;
+    white-space: normal;
+  }
+
+  thead th {
+    font-size: 8pt;
+  }
+
   tr {
     break-inside: avoid;
+  }
+
+  /* それでも収まらない表（DataTable が印刷の直前に測って印を付ける）は、カードごと横向きのページにする */
+  [data-print-wide] {
+    page: wide;
+  }
+
+  /* グリッドの中にあると、Chrome では前のカードの続きまで横向きのページになるので、縦に積むだけにする */
+  .grid:has(> [data-print-wide]) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /*
+   * 濃い地に白い文字の部品（結果のパネル・選んでいるボタンなど）。
+   * ブラウザの印刷は既定で背景色を省くため、そのままでは白い文字が薄い灰色になり、
+   * 選んだボタンが選んでいないように見える。地の色ごと印刷する。
+   */
+  .bg-zinc-900,
+  .bg-zinc-800,
+  .bg-orange-600,
+  .bg-orange-700,
+  .peer-checked\:bg-zinc-900 {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }
