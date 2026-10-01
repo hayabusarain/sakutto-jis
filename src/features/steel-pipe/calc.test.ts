@@ -18,8 +18,11 @@ import {
   pipeThreadFor,
   pipeWeight,
   roundSignificant,
+  sizeChangeNotice,
   sizesOf,
+  specsWithSize,
   unitMass,
+  unitMassText,
   wallMatches,
   wallMatchTolerance,
 } from './calc'
@@ -296,5 +299,65 @@ describe('roundSignificant', () => {
     expect(roundSignificant(0.41934, 3)).toBe(0.419)
     expect(roundSignificant(2.125, 3)).toBe(2.12)
     expect(roundSignificant(2.135, 3)).toBe(2.14)
+  })
+})
+
+describe('unitMassText（単位質量の表示は有効数字3桁）', () => {
+  it('末尾の 0 も残す（15.0・4.10・36.0）', () => {
+    expect(unitMassText(15.0)).toBe('15.0')
+    expect(unitMassText(4.1)).toBe('4.10')
+    expect(unitMassText(36)).toBe('36.0')
+    expect(unitMassText(12.0)).toBe('12.0')
+  })
+
+  it('小さい値・3桁の値', () => {
+    expect(unitMassText(0.419)).toBe('0.419')
+    expect(unitMassText(5.31)).toBe('5.31')
+    expect(unitMassText(129)).toBe('129')
+  })
+
+  it('1000 以上でも指数表記にしない', () => {
+    expect(unitMassText(1234)).toBe('1230')
+  })
+
+  it.each(['sgp', 'sch40', 'sch80'] as PipeSpec[])('%s の全サイズで、表示は有効数字3桁・値は data.ts と同じ', (spec) => {
+    for (const size of sizesOf(spec)) {
+      const w = WALL[spec][size.a]![1]
+      const text = unitMassText(w)
+      expect(Number(text), `${spec} ${size.a}`).toBe(w)
+      expect(text.replace('.', '').replace(/^0+/, ''), `${spec} ${size.a}`).toHaveLength(3)
+    }
+  })
+
+  it('SGP 125A 15.0・Sch40 40A 4.10・Sch80 65A 12.0', () => {
+    expect(unitMassText(pipeDimensions('sgp', '125A')!.massPerM)).toBe('15.0')
+    expect(unitMassText(pipeDimensions('sch40', '40A')!.massPerM)).toBe('4.10')
+    expect(unitMassText(pipeDimensions('sch80', '65A')!.massPerM)).toBe('12.0')
+  })
+})
+
+describe('規格の切り替えで呼び径を置き換えたときの知らせ', () => {
+  it('175A・225A は SGP だけにある', () => {
+    expect(specsWithSize('175A')).toEqual(['sgp'])
+    expect(specsWithSize('225A')).toEqual(['sgp'])
+    expect(specsWithSize('50A')).toEqual(['sgp', 'sch40', 'sch80'])
+  })
+
+  it('Sch40 に 175A は無いので 150A にした、と知らせる', () => {
+    const to = nearestAvailableSize('sch40', '175A')!
+    expect(to).toBe('150A')
+    expect(sizeChangeNotice('sch40', '175A', to)).toBe(
+      'Sch40 に 175A は無いため（175A は SGP のみ）、外径が近い 150A にしました。',
+    )
+  })
+
+  it('Sch80 の 225A → 200A', () => {
+    expect(sizeChangeNotice('sch80', '225A', nearestAvailableSize('sch80', '225A')!)).toBe(
+      'Sch80 に 225A は無いため（225A は SGP のみ）、外径が近い 200A にしました。',
+    )
+  })
+
+  it('置き換えていなければ null', () => {
+    expect(sizeChangeNotice('sch40', '50A', '50A')).toBeNull()
   })
 })

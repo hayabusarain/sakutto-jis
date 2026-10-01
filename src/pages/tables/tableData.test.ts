@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { FLANGES, PRESSURE_CLASSES } from '../../features/flange-bolt/data'
 import { G_ROWS, P_ROWS } from '../../features/o-ring/data'
 import { PIPE_SIZES } from '../../features/steel-pipe/data'
+import { unitMassText } from '../../features/steel-pipe/calc'
 import {
+  flangeTableMarks,
   flangeTableRows,
   flangeUnverified,
   oRingGrooveRows,
@@ -48,11 +50,46 @@ describe('flangeUnverified（docs/data-verification.md の △）', () => {
   })
 })
 
+describe('flangeTableMarks（寸法表の ※）', () => {
+  const marksOf = (pressure: (typeof PRESSURE_CLASSES)[number], size: string) =>
+    flangeTableMarks(flangeTableRows(pressure).find((r) => r.size === size)!)
+
+  it('16K: 厚さと、その厚さから計算したボルト長さに付ける', () => {
+    for (const row of flangeTableRows('16K')) {
+      expect(flangeTableMarks(row), row.size).toEqual({ size: false, t: true, lengths: true })
+    }
+  })
+
+  it('5K 50A: 厚さとボルト長さ', () => {
+    expect(marksOf('5K', '50A')).toEqual({ size: false, t: true, lengths: true })
+  })
+
+  it('行全体が未確認の行（5K・10K の 90A・175A・225A）は呼び径の欄だけ', () => {
+    expect(marksOf('5K', '90A')).toEqual({ size: true, t: false, lengths: false })
+    expect(marksOf('10K', '225A')).toEqual({ size: true, t: false, lengths: false })
+  })
+
+  it('確認済みの行は付けない（10K 100A・20K 50A）', () => {
+    expect(marksOf('10K', '100A')).toEqual({ size: false, t: false, lengths: false })
+    expect(marksOf('20K', '50A')).toEqual({ size: false, t: false, lengths: false })
+  })
+
+  it('10K・20K の表には、未確認の厚さから計算したボルト長さは無い', () => {
+    expect(flangeTableRows('10K').some((r) => flangeTableMarks(r).lengths)).toBe(false)
+    expect(flangeTableRows('20K').some((r) => flangeTableMarks(r).lengths)).toBe(false)
+  })
+})
+
 describe('pipeTableRows', () => {
   it('SGP は全21サイズ、Sch40・Sch80 は 175A・225A を除く19サイズ', () => {
     expect(pipeTableRows('sgp')).toHaveLength(PIPE_SIZES.length)
     expect(pipeTableRows('sch40').map((r) => r.size.a)).not.toContain('175A')
     expect(pipeTableRows('sch80')).toHaveLength(PIPE_SIZES.length - 2)
+  })
+
+  it('単位質量の表示は有効数字3桁（SGP 125A 15.0・Sch40 100A 16.0）', () => {
+    expect(unitMassText(pipeTableRows('sgp').find((r) => r.size.a === '125A')!.massPerM)).toBe('15.0')
+    expect(unitMassText(pipeTableRows('sch40').find((r) => r.size.a === '100A')!.massPerM)).toBe('16.0')
   })
 
   it('SGP 50A: 外径 60.5・厚さ 3.8・内径 52.9・5.31 kg/m', () => {

@@ -5,7 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { TableExport } from '../../components/ui/TableExport'
-import { MASS_FACTOR, type PipeDimensions } from '../../features/steel-pipe/calc'
+import { MASS_FACTOR, unitMass, unitMassText, type PipeDimensions } from '../../features/steel-pipe/calc'
 import { PIPE_SPECS, type PipeSpec } from '../../features/steel-pipe/data'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
@@ -42,7 +42,7 @@ export function PipeTablePage({ spec }: { spec: PipeSpec }) {
     { key: 'od', header: '外径 D', cell: (row) => fixed(row.od, 1) },
     { key: 't', header: '厚さ t', cell: (row) => fixed(row.t, 1) },
     { key: 'id', header: '内径 d', cell: (row) => fixed(row.id, 1) },
-    { key: 'w', header: '質量 kg/m', cell: (row) => trim(row.massPerM) },
+    { key: 'w', header: '質量 kg/m', cell: (row) => unitMassText(row.massPerM) },
     { key: 'v', header: '内容積 L/m', cell: (row) => fixed(row.volumePerM, 2) },
     { key: 's', header: '外表面積 m²/m', cell: (row) => fixed(row.surfacePerM, 3) },
   ]
@@ -63,7 +63,7 @@ export function PipeTablePage({ spec }: { spec: PipeSpec }) {
     fixed(row.od, 1),
     fixed(row.t, 1),
     fixed(row.id, 1),
-    row.massPerM,
+    unitMassText(row.massPerM),
     fixed(row.volumePerM, 2),
     fixed(row.surfacePerM, 3),
   ])
@@ -139,7 +139,8 @@ export function PipeTablePage({ spec }: { spec: PipeSpec }) {
               <p>単位質量・内径・内容積・外表面積は、次の式で求めています（{example.size.a} の例）。</p>
               <Formula>
                 W = {MASS_FACTOR} × t × (D − t) = {MASS_FACTOR} × {fixed(example.t, 1)} × ({fixed(example.od, 1)} −{' '}
-                {fixed(example.t, 1)}) = {trim(example.massPerM)} kg/m
+                {fixed(example.t, 1)}) = {trim(unitMass(example.od, example.t), 4)} → 有効数字3桁で{' '}
+                {unitMassText(example.massPerM)} kg/m
               </Formula>
               <Formula>
                 d = D − 2t = {fixed(example.od, 1)} − 2 × {fixed(example.t, 1)} = {fixed(example.id, 1)} mm

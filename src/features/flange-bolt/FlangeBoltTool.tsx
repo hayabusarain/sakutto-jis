@@ -428,7 +428,7 @@ export function FlangeBoltTool() {
           <UnverifiedLegend className="mt-2">
             {rowUnverified
               ? `（${input.pressure} ${row.size} は寸法すべてが未確認です）`
-              : '（公開前に規格原文で確認中）'}
+              : '（規格原文で確認中）'}
           </UnverifiedLegend>
         )}
 
@@ -528,7 +528,7 @@ export function FlangeBoltTool() {
                   ? 'フランジ本体の正面図（ボルト穴 φh）。'
                   : drawingKind === 'through'
                     ? '相手側（機器のノズル・当て板など）に、同じ PCD で通し穴 φh をあける図。'
-                    : `相手側に M${row.bolt} のめねじを立てる図（スタッドボルト用）。下穴を実線の円、ねじの谷の径を 3/4 の細線の円で描きます。`
+                    : `相手側に M${row.bolt} のめねじを立てる図（スタッドボルト用）。下穴を実線の円、ねじの谷の径を 3/4 の細線の円で描きます。このツールのスタッドボルトの長さは両ナット（通しボルト）の場合です。めねじにねじ込む植込みボルトの長さは、ねじ込み長さを含めて別に決めてください。`
               }
             />
             <NumberField
@@ -586,7 +586,7 @@ export function FlangeBoltTool() {
         </div>
         {tableHasUnverified && (
           <div className="px-4 pt-2 pb-4">
-            <UnverifiedLegend>（公開前に規格原文で確認中。未確認の厚さから計算したボルト長さにも付けています）</UnverifiedLegend>
+            <UnverifiedLegend>（規格原文で確認中。未確認の厚さから計算したボルト長さにも付けています）</UnverifiedLegend>
           </div>
         )}
       </Card>

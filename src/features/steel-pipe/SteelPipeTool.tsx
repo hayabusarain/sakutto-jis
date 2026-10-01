@@ -29,13 +29,17 @@ import {
   pipeDimensions,
   pipeThreadFor,
   pipeWeight,
+  sizeChangeNotice,
   sizesOf,
+  unitMass,
+  unitMassText,
   type PipeDimensions,
 } from './calc'
 import { AllSpecsTable, SpecCompare } from './CompareTables'
 import { PIPE_SIZES, PIPE_SPECS, type PipeSpec } from './data'
-import { DEFAULT_INPUT, isSteelPipeInput, normalizeSteelPipeInput } from './input'
+import { DEFAULT_INPUT, isSteelPipeInput, normalizeSteelPipeInput, urlSizeChange } from './input'
 import { MeasureFinder } from './MeasureFinder'
+import { useSearchAtMount } from './useSearchAtMount'
 
 const SPEC_OPTIONS = PIPE_SPEC_KEYS.map((key) => ({ value: key, label: PIPE_SPECS[key].label }))
 /** 呼び径のよく使うサイズ（その規格にあるものだけ表示される） */
@@ -49,8 +53,21 @@ const cite = (spec: PipeSpec) =>
   `${standardLabel(PIPE_SPECS[spec].standard)}（${STANDARDS[PIPE_SPECS[spec].standard].title}）`
 
 export function SteelPipeTool() {
+  // 開いた URL の条件（useToolState が URL を整えて書き換える前の値を読むため、useToolState より先に置く）
+  const searchAtMount = useSearchAtMount()
   const [input, setInput] = useToolState('steel-pipe', DEFAULT_INPUT, isSteelPipeInput, normalizeSteelPipeInput)
   const [tableView, setTableView] = useState<TableView>('spec')
+  /**
+   * 規格を切り替えて呼び径を置き換えたときの知らせ（置き換えなければ null）。
+   * まだ規格・呼び径を操作していない間（undefined）は、URL の呼び径を置き換えたことを知らせる
+   */
+  const [changeNotice, setChangeNotice] = useState<string | null | undefined>(undefined)
+  const urlChange = urlSizeChange(searchAtMount)
+  const urlNotice =
+    urlChange && input.spec === urlChange.spec && input.a === urlChange.to
+      ? sizeChangeNotice(urlChange.spec, urlChange.from, urlChange.to)
+      : null
+  const sizeNotice = changeNotice === undefined ? urlNotice : changeNotice
   const spec = PIPE_SPECS[input.spec]
   const dims = pipeDimensions(input.spec, input.a) ?? pipeDimensions(DEFAULT_INPUT.spec, DEFAULT_INPUT.a)!
   const a = dims.size.a
@@ -67,13 +84,16 @@ export function SteelPipeTool() {
   const mmFix = lengthValid ? lengthLooksLikeMm(length) : null
 
   const changeSpec = (value: PipeSpec) => {
-    // 選んでいたサイズが無い規格（Sch40・Sch80 の 175A・225A）に切り替えたら、外径が近いサイズにする
-    setInput({ ...input, spec: value, a: nearestAvailableSize(value, a) ?? DEFAULT_INPUT.a })
+    // 選んでいたサイズが無い規格（Sch40・Sch80 の 175A・225A）に切り替えたら、外径が近いサイズにして知らせる
+    const nextA = nearestAvailableSize(value, a) ?? DEFAULT_INPUT.a
+    setChangeNotice(sizeChangeNotice(value, a, nextA))
+    setInput({ ...input, spec: value, a: nextA })
   }
   /** 呼び径を選ぶ。今の規格に無いサイズ（175A・225A）なら SGP にする */
   const selectSize = (nextA: string, nextSpec?: PipeSpec) => {
     const specToUse = nextSpec ?? (pipeDimensions(input.spec, nextA) ? input.spec : 'sgp')
     if (!pipeDimensions(specToUse, nextA)) return
+    setChangeNotice(null)
     setInput({ ...input, spec: specToUse, a: nextA })
   }
 
@@ -82,7 +102,7 @@ export function SteelPipeTool() {
   const copyText = [
     `【鋼管】${label}`,
     `外径 ${fixed(dims.od, 1)} / 厚さ ${fixed(dims.t, 1)} / 内径 ${fixed(dims.id, 1)} mm（外周 ${fixed(circ, 1)} mm）`,
-    `単位質量 ${trim(dims.massPerM)} kg/m`,
+    `単位質量 ${unitMassText(dims.massPerM)} kg/m`,
     weight !== null && totalLength !== null
       ? `質量 ${fixed(weight.mass, 1)} kg（${trim(totalLength)} m）／ 満水時 ${fixed(weight.full, 1)} kg`
       : '',
@@ -106,7 +126,7 @@ export function SteelPipeTool() {
     { key: 'circ', header: '外周', cell: (row) => fixed(circumference(row.od), 1) },
     { key: 't', header: '厚さ', cell: (row) => fixed(row.t, 1) },
     { key: 'id', header: '内径', cell: (row) => fixed(row.id, 1) },
-    { key: 'w', header: 'kg/m', cell: (row) => trim(row.massPerM) },
+    { key: 'w', header: 'kg/m', cell: (row) => unitMassText(row.massPerM) },
   ]
   const rows = sizes
     .map((size) => pipeDimensions(input.spec, size.a))
@@ -125,7 +145,7 @@ export function SteelPipeTool() {
             fixed(circumference(row.od), 1),
             fixed(row.t, 1),
             fixed(row.id, 1),
-            trim(row.massPerM),
+            unitMassText(row.massPerM),
           ]),
           note: `典拠: ${cite(input.spec)}。外周（πD）・内径（D − 2t）は計算値（サクッとJIS）`,
         }
@@ -146,7 +166,7 @@ export function SteelPipeTool() {
             size.b,
             fixed(size.od, 1),
             ...compareSpecs(size.a).flatMap(({ dims: d }) =>
-              d ? [fixed(d.t, 1), fixed(d.id, 1), trim(d.massPerM)] : ['—', '—', '—'],
+              d ? [fixed(d.t, 1), fixed(d.id, 1), unitMassText(d.massPerM)] : ['—', '—', '—'],
             ),
           ]),
           note: `典拠: ${cite('sgp')}（SGP）、${cite('sch40')}（Sch40・Sch80）。内径（D − 2t）は計算値。— はその規格に無いサイズ（サクッとJIS）`,
@@ -160,13 +180,20 @@ export function SteelPipeTool() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-6">
         <Card title="条件" index="01" icon={ClipboardList} className="lg:col-start-1">
           <div className="grid gap-4">
-            <SegmentedControl
-              label="規格"
-              value={input.spec}
-              options={SPEC_OPTIONS}
-              onChange={changeSpec}
-              hint={spec.name}
-            />
+            <div>
+              <SegmentedControl
+                label="規格"
+                value={input.spec}
+                options={SPEC_OPTIONS}
+                onChange={changeSpec}
+                hint={spec.name}
+              />
+              {sizeNotice && (
+                <p className="mt-1 text-xs font-semibold text-orange-800" role="status">
+                  {sizeNotice}
+                </p>
+              )}
+            </div>
             <SelectField
               label="呼び径"
               value={a}
@@ -225,7 +252,7 @@ export function SteelPipeTool() {
             ) : (
               <>
                 <span className="num">
-                  {trim(dims.massPerM)} kg/m × {trim(totalLength)} m
+                  {unitMassText(dims.massPerM)} kg/m × {trim(totalLength)} m
                 </span>{' '}
                 ／ 満水時 <span className="num font-semibold text-white">{fixed(weight.full, 1)} kg</span>
               </>
@@ -236,7 +263,7 @@ export function SteelPipeTool() {
             <ResultItem label="外径 D" value={fixed(dims.od, 1)} unit="mm" />
             <ResultItem label="厚さ t" value={fixed(dims.t, 1)} unit="mm" />
             <ResultItem label="内径 d（D − 2t）" value={fixed(dims.id, 1)} unit="mm" />
-            <ResultItem label="単位質量" value={trim(dims.massPerM)} unit="kg/m" />
+            <ResultItem label="単位質量" value={unitMassText(dims.massPerM)} unit="kg/m" />
             <ResultItem label="外周（πD・巻尺で測る長さ）" value={fixed(circ, 1)} unit="mm" />
             <ResultItem label="内容積（満水時の水）" value={fixed(dims.volumePerM, 2)} unit="L/m" />
             <ResultItem label="外表面積（塗装・保温）" value={fixed(dims.surfacePerM, 3)} unit="m²/m" />
@@ -279,7 +306,7 @@ export function SteelPipeTool() {
               <Formula>W = {MASS_FACTOR} × t × (D − t)</Formula>
               <Formula>
                 例: {MASS_FACTOR} × {fixed(dims.t, 1)} × ({fixed(dims.od, 1)} − {fixed(dims.t, 1)}) ={' '}
-                {trim(dims.massPerM)} kg/m
+                {trim(unitMass(dims.od, dims.t), 4)} → 有効数字3桁で {unitMassText(dims.massPerM)} kg/m
               </Formula>
               <p>内径・外周・内容積・外表面積は、次の式で求めています。</p>
               <Formula>d = D − 2t　／　外周 = π × D　／　内容積 = π/4 × d² × 1m　／　外表面積 = π × D × 1m</Formula>
@@ -287,7 +314,7 @@ export function SteelPipeTool() {
                 <>
                   <p>質量は 単位質量 × 長さ × 本数、満水時は管の中の水（1 L = 1 kg として）を足した値です。</p>
                   <Formula>
-                    {trim(dims.massPerM)} × {trim(totalLength)} = {fixed(weight.mass, 1)} kg　／　満水時{' '}
+                    {unitMassText(dims.massPerM)} × {trim(totalLength)} = {fixed(weight.mass, 1)} kg　／　満水時{' '}
                     {fixed(weight.mass, 1)} + {fixed(dims.volumePerM, 3)} × {trim(totalLength)} ={' '}
                     {fixed(weight.full, 1)} kg
                   </Formula>
@@ -367,7 +394,7 @@ export function SteelPipeTool() {
       <StickyResult
         targetId={RESULT_ID}
         label={weight === null || totalLength === null ? `${label} 単位質量` : `${label} × ${trim(totalLength)} m`}
-        value={weight === null ? trim(dims.massPerM) : fixed(weight.mass, 1)}
+        value={weight === null ? unitMassText(dims.massPerM) : fixed(weight.mass, 1)}
         unit={weight === null ? 'kg/m' : 'kg'}
       />
     </>

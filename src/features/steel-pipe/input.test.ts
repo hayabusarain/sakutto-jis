@@ -6,6 +6,7 @@ import {
   normalizeSteelPipeInput,
   parseSizeA,
   parseSpec,
+  urlSizeChange,
   type SteelPipeInput,
 } from './input'
 
@@ -84,5 +85,28 @@ describe('URL の一部指定', () => {
 
   it('既定値のキーが無ければ null', () => {
     expect(fromUrl('?foo=1')).toBeNull()
+  })
+})
+
+describe('urlSizeChange（URL の呼び径を置き換えたか）', () => {
+  it('Sch40 に無い 225A → 200A（normalize と同じ置き換え）', () => {
+    expect(urlSizeChange('?spec=sch40&a=225A')).toEqual({ spec: 'sch40', from: '225A', to: '200A' })
+    expect(fromUrl('?spec=sch40&a=225A')?.a).toBe('200A')
+  })
+
+  it('B 呼称・規格の書き方の揺れも同じに読む（7B = 175A）', () => {
+    expect(urlSizeChange('?spec=Sch80&a=7B')).toEqual({ spec: 'sch80', from: '175A', to: '150A' })
+  })
+
+  it('その規格にある呼び径・SGP なら null', () => {
+    expect(urlSizeChange('?spec=sch40&a=150A')).toBeNull()
+    expect(urlSizeChange('?a=175A')).toBeNull()
+    expect(urlSizeChange('?spec=sgp&a=225A')).toBeNull()
+  })
+
+  it('呼び径の指定が無い・読めないときは null', () => {
+    expect(urlSizeChange('?spec=sch40')).toBeNull()
+    expect(urlSizeChange('?spec=sch40&a=999A')).toBeNull()
+    expect(urlSizeChange('')).toBeNull()
   })
 })

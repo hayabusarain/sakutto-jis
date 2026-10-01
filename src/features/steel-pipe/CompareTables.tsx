@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from 'react'
-import { fixed, trim } from '../../lib/format'
-import { compareSpecs, PIPE_SPEC_KEYS } from './calc'
+import { fixed } from '../../lib/format'
+import { compareSpecs, PIPE_SPEC_KEYS, unitMassText } from './calc'
 import { PIPE_SIZES, PIPE_SPECS, type PipeSpec } from './data'
 
 const onActivate = (action: () => void) => (event: KeyboardEvent<HTMLTableRowElement>) => {
@@ -78,7 +78,7 @@ export function SpecCompare({ a, spec, totalLength, onSelectSpec }: SpecCompareP
                   <>
                     <td className={td}>{fixed(dims.t, 1)}</td>
                     <td className={td}>{fixed(dims.id, 1)}</td>
-                    <td className={td}>{trim(dims.massPerM)}</td>
+                    <td className={td}>{unitMassText(dims.massPerM)}</td>
                     {totalLength !== null && <td className={td}>{fixed(dims.massPerM * totalLength, 1)}</td>}
                   </>
                 ) : (
@@ -200,7 +200,7 @@ function SpecCells({ t, id, w }: { t: number; id: number; w: number }) {
     <>
       <td className={`${td} ${groupStart}`}>{fixed(t, 1)}</td>
       <td className={td}>{fixed(id, 1)}</td>
-      <td className={td}>{trim(w)}</td>
+      <td className={td}>{unitMassText(w)}</td>
     </>
   )
 }
