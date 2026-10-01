@@ -1,7 +1,10 @@
 import { ProseLayout } from '../components/layout/ProseLayout'
-import { REPORT_URL, SITE } from '../site'
+import { Link } from '../router/Link'
+import { isPlaceholder, REPORT_URL, SITE } from '../site'
 
 export function AboutPage() {
+  const { operator } = SITE
+  const profile = operator.profile && !isPlaceholder(operator.profile) ? operator.profile : ''
   return (
     <ProseLayout title="運営者情報">
       <section>
@@ -16,7 +19,25 @@ export function AboutPage() {
             </>
           )}
           <dt className="font-semibold text-zinc-900">運営者</dt>
-          <dd>{SITE.operator.name}</dd>
+          <dd>{operator.name}</dd>
+          {profile && (
+            <>
+              <dt className="font-semibold text-zinc-900">経歴など</dt>
+              <dd>{profile}</dd>
+            </>
+          )}
+          {operator.sameAs.length > 0 && (
+            <>
+              <dt className="font-semibold text-zinc-900">関連リンク</dt>
+              <dd className="space-y-1">
+                {operator.sameAs.map((url) => (
+                  <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="block break-all">
+                    {url}
+                  </a>
+                ))}
+              </dd>
+            </>
+          )}
           <dt className="font-semibold text-zinc-900">所在地</dt>
           <dd>{SITE.operator.location}</dd>
           <dt className="font-semibold text-zinc-900">開設</dt>
@@ -31,7 +52,9 @@ export function AboutPage() {
           は、機械設計者や配管・保全の現場で働く方が、JIS規格の寸法確認やちょっとした計算を、スマホからすぐに行えるようにするための無料ツールです。規格書を開く手間を減らし、手計算の確認に使っていただくことを目指しています。
         </p>
         <p>
-          掲載している数値はJIS規格に基づいて作成し、各ツールに典拠の規格番号・年版と計算ロジックを明記しています。
+          掲載している数値はJIS規格に基づいて作成し、各ツールに典拠の規格番号・年版と計算ロジックを明記しています。データの作り方と確認の方法は
+          <Link to="/editorial-policy">編集方針・データの確認方法</Link>
+          にまとめています。
         </p>
       </section>
 
@@ -42,8 +65,15 @@ export function AboutPage() {
         </p>
         <ul>
           <li>
-            メール：<span className="num">{SITE.operator.email}</span>
+            メール：<span className="num">{operator.email}</span>
           </li>
+          {operator.contactUrl && (
+            <li>
+              <a href={operator.contactUrl} target="_blank" rel="noopener noreferrer">
+                お問い合わせフォーム
+              </a>
+            </li>
+          )}
           {REPORT_URL && (
             <li>
               <a href={REPORT_URL} target="_blank" rel="noopener noreferrer">
