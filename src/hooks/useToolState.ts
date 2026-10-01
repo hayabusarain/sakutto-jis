@@ -18,13 +18,18 @@ export function useToolState<T extends FlatState<T>>(
 ) {
   const [state, setState] = usePersistentState(key, defaults, isValid)
   const urlRead = useRef(false)
+  /** URL から読み込んで反映待ちの条件。反映されるまで URL を書き換えない */
+  const pending = useRef<string | null>(null)
 
   // 表示直後に一度だけ、URL で指定された条件を読み込む（保存済みの入力より優先）
   useEffect(() => {
     const fromUrl = fromQuery(window.location.search, defaults)
     if (fromUrl) {
       const next = normalize ? normalize(fromUrl.state, fromUrl.keys) : fromUrl.state
-      if (isValid(next)) setState(next)
+      if (isValid(next)) {
+        pending.current = toQuery(next, defaults)
+        setState(next)
+      }
     }
     urlRead.current = true
     // key が変わる（別のツールに切り替わる）ときはコンポーネントごと作り直されるので、初回だけでよい
@@ -35,6 +40,12 @@ export function useToolState<T extends FlatState<T>>(
   useEffect(() => {
     if (!urlRead.current) return
     const query = toQuery(state, defaults)
+    // 同じ描画でまだ古い（保存済みの）入力のときは、URL の条件を消さないよう待つ
+    // （開発時の StrictMode では読み込みの effect が2回走るため、ここで消すと条件が失われる）
+    if (pending.current !== null) {
+      if (query !== pending.current) return
+      pending.current = null
+    }
     const next = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`
     if (next !== current) window.history.replaceState(window.history.state, '', next)

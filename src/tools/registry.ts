@@ -96,7 +96,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     description:
       '管用テーパねじ（R・Rc・Rp）と管用平行ねじ（G）の基準径・山数・ピッチ、G の推奨下穴径と Rc の奥端内径（下穴の目安）を調べられます。旧JIS（PT・PS・PF）表記にも対応。',
     category: 'piping',
-    standards: ['JIS B 0203', 'JIS B 0202'],
+    standards: ['JIS B 0203', 'JIS B 0202', 'JIS G 3452'],
     icon: Wrench,
     component: PipeThreadTool,
     guide: PipeThreadGuide,
@@ -107,9 +107,9 @@ export const TOOLS: readonly ToolDefinition[] = [
     name: 'ねじ下穴径（メートルねじ）',
     navLabel: 'ねじ下穴径',
     description:
-      'メートル並目・細目ねじの下穴径を、めねじ内径の許容範囲（4H〜7H）とひっかかり率から求めます。手持ちドリルの適否も判定できます。',
+      'メートル並目・細目ねじの下穴径を、めねじ内径の許容範囲（4H〜7H）とひっかかり率から求めます。M1〜M68 の早見表、基準寸法と有効断面積、手持ちドリルの適否や「このドリルで立てられるねじ」も調べられます。',
     category: 'fastening',
-    standards: ['JIS B 0205-2', 'JIS B 0205-4', 'JIS B 0209-1', 'JIS B 1004', 'ISO 2306'],
+    standards: ['JIS B 0205-2', 'JIS B 0205-4', 'JIS B 0209-1', 'JIS B 1004', 'JIS B 1082', 'ISO 2306'],
     icon: Drill,
     component: TapDrillTool,
     guide: TapDrillGuide,
@@ -148,7 +148,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     description:
       'ノギスで測った径とピッチ（山数）から、メートルねじ・管用テーパねじ（R・Rc）・管用平行ねじ（G）のどれかを候補付きで判別します。',
     category: 'fastening',
-    standards: ['JIS B 0205-2', 'JIS B 0203', 'JIS B 0202'],
+    standards: ['JIS B 0205-2', 'JIS B 0209-1', 'JIS B 0203', 'JIS B 0202'],
     icon: ScanSearch,
     component: ThreadIdTool,
     guide: ThreadIdGuide,

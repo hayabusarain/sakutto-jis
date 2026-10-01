@@ -27,11 +27,12 @@ export function Card({
 }: CardProps) {
   return (
     <section id={id} className={`rounded-md border border-zinc-200 bg-white ${className}`}>
-      <header className="flex min-h-11 items-center gap-2 border-b border-zinc-200 px-4 py-2">
+      <header className="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-zinc-200 px-4 py-2">
         {index && <span className="num text-xs font-bold text-orange-600">{index}</span>}
         {Icon && <Icon className="size-4 shrink-0 text-zinc-500" aria-hidden />}
-        <h2 className="text-sm font-bold tracking-wide text-zinc-800">{title}</h2>
-        {aside && <div className="ml-auto flex items-center gap-2">{aside}</div>}
+        <h2 className="min-w-0 text-sm font-bold tracking-wide text-zinc-800">{title}</h2>
+        {/* 狭い画面では見出しの下の行に回り込む */}
+        {aside && <div className="ml-auto flex shrink-0 items-center gap-2">{aside}</div>}
       </header>
       <div className={flush ? '' : 'p-4 sm:p-5'}>{children}</div>
     </section>

@@ -6,9 +6,11 @@ interface CopyButtonProps {
   /** コピーする文章（LINEやメモに貼り付けやすい形）。末尾に今の条件のURLを付ける */
   text: string
   label?: string
+  /** 末尾に今の条件のURLを付けるか（図面指示など、文字だけをコピーしたいときは false） */
+  withUrl?: boolean
 }
 
-export function CopyButton({ text, label = '結果をコピー' }: CopyButtonProps) {
+export function CopyButton({ text, label = '結果をコピー', withUrl = true }: CopyButtonProps) {
   const [status, setStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
 
   useEffect(() => {
@@ -18,7 +20,7 @@ export function CopyButton({ text, label = '結果をコピー' }: CopyButtonPro
   }, [status])
 
   const handleClick = async () => {
-    const ok = await copyText(`${text}\n${window.location.href}`)
+    const ok = await copyText(withUrl ? `${text}\n${window.location.href}` : text)
     setStatus(ok ? 'copied' : 'failed')
   }
 

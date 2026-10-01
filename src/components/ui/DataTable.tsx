@@ -66,8 +66,10 @@ export function DataTable<T>({
               <th
                 key={column.key}
                 scope="col"
-                className={`px-3 py-2 font-semibold whitespace-nowrap ${alignClass[column.align ?? 'right']} ${
-                  index === 0 ? 'sticky left-0 z-10 bg-zinc-50 text-left' : 'bg-zinc-50'
+                className={`px-3 py-2 font-semibold whitespace-nowrap ${
+                  index === 0
+                    ? 'sticky left-0 z-10 bg-zinc-50 text-left'
+                    : `bg-zinc-50 ${alignClass[column.align ?? 'right']}`
                 }`}
               >
                 {column.header}
