@@ -1,8 +1,9 @@
 /**
  * 炭素鋼鋼管の寸法と単位質量。
- * SGP: JIS G 3452（配管用炭素鋼鋼管、黒管）
- * Sch40 / Sch80: JIS G 3454（圧力配管用炭素鋼鋼管 STPG）
- * 外径 D [mm]・厚さ t [mm]・単位質量 W [kg/m]（W = 0.02466 × t × (D − t) を有効数字3桁に丸めた値）
+ * SGP: JIS G 3452:2019 表4（配管用炭素鋼鋼管、黒管。単位質量はソケットを含まない）
+ * Sch40 / Sch80: JIS G 3454:2019 表6（圧力配管用炭素鋼鋼管 STPG。STPG370・STPG410 で寸法・単位質量は共通）
+ * 外径 D [mm]・厚さ t [mm]・単位質量 W [kg/m]（W = 0.02466 × t × (D − t) を JIS Z 8401 の規則A で有効数字3桁に丸めた値）
+ * 全値を 2019年版の原文（kikakurui の規格票の画像）と照合済み。2026年版（2026-05-20 発行）とは未照合。
  */
 export interface PipeSize {
   /** 呼び径（A呼称） */
@@ -44,8 +45,30 @@ export const PIPE_SPECS: Record<
   { label: string; name: string; standard: 'JIS G 3452' | 'JIS G 3454' }
 > = {
   sgp: { label: 'SGP', name: 'SGP（配管用炭素鋼鋼管）', standard: 'JIS G 3452' },
-  sch40: { label: 'Sch40', name: 'STPG370 Sch40（圧力配管用）', standard: 'JIS G 3454' },
-  sch80: { label: 'Sch80', name: 'STPG370 Sch80（圧力配管用）', standard: 'JIS G 3454' },
+  sch40: { label: 'Sch40', name: 'STPG370・STPG410 Sch40（圧力配管用）', standard: 'JIS G 3454' },
+  sch80: { label: 'Sch80', name: 'STPG370・STPG410 Sch80（圧力配管用）', standard: 'JIS G 3454' },
+}
+
+/** 外径・厚さ・単位質量を定めている表（2019年版。表番号・表題は原文のとおり） */
+export const PIPE_STANDARD_TABLE: Readonly<Record<'JIS G 3452' | 'JIS G 3454', { no: string; title: string }>> = {
+  'JIS G 3452': { no: '表4', title: '寸法，寸法の許容差及び単位質量' },
+  'JIS G 3454': { no: '表6', title: '寸法及び単位質量' },
+}
+
+/**
+ * 2026年版の発行についての注記。JIS G 3452:2026・G 3454:2026 は 2026-05-20 に発行された（日本規格協会 Webdesk で確認）。
+ * このサイトの値は 2019年版の原文と照合したもので、2026年版とは照合していない
+ */
+export const PIPE_EDITION_NOTE =
+  'JIS G 3452・G 3454 は 2026年5月20日に改正版（2026年版）が発行されています。このページの値は 2019年版の原文と照合したもので、2026年版とは未照合です。'
+
+/**
+ * JIS G 3454 表6 の太枠内（注記2「汎用品を示す」）の呼び径の範囲。
+ * Sch40 は 20A〜350A、Sch80 は 15A〜350A（このサイトに載せている範囲で）。範囲外は規格にはあるが汎用品ではない
+ */
+export const GENERAL_PURPOSE_RANGE: Readonly<Record<'sch40' | 'sch80', { from: string; to: string }>> = {
+  sch40: { from: '20A', to: '350A' },
+  sch80: { from: '15A', to: '350A' },
 }
 
 /** 厚さ t [mm] と単位質量 W [kg/m]。その規格に無いサイズは null（175A・225A は SGP のみ） */

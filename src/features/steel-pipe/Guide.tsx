@@ -9,6 +9,7 @@ import {
   findByOd,
   findPipeSize,
   MASS_FACTOR,
+  nonGeneralPurposeSizes,
   pipeDimensions,
   pipeThreadFor,
   pipeWeight,
@@ -16,7 +17,7 @@ import {
   unitMass,
   unitMassText,
 } from './calc'
-import { PIPE_SIZES, PIPE_SPECS, WALL } from './data'
+import { PIPE_EDITION_NOTE, PIPE_SIZES, PIPE_SPECS, PIPE_STANDARD_TABLE, WALL } from './data'
 
 // 例に使うサイズ（数値はすべて data.ts・calc.ts から計算する）
 const SGP50 = pipeDimensions('sgp', '50A')!
@@ -43,6 +44,12 @@ const TAPE_MATCH = findByOd(TAPE_OD)[0]
 const THREAD_EXAMPLES = ['15A', '20A', '25A', '50A'].map((a) => ({ a, thread: pipeThreadFor(a)! }))
 const PIPE15 = findPipeSize('15A')!
 const THREAD15 = pipeThreadFor('15A')!
+// 表番号（JIS G 3452 表4・JIS G 3454 表6）
+const SGP_TABLE = PIPE_STANDARD_TABLE['JIS G 3452'].no
+const STPG_TABLE = PIPE_STANDARD_TABLE['JIS G 3454'].no
+/** JIS G 3454 表6 で汎用品（太枠内）とされていない呼び径 */
+const NON_GENERAL_40 = nonGeneralPurposeSizes('sch40')
+const NON_GENERAL_80 = nonGeneralPurposeSizes('sch80')
 
 export function SteelPipeGuide() {
   return (
@@ -78,14 +85,17 @@ export function SteelPipeGuide() {
           です。小さいサイズでは SGP と Sch40 の厚さが近く、{SAME_WALL.join('・')} は同じ厚さです。
         </p>
         <p>
+          JIS G 3454 の材料には STPG370 と STPG410 がありますが、Sch40・Sch80 の外径・厚さ・単位質量は両方で共通です（{STPG_TABLE}）。
+        </p>
+        <p>
           どちらを使うかは、圧力・温度・流体などの設計条件と、適用される法規・社内基準で決めてください。上の結果にある「規格で比べる」の表や、寸法表の「3規格を並べる」で、厚さ・内径・重さを並べて確認できます。
         </p>
       </Faq>
 
       <Faq q="鋼管の重さ（kg/m）の計算式は？">
         <p>
-          単位質量 W [kg/m] は、外径 D と厚さ t [mm] から次の式で求めます。{MASS_FACTOR} は π × 鋼の密度 7.85 ÷ 1000
-          を丸めた係数です。
+          単位質量 W [kg/m] は、外径 D と厚さ t [mm] から次の式で求めます（JIS G 3452 {SGP_TABLE}・JIS G 3454 {STPG_TABLE}
+          の注記。1 cm³ の鋼を 7.85 g とし、JIS Z 8401 の規則A で有効数字3桁に丸めます）。{MASS_FACTOR} は π × 7.85 ÷ 1000 を丸めた係数です。
         </p>
         <p className="num rounded-sm border border-zinc-200 bg-zinc-50 px-3 py-2 text-[13px]">
           W = {MASS_FACTOR} × t × (D − t)
@@ -147,7 +157,22 @@ export function SteelPipeGuide() {
 
       <Faq q="白管（亜鉛めっき鋼管）の重さは？">
         <p>
-          このページの単位質量は黒管（めっき無し）の値です。白管は亜鉛めっきの分だけ重くなるので、正確な重さはメーカーの資料で確認してください。また、厚さの許容差があるため、実際の管の重さは計算値から多少ばらつきます。
+          このページの単位質量は黒管（めっき無し）の値です（SGP はソケットを含まない値）。白管は亜鉛めっきの分だけ重くなるので、正確な重さはメーカーの資料で確認してください。また、厚さの許容差があるため、実際の管の重さは計算値から多少ばらつきます。
+        </p>
+      </Faq>
+
+      {(NON_GENERAL_40.length > 0 || NON_GENERAL_80.length > 0) && (
+        <Faq q={`Sch40・Sch80 の細いサイズ（${NON_GENERAL_40[0]}〜${NON_GENERAL_40.at(-1)}）は手に入る？`}>
+          <p>
+            JIS G 3454 {STPG_TABLE} には載っていますが、表の太枠内（汎用品）ではないサイズがあります。Sch40 は {NON_GENERAL_40.join('・')}、Sch80 は{' '}
+            {NON_GENERAL_80.join('・')} が太枠の外です。手に入るかどうかは、メーカー・商社に確認してください。
+          </p>
+        </Faq>
+      )}
+
+      <Faq q="JIS G 3452・G 3454 の年版は？">
+        <p>
+          {PIPE_EDITION_NOTE}改正版で数値が変わっていないかは、規格票で確認してください。
         </p>
       </Faq>
 

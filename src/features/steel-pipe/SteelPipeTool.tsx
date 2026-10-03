@@ -21,10 +21,12 @@ import { THREAD_KINDS } from '../pipe-thread/data'
 import {
   circumference,
   compareSpecs,
+  isGeneralPurpose,
   isValidCount,
   lengthLooksLikeMm,
   MASS_FACTOR,
   nearestAvailableSize,
+  nonGeneralPurposeSizes,
   PIPE_SPEC_KEYS,
   pipeDimensions,
   pipeThreadFor,
@@ -36,7 +38,7 @@ import {
   type PipeDimensions,
 } from './calc'
 import { AllSpecsTable, SpecCompare } from './CompareTables'
-import { PIPE_SIZES, PIPE_SPECS, type PipeSpec } from './data'
+import { PIPE_EDITION_NOTE, PIPE_SIZES, PIPE_SPECS, PIPE_STANDARD_TABLE, type PipeSpec } from './data'
 import { DEFAULT_INPUT, isSteelPipeInput, normalizeSteelPipeInput, urlSizeChange } from './input'
 import { MeasureFinder } from './MeasureFinder'
 import { useSearchAtMount } from './useSearchAtMount'
@@ -48,9 +50,14 @@ const RESULT_ID = 'steel-pipe-result'
 
 type TableView = 'spec' | 'all'
 
-/** 「JIS G 3452:2019（配管用炭素鋼鋼管）」 */
+/** その規格の寸法の表（JIS G 3452 表4・JIS G 3454 表6） */
+const tableOf = (spec: PipeSpec) => PIPE_STANDARD_TABLE[PIPE_SPECS[spec].standard]
+/** 「表4 寸法，寸法の許容差及び単位質量」 */
+const tableLabel = (spec: PipeSpec) => `${tableOf(spec).no} ${tableOf(spec).title}`
+
+/** 「JIS G 3452:2019（配管用炭素鋼鋼管）表4」 */
 const cite = (spec: PipeSpec) =>
-  `${standardLabel(PIPE_SPECS[spec].standard)}（${STANDARDS[PIPE_SPECS[spec].standard].title}）`
+  `${standardLabel(PIPE_SPECS[spec].standard)}（${STANDARDS[PIPE_SPECS[spec].standard].title}）${tableOf(spec).no}`
 
 export function SteelPipeTool() {
   // 開いた URL の条件（useToolState が URL を整えて書き換える前の値を読むため、useToolState より先に置く）
@@ -74,6 +81,7 @@ export function SteelPipeTool() {
   const sizes = sizesOf(input.spec)
   const thread = pipeThreadFor(a)
   const flange = findFlange('10K', a)
+  const generalPurpose = isGeneralPurpose(input.spec, a)
 
   const length = parseNumber(input.length)
   const count = parseNumber(input.count)
@@ -106,7 +114,7 @@ export function SteelPipeTool() {
     weight !== null && totalLength !== null
       ? `質量 ${fixed(weight.mass, 1)} kg（${trim(totalLength)} m）／ 満水時 ${fixed(weight.full, 1)} kg`
       : '',
-    `典拠: ${standardLabel(spec.standard)}`,
+    `典拠: ${standardLabel(spec.standard)} ${tableOf(input.spec).no}`,
     '（サクッとJIS）',
   ]
     .filter(Boolean)
@@ -131,6 +139,7 @@ export function SteelPipeTool() {
   const rows = sizes
     .map((size) => pipeDimensions(input.spec, size.a))
     .filter((row): row is PipeDimensions => row !== null)
+  const nonGeneral = nonGeneralPurposeSizes(input.spec)
 
   const exportTable =
     tableView === 'spec'
@@ -147,7 +156,7 @@ export function SteelPipeTool() {
             fixed(row.id, 1),
             unitMassText(row.massPerM),
           ]),
-          note: `典拠: ${cite(input.spec)}。外周（πD）・内径（D − 2t）は計算値（サクッとJIS）`,
+          note: `典拠: ${cite(input.spec)}（2019年版の原文と照合。2026年版とは未照合）。外周（πD）・内径（D − 2t）は計算値（サクッとJIS）`,
         }
       : {
           title: '鋼管 SGP・Sch40・Sch80 比較表',
@@ -169,7 +178,7 @@ export function SteelPipeTool() {
               d ? [fixed(d.t, 1), fixed(d.id, 1), unitMassText(d.massPerM)] : ['—', '—', '—'],
             ),
           ]),
-          note: `典拠: ${cite('sgp')}（SGP）、${cite('sch40')}（Sch40・Sch80）。内径（D − 2t）は計算値。— はその規格に無いサイズ（サクッとJIS）`,
+          note: `典拠: ${cite('sgp')}（SGP）、${cite('sch40')}（Sch40・Sch80）。2019年版の原文と照合（2026年版とは未照合）。内径（D − 2t）は計算値。— はその規格に無いサイズ（サクッとJIS）`,
         }
 
   const lengthError = input.length.trim() !== '' && !lengthValid ? '0 より大きい数を入力してください' : undefined
@@ -274,8 +283,16 @@ export function SteelPipeTool() {
             />
           </dl>
 
+          {generalPurpose === false && (
+            <p className="mt-2 text-xs leading-relaxed text-orange-800">
+              {spec.label} の {a} は、{spec.standard} {tableOf(input.spec).no}
+              で汎用品（太枠内）とされていないサイズです。入手できるかはメーカー・商社に確認してください。
+            </p>
+          )}
+
           <div className="mt-3 space-y-1">
-            <Citation code={spec.standard} suffix="の外径・厚さ・単位質量" />
+            <Citation code={spec.standard} detail={tableLabel(input.spec)} suffix="の外径・厚さ・単位質量" />
+            <p className="text-xs leading-relaxed text-zinc-500">{PIPE_EDITION_NOTE}</p>
           </div>
 
           <section className="mt-5" aria-labelledby="steel-pipe-compare-heading">
@@ -293,8 +310,8 @@ export function SteelPipeTool() {
             </p>
             <SpecCompare a={a} spec={input.spec} totalLength={totalLength} onSelectSpec={changeSpec} />
             <div className="mt-2 space-y-1">
-              <Citation code="JIS G 3452" suffix="（SGP）" />
-              <Citation code="JIS G 3454" suffix="（Sch40・Sch80）" />
+              <Citation code="JIS G 3452" detail={tableOf('sgp').no} suffix="（SGP）" />
+              <Citation code="JIS G 3454" detail={tableOf('sch40').no} suffix="（Sch40・Sch80）" />
             </div>
           </section>
 
@@ -324,7 +341,7 @@ export function SteelPipeTool() {
                 items={[
                   ['D', '外径 [mm]'],
                   ['t', '厚さ [mm]'],
-                  ['W', '単位質量 [kg/m]（黒管）'],
+                  ['W', input.spec === 'sgp' ? '単位質量 [kg/m]（黒管。ソケットを含まない）' : '単位質量 [kg/m]'],
                 ]}
               />
               <p>
@@ -380,12 +397,17 @@ export function SteelPipeTool() {
           </div>
           <div className="space-y-1 px-4 py-3">
             {tableView === 'spec' ? (
-              <Citation code={spec.standard} suffix="の外径・厚さ・単位質量（外周・内径は計算値）" />
+              <Citation code={spec.standard} detail={tableLabel(input.spec)} suffix="の外径・厚さ・単位質量（外周・内径は計算値）" />
             ) : (
               <>
-                <Citation code="JIS G 3452" suffix="（SGP）" />
-                <Citation code="JIS G 3454" suffix="（Sch40・Sch80）" />
+                <Citation code="JIS G 3452" detail={tableLabel('sgp')} suffix="（SGP）" />
+                <Citation code="JIS G 3454" detail={tableLabel('sch40')} suffix="（Sch40・Sch80）" />
               </>
+            )}
+            {input.spec !== 'sgp' && tableView === 'spec' && nonGeneral.length > 0 && (
+              <p className="text-xs leading-relaxed text-zinc-500">
+                {nonGeneral.join('・')} は、{tableOf(input.spec).no} で汎用品（太枠内）とされていないサイズです（入手はメーカーに確認）。
+              </p>
             )}
           </div>
         </Card>

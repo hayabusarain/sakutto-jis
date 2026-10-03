@@ -1,5 +1,5 @@
 import { PIPE_THREAD_SIZES, type PipeThreadSize } from '../pipe-thread/data'
-import { PIPE_SIZES, PIPE_SPECS, WALL, type PipeSize, type PipeSpec } from './data'
+import { GENERAL_PURPOSE_RANGE, PIPE_SIZES, PIPE_SPECS, WALL, type PipeSize, type PipeSpec } from './data'
 
 /** 単位質量の係数（π × 密度7.85 ÷ 1000 を JIS で 0.02466 としたもの） */
 export const MASS_FACTOR = 0.02466
@@ -40,6 +40,26 @@ export function pipeDimensions(spec: PipeSpec, a: string): PipeDimensions | null
     volumePerM: (Math.PI / 4) * id * id * 1e-3,
     surfacePerM: (Math.PI * size.od) / 1000,
   }
+}
+
+/**
+ * JIS G 3454 表6 の太枠内（汎用品）の呼び径か。SGP（JIS G 3452 には汎用品の区別が無い）と、
+ * その規格に無い呼び径は false ではなく null を返す（「汎用品ではない」と言わないため）
+ */
+export function isGeneralPurpose(spec: PipeSpec, a: string): boolean | null {
+  if (spec === 'sgp' || !pipeDimensions(spec, a)) return null
+  const index = PIPE_SIZES.findIndex((size) => size.a === a)
+  const range = GENERAL_PURPOSE_RANGE[spec]
+  const from = PIPE_SIZES.findIndex((size) => size.a === range.from)
+  const to = PIPE_SIZES.findIndex((size) => size.a === range.to)
+  return index >= from && index <= to
+}
+
+/** 汎用品（JIS G 3454 表6 の太枠内）ではない呼び径の一覧（例: Sch40 は 6A・8A・10A・15A） */
+export function nonGeneralPurposeSizes(spec: PipeSpec): string[] {
+  return sizesOf(spec)
+    .map((size) => size.a)
+    .filter((a) => isGeneralPurpose(spec, a) === false)
 }
 
 /** JIS の式による単位質量 [kg/m]（丸め前） */

@@ -9,11 +9,13 @@ import {
   findPipeSize,
   hardToTellSpecs,
   isCloseOdMatch,
+  isGeneralPurpose,
   isValidCount,
   isWallFar,
   lengthLooksLikeMm,
   nearestAvailableSize,
   nearestSpecs,
+  nonGeneralPurposeSizes,
   odMatchTolerance,
   pipeDimensions,
   pipeThreadFor,
@@ -27,7 +29,7 @@ import {
   wallMatches,
   wallMatchTolerance,
 } from './calc'
-import { PIPE_SIZES, WALL, type PipeSpec } from './data'
+import { PIPE_SIZES, PIPE_STANDARD_TABLE, WALL, type PipeSpec } from './data'
 
 describe('データの整合性', () => {
   it.each(['sgp', 'sch40', 'sch80'] as PipeSpec[])(
@@ -365,5 +367,43 @@ describe('規格の切り替えで呼び径を置き換えたときの知らせ'
 
   it('置き換えていなければ null', () => {
     expect(sizeChangeNotice('sch40', '50A', '50A')).toBeNull()
+  })
+})
+
+describe('JIS G 3452:2019 表4・JIS G 3454:2019 表6 の原文と照合した値', () => {
+  it('SGP（表4）: 6A 10.5/2.0/0.419、50A 60.5/3.8/5.31、175A 190.7/5.3/24.2、350A 355.6/7.9/67.7', () => {
+    expect(pipeDimensions('sgp', '6A')).toMatchObject({ od: 10.5, t: 2.0, massPerM: 0.419 })
+    expect(pipeDimensions('sgp', '50A')).toMatchObject({ od: 60.5, t: 3.8, massPerM: 5.31 })
+    expect(pipeDimensions('sgp', '175A')).toMatchObject({ od: 190.7, t: 5.3, massPerM: 24.2 })
+    expect(pipeDimensions('sgp', '350A')).toMatchObject({ od: 355.6, t: 7.9, massPerM: 67.7 })
+  })
+
+  it('Sch40・Sch80（表6）: Sch40 65A 5.2/9.12・300A 10.3/78.3、Sch80 10A 3.2/1.11・350A 19.0/158', () => {
+    expect(pipeDimensions('sch40', '65A')).toMatchObject({ t: 5.2, massPerM: 9.12 })
+    expect(pipeDimensions('sch40', '300A')).toMatchObject({ t: 10.3, massPerM: 78.3 })
+    expect(pipeDimensions('sch80', '10A')).toMatchObject({ t: 3.2, massPerM: 1.11 })
+    expect(pipeDimensions('sch80', '350A')).toMatchObject({ t: 19.0, massPerM: 158 })
+  })
+
+  it('典拠の表番号', () => {
+    expect(PIPE_STANDARD_TABLE['JIS G 3452']).toEqual({ no: '表4', title: '寸法，寸法の許容差及び単位質量' })
+    expect(PIPE_STANDARD_TABLE['JIS G 3454']).toEqual({ no: '表6', title: '寸法及び単位質量' })
+  })
+})
+
+describe('汎用品（JIS G 3454 表6 の太枠内）', () => {
+  it('Sch40 は 20A〜350A、Sch80 は 15A〜350A が太枠内', () => {
+    expect(nonGeneralPurposeSizes('sch40')).toEqual(['6A', '8A', '10A', '15A'])
+    expect(nonGeneralPurposeSizes('sch80')).toEqual(['6A', '8A', '10A'])
+    expect(isGeneralPurpose('sch40', '15A')).toBe(false)
+    expect(isGeneralPurpose('sch40', '20A')).toBe(true)
+    expect(isGeneralPurpose('sch80', '15A')).toBe(true)
+    expect(isGeneralPurpose('sch80', '350A')).toBe(true)
+  })
+
+  it('SGP と、その規格に無い呼び径は null（汎用品かどうかを言わない）', () => {
+    expect(isGeneralPurpose('sgp', '6A')).toBeNull()
+    expect(isGeneralPurpose('sch40', '175A')).toBeNull()
+    expect(nonGeneralPurposeSizes('sgp')).toEqual([])
   })
 })

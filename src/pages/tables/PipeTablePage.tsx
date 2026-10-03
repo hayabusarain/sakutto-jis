@@ -5,8 +5,14 @@ import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { TableExport } from '../../components/ui/TableExport'
-import { MASS_FACTOR, unitMass, unitMassText, type PipeDimensions } from '../../features/steel-pipe/calc'
-import { PIPE_SPECS, type PipeSpec } from '../../features/steel-pipe/data'
+import {
+  MASS_FACTOR,
+  nonGeneralPurposeSizes,
+  unitMass,
+  unitMassText,
+  type PipeDimensions,
+} from '../../features/steel-pipe/calc'
+import { PIPE_EDITION_NOTE, PIPE_SPECS, PIPE_STANDARD_TABLE, type PipeSpec } from '../../features/steel-pipe/data'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { Link } from '../../router/Link'
@@ -25,6 +31,8 @@ export function PipeTablePage({ spec }: { spec: PipeSpec }) {
   const rows = pipeTableRows(spec)
   const sizes = `${rows[0].size.a}〜${rows[rows.length - 1].size.a}`
   const example = rows.find((row) => row.size.a === '50A') ?? rows[0]
+  const table = PIPE_STANDARD_TABLE[info.standard]
+  const nonGeneral = nonGeneralPurposeSizes(spec)
 
   const columns: Column<PipeDimensions>[] = [
     {
@@ -79,7 +87,7 @@ export function PipeTablePage({ spec }: { spec: PipeSpec }) {
         lead={
           <>
             <p>
-              {info.standard}（{STANDARDS[info.standard].title}）の {info.label}
+              {info.standard}（{STANDARDS[info.standard].title}）{table.no} の {info.label}
               について、{sizes} の外径・厚さ・内径・1mあたりの質量（kg/m）・内容積・外表面積をまとめた一覧表です。
             </p>
             <p>長さと本数から鋼管の重量（満水時を含む）を出すときは、ツールで計算できます。</p>
@@ -101,28 +109,37 @@ export function PipeTablePage({ spec }: { spec: PipeSpec }) {
         <Card title={`${info.name} 寸法・質量表`} index="01" icon={Table2} flush>
           <TableNote>
             <p>単位: mm（質量・内容積・外表面積を除く）。呼び径をタップすると、そのサイズで重量を計算できます。</p>
-            <p>B はインチ呼び（例: 50A = 2B）。質量は黒管の値です。</p>
+            <p>B はインチ呼び（例: 50A = 2B）。質量は黒管の値です{spec === 'sgp' && '（ソケットを含まない）'}。</p>
           </TableNote>
           <div className="flex justify-end px-4 pt-2">
             <TableExport
-              title={`${info.name} 寸法・質量表（${standardLabel(info.standard)}）`}
+              title={`${info.name} 寸法・質量表（${standardLabel(info.standard)} ${table.no}）`}
               filename={`steel_pipe_${spec}`}
               headers={exportHeaders}
               rows={exportRows}
-              note={`典拠: ${standardLabel(info.standard)}。内径・内容積・外表面積は外径と厚さから計算。${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
+              note={`典拠: ${standardLabel(info.standard)} ${table.no} ${table.title}（2019年版の原文と照合。2026年版とは未照合）。内径・内容積・外表面積は外径と厚さから計算。${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
             />
           </div>
           <div className="mt-2">
             <DataTable columns={columns} rows={rows} rowKey={(row) => row.size.a} caption={`${info.name} 寸法・質量表`} />
           </div>
           <div className="space-y-1 p-4">
-            <Citation code={info.standard} suffix="の外径・厚さ・単位質量" />
+            <Citation code={info.standard} detail={`${table.no} ${table.title}`} suffix="の外径・厚さ・単位質量" />
+            <p className="text-xs leading-relaxed text-zinc-500">{PIPE_EDITION_NOTE}</p>
           </div>
         </Card>
 
         <Card title="表の見方と注意" index="02" icon={Info}>
           <ul className="space-y-2 text-sm leading-relaxed text-zinc-700 [&>li]:ml-5 [&>li]:list-disc">
             <li>外径は SGP と STPG（Sch40・Sch80）で共通です。同じ呼び径でも、規格によって厚さ（内径）が違います。</li>
+            {spec !== 'sgp' && (
+              <li>Sch40・Sch80 の外径・厚さ・単位質量は、STPG370 と STPG410 で共通です（JIS G 3454 {table.no}）。</li>
+            )}
+            {nonGeneral.length > 0 && (
+              <li>
+                {nonGeneral.join('・')} は、JIS G 3454 {table.no} で汎用品（太枠内）とされていないサイズです。入手できるかはメーカー・商社に確認してください。
+              </li>
+            )}
             <li>内径は「外径 − 2 × 厚さ」で求めた値です。</li>
             <li>
               質量は、JIS の式で計算して有効数字3桁に丸めた単位質量です（黒管）。亜鉛めっき管（白管）はめっきの分だけ重くなり、厚さの許容差によっても実際の質量は多少ばらつきます。
