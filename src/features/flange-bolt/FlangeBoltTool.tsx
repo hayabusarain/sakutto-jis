@@ -18,6 +18,7 @@ import { parseNumber, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { standardLabel, type StandardCode } from '../../standards'
 import { BOLT_SIZES } from '../bolt-size/data'
+import { TAKEOFF_TOOL_PATH } from '../flange-takeoff/input'
 import { pipeDimensions } from '../steel-pipe/calc'
 import { ClassComparisonCard } from './ClassComparisonCard'
 import {
@@ -205,6 +206,8 @@ export function FlangeBoltTool() {
     ...(pipeDimensions('sgp', row.size)
       ? [{ to: toolHref('/steel-pipe', { spec: 'sgp', a: row.size }), label: `SGP ${row.size} の管の寸法・重量` }]
       : []),
+    // 条件は渡さない（拾い出しの一覧は URL の条件で置き換わるので、前回の一覧のまま開く）
+    { to: TAKEOFF_TOOL_PATH, label: '複数の継手の数量を拾い出す' },
   ]
 
   const drawingOptions = { kind: drawingKind, bore, boreIsPipeOd: boreBlank }

@@ -3,6 +3,7 @@ import * as boltSize from '../features/bolt-size/calc'
 import { BOLT_SIZES, HOLE_CLASSES } from '../features/bolt-size/data'
 import { FLANGES, PRESSURE_CLASSES } from '../features/flange-bolt/data'
 import * as flange from '../features/flange-bolt/input'
+import * as flangeTakeoff from '../features/flange-takeoff/input'
 import { TOLERANCE_KINDS } from '../features/general-tolerance/calc'
 import { TOLERANCE_CLASSES } from '../features/general-tolerance/data'
 import * as tolerance from '../features/general-tolerance/state'
@@ -180,6 +181,17 @@ const FLANGE_OPTIONS = {
   bore: ['', '52.9'],
 } as const
 
+/** 拾い出しの一覧の例（空・入力途中の空欄・エラーの数・重複・各クラスの全呼び径・最大の行数） */
+const TAKEOFF_ROW_LISTS: readonly string[] = [
+  '',
+  '10K-50A-1',
+  '10K-50A-6_10K-80A-2_20K-100A-1',
+  '10K-50A-_16K-200A-0_5K-10A-1000',
+  '10K-50A-2_10K-50A-3',
+  ...PRESSURE_CLASSES.map((pressure) => FLANGES[pressure].map((row, i) => `${pressure}-${row.size}-${i * 7 + 1}`).join('_')),
+  Array.from({ length: flangeTakeoff.MAX_ROWS }, (_, i) => `20K-${pick(FLANGES['20K'], i).size}-${i * 33 + 1}`).join('_'),
+]
+
 const ORING_TEXTS = [
   { mate: '', bottom: '', d1: '', d2: '' },
   { mate: '20', bottom: '', d1: '', d2: '' },
@@ -239,6 +251,28 @@ const TOOL_CASES = [
         ),
       ),
     minStates: 300,
+  }),
+  checkTool({
+    dir: 'flange-takeoff',
+    module: './input',
+    defaults: flangeTakeoff.DEFAULT_INPUT,
+    isValid: flangeTakeoff.isTakeoffInput,
+    normalize: flangeTakeoff.normalizeTakeoffInput,
+    // 一覧の例ごとに、共通の条件をずらして組み合わせる
+    states: () =>
+      TAKEOFF_ROW_LISTS.flatMap((rows, i) =>
+        Array.from({ length: 12 }, (_, j) => ({
+          rows,
+          type: pick(FLANGE_OPTIONS.type, i + j),
+          nut: pick(FLANGE_OPTIONS.nut, i + (j >> 1)),
+          washers: pick(FLANGE_OPTIONS.washers, i + j),
+          threads: pick(FLANGE_OPTIONS.threads, i * 2 + j),
+          gasket: pick(FLANGE_OPTIONS.gasket, i + (j >> 1)),
+          rounding: pick(FLANGE_OPTIONS.rounding, i + (j >> 2) + 1),
+          spare: pick(flangeTakeoff.SPARE_CHOICES, i + j + (j >> 2)),
+        })),
+      ),
+    minStates: 100,
   }),
   checkTool({
     dir: 'general-tolerance',

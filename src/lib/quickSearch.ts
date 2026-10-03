@@ -1694,6 +1694,7 @@ export interface SearchableTool {
  */
 export const TOOL_ALIASES: Readonly<Record<string, readonly string[]>> = {
   '/flange-bolt-length': ['フランジボルト', 'ガスケット', '管フランジ', 'スタッドボルト'],
+  '/flange-takeoff': ['数量', '員数', '部品表', '発注', 'ナット', 'パッキン'],
   '/steel-pipe': ['パイプ', '配管', 'ガス管', '白管', '黒管', 'STPG'],
   '/pipe-thread': ['PT', 'PF', 'PS', 'テーパねじ', '平行ねじ', 'くだようねじ', 'かんようねじ'],
   '/tap-drill': ['タップ', 'タップ穴', 'キリ', 'ドリル', 'めねじ'],
