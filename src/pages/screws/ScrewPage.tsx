@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CircleDot, Disc3, Drill, Hexagon, Nut, Wrench } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CircleDot, Disc3, Drill, Hexagon, Lightbulb, Nut, Wrench } from 'lucide-react'
 import { Citation } from '../../components/Citation'
 import { SourceNote } from '../../components/SourceNote'
 import { Card } from '../../components/ui/Card'
@@ -22,9 +22,18 @@ import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { Link } from '../../router/Link'
 import { ActionLink, ChipNav, PageHeader, UnverifiedMark } from '../content/PageHeader'
+import { ACROSS_FLATS_NOTE, FLANGE_BOLT_NOTE, M12_TAP_DRILL_NOTE } from '../notes/notePages'
 import { FLANGE_TABLE_PAGES, FLANGE_TOOL_PATH } from '../tables/tablePages'
 import { SCREW_INDEX_PATH, SCREW_PAGES, screwPath } from './screwPages'
-import { screwSummary, SUMMARY_GRADE, SUMMARY_SIZES, type PitchRow } from './screwSummary'
+import {
+  b1004Pair,
+  screwPoints,
+  screwSummary,
+  SUMMARY_GRADE,
+  SUMMARY_SIZES,
+  type PitchRow,
+  type ScrewPointKind,
+} from './screwSummary'
 
 const rowLinkClass =
   '-my-2 inline-flex min-h-10 items-center underline decoration-zinc-300 underline-offset-4 hover:decoration-orange-600'
@@ -42,6 +51,13 @@ function QuickValue({ label, value, note }: { label: string; value: string; note
   )
 }
 
+/** ポイントの後ろに付ける、解説（現場メモ）へのリンク */
+const POINT_LINKS: Partial<Record<ScrewPointKind, { to: string; label: string }>> = {
+  b1004: { to: M12_TAP_DRILL_NOTE.path, label: '下穴の系列の解説' },
+  flats: { to: ACROSS_FLATS_NOTE.path, label: '二面幅の本体と旧JIS の解説' },
+  nut: { to: FLANGE_BOLT_NOTE.path, label: 'フランジボルトの長さの解説' },
+}
+
 export function ScrewPage({ d }: { d: number }) {
   const meta = SCREW_PAGES.find((page) => page.d === d)!
   const summary = screwSummary(d)!
@@ -55,6 +71,8 @@ export function ScrewPage({ d }: { d: number }) {
   const flangeHasUnverified = summary.flanges.some((use) => use.sizes.some((row) => row.unverified))
   const holeCardUnverified = isUnverified('hole4', bolt.d) || isUnverified('spotFace', bolt.d)
   const secondChoice = secondChoiceNote(bolt)
+  const points = screwPoints(summary)
+  const series = b1004Pair(coarse, d)
 
   const columns: Column<PitchRow>[] = [
     {
@@ -156,6 +174,33 @@ export function ScrewPage({ d }: { d: number }) {
         </dl>
       </section>
 
+      <section aria-labelledby="screw-points" className="mb-4 rounded-md border border-zinc-200 bg-white p-4 lg:mb-6">
+        <h2 id="screw-points" className="flex items-center gap-2 text-sm font-bold tracking-wide text-zinc-800">
+          <Lightbulb className="size-4 shrink-0 text-orange-600" aria-hidden />M{d} のポイント
+        </h2>
+        <ul className="mt-2 space-y-2 text-sm leading-relaxed text-zinc-700">
+          {points.map((point) => {
+            const link = POINT_LINKS[point.kind]
+            return (
+              <li key={point.kind} className="ml-5 list-disc">
+                {point.text}
+                {link && (
+                  <>
+                    {' '}
+                    <Link
+                      to={link.to}
+                      className="font-semibold whitespace-nowrap text-zinc-900 underline decoration-zinc-400 underline-offset-2 hover:decoration-orange-600"
+                    >
+                      {link.label}
+                    </Link>
+                  </>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
         <Card title="ピッチと下穴径" index="01" icon={Drill} className="lg:col-span-2" flush>
           <p className="px-4 pt-3 text-xs leading-relaxed text-zinc-600">
@@ -171,6 +216,14 @@ export function ScrewPage({ d }: { d: number }) {
           </div>
           <div className="px-4 pt-2">
             <dl>
+              {series && (
+                <ResultItem
+                  label={`JIS B 1004 の系列（M${d} 並目）`}
+                  value={`${formatHole(series.s95)} / ${formatHole(series.s90)}`}
+                  unit="mm"
+                  note="ひっかかり率 95 % / 90 % の下穴径"
+                />
+              )}
               <ResultItem
                 label={`有効断面積 As（M${d} 並目）`}
                 value={stressAreaText}
@@ -184,7 +237,7 @@ export function ScrewPage({ d }: { d: number }) {
             <Citation code="JIS B 0205-4" detail="5. 基準寸法の式" suffix="で D1 を計算" />
             <Citation code="JIS B 0209-1" detail="表3 めねじ内径の公差" suffix="を適用" />
             <Citation code="ISO 2306" suffix="の推奨ドリル径（並目）" />
-            <Citation code="JIS B 1004" detail="表1 下穴径の系列" suffix="のひっかかり率の式" />
+            <Citation code="JIS B 1004" detail="表1 下穴径の系列" suffix="のひっかかり率の式（95 %・90 % の系列もこの式で計算）" />
             <Citation code="JIS B 1082" detail="3.1 式(1)" suffix="で有効断面積を計算（表1 の値と一致）" />
             {coarseLimits && coarseHole !== undefined && (
               <div className="pt-2">

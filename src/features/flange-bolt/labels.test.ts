@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { conditionsText, detailSummary, markedText, sizeLabel, unverifiedSummary } from './labels'
+import { conditionsText, detailSummary, markedText, otherSpannerText, sizeLabel, unverifiedSummary } from './labels'
 
 describe('sizeLabel', () => {
   it('A呼称に B呼称（インチ）を添える', () => {
@@ -10,6 +10,24 @@ describe('sizeLabel', () => {
     expect(sizeLabel('10A')).toBe('10A（⅜B）')
     expect(sizeLabel('20A')).toBe('20A（¾B）')
     expect(sizeLabel('999A')).toBe('999A')
+  })
+})
+
+describe('otherSpannerText（もう一方の規格のスパナ）', () => {
+  it('JIS本体と旧JIS で二面幅が違うボルト（M10・M12・M22）だけ、もう一方の値を添える', () => {
+    expect(otherSpannerText(10, 'style1')).toBe('旧JISなら 17')
+    expect(otherSpannerText(12, 'style1')).toBe('旧JISなら 19')
+    expect(otherSpannerText(22, 'style1')).toBe('旧JISなら 32')
+    expect(otherSpannerText(22, 'ja1')).toBe('JIS本体なら 34')
+    expect(otherSpannerText(10, 'ja1')).toBe('JIS本体なら 16')
+  })
+
+  it('同じ二面幅（M16・M20・M24）や収録していないボルトでは null', () => {
+    for (const bolt of [16, 20, 24]) {
+      expect(otherSpannerText(bolt, 'style1'), `M${bolt}`).toBeNull()
+      expect(otherSpannerText(bolt, 'ja1'), `M${bolt}`).toBeNull()
+    }
+    expect(otherSpannerText(7, 'style1')).toBeNull()
   })
 })
 

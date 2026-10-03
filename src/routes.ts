@@ -4,6 +4,8 @@ import { AboutPage } from './pages/AboutPage'
 import { DisclaimerPage } from './pages/DisclaimerPage'
 import { EditorialPolicyPage } from './pages/EditorialPolicyPage'
 import { HomePage } from './pages/HomePage'
+// 現場メモ（/notes）
+import { NOTE_ROUTES } from './pages/notes/noteRoutes'
 import { PrivacyPage } from './pages/PrivacyPage'
 import { ScrewIndexPage } from './pages/screws/ScrewIndexPage'
 import { ScrewPage } from './pages/screws/ScrewPage'
@@ -118,6 +120,9 @@ export const PAGES: readonly PageDefinition[] = [
   ),
   contentPage(SCREW_INDEX_META, ScrewIndexPage),
   ...SCREW_PAGES.map((meta) => contentPage(meta, bind(ScrewPage, { d: meta.d }, `ScrewPage(M${meta.d})`))),
+  // --- 現場メモ（/notes）。ここから ---
+  ...NOTE_ROUTES.map(({ meta, component }) => contentPage(meta, component)),
+  // --- 現場メモ ここまで ---
   ...SITE_PAGES.map(
     (page): PageDefinition => ({
       path: page.path,

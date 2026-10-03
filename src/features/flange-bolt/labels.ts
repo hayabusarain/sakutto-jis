@@ -1,12 +1,24 @@
 import { trim } from '../../lib/format'
 import { findPipeSize } from '../steel-pipe/calc'
-import type { BoltConditions, BoltType, NutKind, Rounding } from './calc'
+import { spannerSize, type BoltConditions, type BoltType, type NutKind, type Rounding } from './calc'
 import { PRESSURE_CLASSES, UNVERIFIED, type UnverifiedList } from './data'
 
 export const BOLT_TYPE_LABELS: Record<BoltType, string> = { hex: '六角ボルト', stud: 'スタッドボルト' }
 export const NUT_LABELS: Record<NutKind, string> = { style1: 'JIS本体', ja1: '旧JIS 1種' }
 export const WASHER_LABELS = ['座金なし', '座金 片側', '座金 両側'] as const
 export const ROUNDING_LABELS: Record<Rounding, string> = { '5mm': '5mm刻み', jis: 'JIS標準長さ' }
+
+/**
+ * もう一方の規格（JIS本体 ⇔ 旧JIS）のナットの二面幅が違うときの添え書き（例: 「旧JISなら 19」）。同じなら null。
+ * フランジに使うボルトでは M10・M12・M22 が違う（JIS B 1180・B 1181 の本体と附属書JA）
+ */
+export function otherSpannerText(bolt: number, nut: NutKind): string | null {
+  const other: NutKind = nut === 'style1' ? 'ja1' : 'style1'
+  const size = spannerSize(bolt, nut)
+  const otherSize = spannerSize(bolt, other)
+  if (size === undefined || otherSize === undefined || size === otherSize) return null
+  return `${other === 'ja1' ? '旧JIS' : 'JIS本体'}なら ${otherSize}`
+}
 
 const FRACTIONS: Readonly<Record<string, string>> = { '1/8': '⅛', '1/4': '¼', '3/8': '⅜', '1/2': '½', '3/4': '¾' }
 
