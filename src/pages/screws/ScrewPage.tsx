@@ -5,7 +5,17 @@ import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { ResultItem } from '../../components/ui/ResultItem'
-import { isUnverified } from '../../features/bolt-size/data'
+import {
+  BOLT_JA_TABLE,
+  boltTableRef,
+  CAP_TABLE,
+  HOLE_TABLE,
+  JA_FUTURE_NOTE,
+  NUT_JA_TABLE,
+  nutTableRef,
+  secondChoiceNote,
+} from '../../features/bolt-size/calc'
+import { HOLE4_NOTE, isUnverified } from '../../features/bolt-size/data'
 import { formatHole, formatSignificant, TWO_H1_PER_PITCH } from '../../features/tap-drill/calc'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
@@ -42,6 +52,8 @@ export function ScrewPage({ d }: { d: number }) {
   const h = (Math.sqrt(3) / 2) * coarse.p
   const stressAreaText = formatSignificant(summary.stressArea)
   const flangeHasUnverified = summary.flanges.some((use) => use.sizes.some((row) => row.unverified))
+  const holeCardUnverified = isUnverified('hole4', bolt.d) || isUnverified('spotFace', bolt.d)
+  const secondChoice = secondChoiceNote(bolt)
 
   const columns: Column<PitchRow>[] = [
     {
@@ -167,10 +179,12 @@ export function ScrewPage({ d }: { d: number }) {
             </dl>
           </div>
           <div className="space-y-1 p-4">
-            <Citation code="JIS B 0205-2" suffix="の呼び径とピッチ" />
-            <Citation code="JIS B 0209-1" suffix="のめねじ内径の公差" />
+            <Citation code="JIS B 0205-2" detail="表2 呼び径及びピッチの選択" />
+            <Citation code="JIS B 0205-4" detail="5. 基準寸法の式" suffix="で D1 を計算" />
+            <Citation code="JIS B 0209-1" detail="表3 めねじ内径の公差" suffix="を適用" />
             <Citation code="ISO 2306" suffix="の推奨ドリル径（並目）" />
-            <Citation code="JIS B 1082" suffix="の有効断面積の式" />
+            <Citation code="JIS B 1004" detail="表1 下穴径の系列" suffix="のひっかかり率の式" />
+            <Citation code="JIS B 1082" detail="3.1 式(1)" suffix="で有効断面積を計算（表1 の値と一致）" />
             {coarseLimits && coarseHole !== undefined && (
               <div className="pt-2">
                 <FormulaInfo>
@@ -222,19 +236,28 @@ export function ScrewPage({ d }: { d: number }) {
             />
             <ResultItem label="ボルトの頭部の高さ k（本体 / 旧JIS）" value={`${trim(bolt.kIso)} / ${trim(bolt.kJa)}`} unit="mm" />
             <ResultItem label="ナットの高さ m（本体スタイル1 最大）" value={trim(bolt.nutStyle1)} unit="mm" />
-            <ResultItem label="ナットの高さ m（旧JIS 1種 / 3種）" value={`${trim(bolt.nutJa1)} / ${trim(bolt.nutJa3)}`} unit="mm" />
+            <ResultItem
+              label="ナットの高さ m（旧JIS 1種 / 3種）"
+              value={`${trim(bolt.nutJa1)} / ${trim(bolt.nutJa3)}`}
+              unit="mm"
+              note="1種の高さは 2種・4種も同じ"
+            />
           </dl>
+          <div className="mt-2 space-y-1 text-xs leading-relaxed text-zinc-600">
+            {secondChoice && <p>{secondChoice}</p>}
+            <p>{JA_FUTURE_NOTE}</p>
+          </div>
           <div className="mt-3 space-y-1">
-            <Citation code="JIS B 1180" suffix="本体・附属書JA" />
-            <Citation code="JIS B 1181" suffix="本体（スタイル1）・附属書JA" />
+            <Citation code="JIS B 1180" detail={`本体 ${boltTableRef(bolt)}・附属書JA ${BOLT_JA_TABLE}`} />
+            <Citation code="JIS B 1181" detail={`本体 ${nutTableRef(bolt)}・附属書JA ${NUT_JA_TABLE}`} />
           </div>
         </Card>
 
         <Card title="六角穴付きボルト（キャップボルト）" index="03" icon={Hexagon}>
           <dl>
             <ResultItem label="六角レンチのサイズ（六角穴の二面幅）" value={trim(bolt.capKey)} unit="mm" />
-            <ResultItem label="頭部の径 dk" value={trim(bolt.capDk)} unit="mm" />
-            <ResultItem label="頭部の高さ k" value={trim(bolt.capK)} unit="mm" />
+            <ResultItem label="頭部の径 dk（最大）" value={trim(bolt.capDk)} unit="mm" note="ローレットの無い頭部の値" />
+            <ResultItem label="頭部の高さ k（最大）" value={trim(bolt.capK)} unit="mm" />
           </dl>
           {bolt.capNonJis && (
             <p className="mt-2 text-xs leading-relaxed text-orange-800">
@@ -245,7 +268,7 @@ export function ScrewPage({ d }: { d: number }) {
             {bolt.capNonJis ? (
               <Citation code="JIS B 1176" suffix="に無いサイズ（値は DIN 912 など）" />
             ) : (
-              <Citation code="JIS B 1176" />
+              <Citation code="JIS B 1176" detail={CAP_TABLE} />
             )}
           </div>
         </Card>
@@ -264,9 +287,10 @@ export function ScrewPage({ d }: { d: number }) {
                 )
               }
               unit={bolt.holes[3] === null ? undefined : 'mm'}
+              note={bolt.holes[3] === null ? `M${d} の 4級は規格にありません` : HOLE4_NOTE}
             />
             <ResultItem
-              label="ざぐり径 D'（六角ボルト・ナット用）"
+              label="ざぐり径 D'（JIS B 1001）"
               value={
                 <>
                   {trim(bolt.spotFace)}
@@ -274,6 +298,7 @@ export function ScrewPage({ d }: { d: number }) {
                 </>
               }
               unit="mm"
+              note="深さは一般に黒皮が取れる程度（JIS B 1001 備考5）"
             />
             <ResultItem
               label="キャップボルト用 座ぐり径 × 深さ"
@@ -281,16 +306,17 @@ export function ScrewPage({ d }: { d: number }) {
               unit={bolt.counterbore ? 'mm' : undefined}
               note={
                 bolt.counterbore
-                  ? `穴径 φ${trim(bolt.counterbore.d1)}（設計でよく使われる参考値）`
-                  : 'このサイズの参考値は確認中です'
+                  ? `穴径 φ${trim(bolt.counterbore.d1)}（JIS の規定ではなく、設計でよく使われる参考値）`
+                  : 'このサイズの参考値は載せていません'
               }
             />
           </dl>
           <p className="mt-2 text-xs leading-relaxed text-zinc-600">
-            1級ほど穴が小さく、穴位置の精度が必要になります。迷ったら 2級。※ は規格原文での確認が済んでいない値です。
+            1級ほど穴が小さく、穴位置の精度が必要になります。迷ったら 2級が目安です。
+            {holeCardUnverified && ' ※ は規格原文での確認が済んでいない値です。'}
           </p>
           <div className="mt-3 space-y-1">
-            <Citation code="JIS B 1001" suffix="のボルト穴径・ざぐり径" />
+            <Citation code="JIS B 1001" detail={HOLE_TABLE} />
           </div>
         </Card>
 

@@ -4,7 +4,14 @@ import { SourceNote } from '../../components/SourceNote'
 import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { TableExport } from '../../components/ui/TableExport'
-import { acrossFlatsText, markIf } from '../../features/bolt-size/calc'
+import {
+  acrossFlatsText,
+  BOLT_JA_TABLE,
+  CAP_TABLE,
+  HOLE_TABLE,
+  JA_FUTURE_NOTE,
+  markIf,
+} from '../../features/bolt-size/calc'
 import { CAP_NON_JIS_LEGEND, isUnverified, UNVERIFIED, UNVERIFIED_LEGEND } from '../../features/bolt-size/data'
 import { NonJisMark } from '../../features/bolt-size/Mark'
 import { formatHole } from '../../features/tap-drill/calc'
@@ -21,9 +28,11 @@ const rowLinkClass =
 const SUMMARIES = SUMMARY_SIZES.map((d) => screwSummary(d)!)
 /** 六角穴付きボルトが JIS B 1176 に無いサイズ（M18・M22・M27） */
 const NON_JIS_SIZES = SUMMARIES.filter((row) => row.bolt.capNonJis).map((row) => `M${row.d}`)
+/** JIS B 1180・B 1181 本体で第2選択のサイズ（M14・M18・M22・M27） */
+const SECOND_CHOICE = SUMMARIES.filter((row) => row.bolt.secondChoice).map((row) => `M${row.d}`)
 
 const holeText = (row: ScrewSummary) => (row.coarse.recommended ? formatHole(row.coarse.recommended.hole) : '—')
-/** 規格原文で未確認の旧JIS二面幅（M3）の説明 */
+/** 規格原文で未確認の旧JIS二面幅の説明（いまは無い。bolt-size/data の UNVERIFIED に足すと出る） */
 const JA_UNVERIFIED_NOTES = UNVERIFIED.filter((entry) => entry.field === 'sJa').map((entry) => entry.note)
 
 export function ScrewIndexPage() {
@@ -124,7 +133,10 @@ export function ScrewIndexPage() {
           <p>
             単位: mm。下穴径は並目ねじ・公差域クラス {SUMMARY_GRADE}H の推奨値、二面幅の（ ）は旧JIS（附属書JA）、ナット高さは JIS本体スタイル1 の最大値です。
           </p>
-          <p>CAP座ぐりは六角穴付きボルト用の、設計でよく使われる参考値です（規格本体の規定ではありません）。</p>
+          <p>
+            {SECOND_CHOICE.join('・')} は JIS本体では第2選択のサイズです。{JA_FUTURE_NOTE}
+          </p>
+          <p>CAP座ぐりは六角穴付きボルト用の、設計でよく使われる参考値です（JIS B 1001・B 1176 の規定ではありません）。</p>
           <p>{CAP_NON_JIS_LEGEND}。</p>
           {JA_UNVERIFIED_NOTES.length > 0 && (
             <p>
@@ -138,20 +150,26 @@ export function ScrewIndexPage() {
             filename="screw_sizes"
             headers={exportHeaders}
             rows={exportRows}
-            note={`典拠: JIS B 0205-2 / B 0209-1 / ISO 2306 / JIS B 1180 / B 1181 / B 1176 / B 1001。${NON_JIS_SIZES.join('・')} の六角穴付きボルトは JIS B 1176 に無いサイズ（DIN 912 などの値）。${UNVERIFIED_LEGEND}（${JA_UNVERIFIED_NOTES.join('、')}）。${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
+            note={`典拠: JIS B 0205-2 表2 / B 0209-1 表3 / ISO 2306 / JIS B 1180 表3・表4・表JA.8 / B 1181 表3・表4 / B 1176 表3 / B 1001 付表。${NON_JIS_SIZES.join('・')} の六角穴付きボルトは JIS B 1176 に無いサイズ（DIN 912 などの値）。${
+              JA_UNVERIFIED_NOTES.length > 0 ? `${UNVERIFIED_LEGEND}（${JA_UNVERIFIED_NOTES.join('、')}）。` : ''
+            }${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
           />
         </div>
         <div className="mt-2">
           <DataTable columns={columns} rows={SUMMARIES} rowKey={(row) => String(row.d)} caption="ねじ寸法一覧" />
         </div>
         <div className="space-y-1 p-4">
-          <Citation code="JIS B 0205-2" suffix="の並目ピッチ" />
-          <Citation code="JIS B 0209-1" suffix="のめねじ内径の公差（下穴径の範囲）" />
+          <Citation code="JIS B 0205-2" detail="表2 呼び径及びピッチの選択" suffix="（並目ピッチ）" />
+          <Citation code="JIS B 0209-1" detail="表3 めねじ内径の公差" suffix="（下穴径の範囲）" />
           <Citation code="ISO 2306" suffix="の推奨ドリル径" />
-          <Citation code="JIS B 1180" suffix="の二面幅（本体・附属書JA）" />
-          <Citation code="JIS B 1181" suffix="のナット高さ" />
-          <Citation code="JIS B 1176" suffix="の六角穴の二面幅（† のサイズを除く）" />
-          <Citation code="JIS B 1001" suffix="のボルト穴径" />
+          <Citation
+            code="JIS B 1180"
+            detail={`本体 表3（第1選択）・表4（第2選択）、附属書JA ${BOLT_JA_TABLE}`}
+            suffix="（二面幅）"
+          />
+          <Citation code="JIS B 1181" detail="本体 表3・表4 六角ナット・スタイル1" suffix="（ナット高さ）" />
+          <Citation code="JIS B 1176" detail={CAP_TABLE} suffix="（六角穴の二面幅。† のサイズを除く）" />
+          <Citation code="JIS B 1001" detail={HOLE_TABLE} suffix="（ボルト穴径）" />
         </div>
       </Card>
 
