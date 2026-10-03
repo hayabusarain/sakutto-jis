@@ -1,5 +1,6 @@
 import { Check, Share2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { trackEvent } from '../../lib/analytics'
 import { copyText } from '../../lib/clipboard'
 
 interface ShareButtonProps {
@@ -23,6 +24,7 @@ export function ShareButton({ title, text }: ShareButtonProps) {
 
   const handleClick = async () => {
     const url = window.location.href
+    trackEvent('share')
     if (navigator.share) {
       try {
         await navigator.share(text ? { title, text, url } : { title, url })

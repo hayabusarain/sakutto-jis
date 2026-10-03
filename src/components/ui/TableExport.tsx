@@ -1,5 +1,6 @@
 import { Check, ClipboardCopy, FileDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { trackEvent } from '../../lib/analytics'
 import { copyText } from '../../lib/clipboard'
 import { downloadText } from '../../lib/download'
 
@@ -42,7 +43,10 @@ export function TableExport({ title, filename, headers, rows, note }: TableExpor
       ...rows.map((row) => row.map((value) => cell(value).replace(/[\t\n]/g, ' ')).join('\t')),
       ...(note ? ['', note] : []),
     ]
-    if (await copyText(lines.join('\n'))) setCopied(true)
+    if (await copyText(lines.join('\n'))) {
+      setCopied(true)
+      trackEvent('copy_table', { table: filename })
+    }
   }
 
   const handleCsv = () => {

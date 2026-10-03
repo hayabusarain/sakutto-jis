@@ -63,6 +63,11 @@ function headTags({ title, description, path, noindex, ogType, ads, jsonLd }) {
     SITE.adsenseClient && ads && !noindex
       ? `<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${SITE.adsenseClient}" crossorigin="anonymous"></script>`
       : '',
+    // Google アナリティクス 4（環境変数 VITE_GA_ID）。ページの表示は画面側（src/lib/analytics.ts）から送るので、
+    // ここでは自動のページビューを止めておく。404 には入れない
+    SITE.gaMeasurementId && !noindex
+      ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${SITE.gaMeasurementId}"></script>\n    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${SITE.gaMeasurementId}',{send_page_view:false});</script>`
+      : '',
     // 構造化データ（JSON-LD）。中身は entry-server で < > & をエスケープ済み
     jsonLd && !noindex ? `<script type="application/ld+json">${jsonLd}</script>` : '',
   ]
@@ -105,6 +110,21 @@ for (const path of paths) {
 
 await writeFile(join(dist, '404.html'), page('/404', render('/404'), true))
 
+// 本番の公開用ビルド（環境変数 REQUIRE_SITE_CONFIG=1）では、公開URLや運営者情報が仮のままなら止める。
+// 手元の npm run build やプレビュー用のビルドは止めない（警告だけ）
+if (process.env.REQUIRE_SITE_CONFIG === '1') {
+  const problems = [
+    ...(SITE.url ? [] : ['公開URL（環境変数 VITE_SITE_URL）']),
+    ...placeholderSettings,
+  ]
+  if (problems.length > 0) {
+    console.error(
+      `\n[公開できません] REQUIRE_SITE_CONFIG=1 のビルドですが、次の設定が未設定か「（仮）」のままです。src/site.ts・環境変数を直してください。\n${problems.map((label) => `  - ${label}`).join('\n')}\n`,
+    )
+    process.exit(1)
+  }
+}
+
 // sitemap.xml は絶対URLが必要なので、公開URL（VITE_SITE_URL）が決まっているときだけ出力する。
 // lastmod はビルド日ではなく、各ページの内容を最後に見直した日（src/site.ts の contentUpdatedAt・PAGE_UPDATED_AT）
 if (SITE.url) {
@@ -138,7 +158,27 @@ if (SITE.adsenseClient) {
 // /tap-drill のような拡張子なしのURLは、キャッシュ済みの tap-drill.html で表示される。
 // 新しい版を公開すると、開いているページは次の画面切り替えで読み直す（src/main.tsx・RouterProvider）。
 const IGNORED_FONT_SUBSETS = ['cyrillic', 'cyrillic-ext', 'vietnamese']
-const { count, size } = await generateSW({
+
+// 緊急停止（環境変数 SW_KILL=1）: 端末に入った Service Worker が古い・壊れたページを出し続けるときに使う。
+// 自分自身を登録解除してキャッシュを消すだけの sw.js を出す。一度公開して端末に行き渡ったら、通常のビルドに戻す
+if (process.env.SW_KILL === '1') {
+  await writeFile(
+    join(dist, 'sw.js'),
+    `// 緊急停止用の Service Worker（SW_KILL=1 でビルド）。キャッシュを消して登録を解除し、開いているページを読み直す
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    for (const key of await caches.keys()) await caches.delete(key)
+    await self.registration.unregister()
+    for (const client of await self.clients.matchAll({ type: 'window' })) client.navigate(client.url)
+  })())
+})
+`,
+  )
+  console.warn('[注意] SW_KILL=1: オフライン用のキャッシュを作らず、端末の Service Worker を解除する sw.js を出力しました')
+}
+
+const { count, size } = process.env.SW_KILL === '1' ? { count: 0, size: 0 } : await generateSW({
   globDirectory: dist,
   globPatterns: ['**/*.{html,js,css,svg,png,woff2,webmanifest}'],
   // 使わないフォントの文字セットはキャッシュしない（ギリシャ文字は φ・π を数値の欄で使うのでキャッシュする）。

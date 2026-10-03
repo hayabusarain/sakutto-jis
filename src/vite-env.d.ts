@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_ADSENSE_CLIENT?: string
   /** Google Search Console の所有権確認コード（meta タグの content の値） */
   readonly VITE_GSC_VERIFICATION?: string
+  /** Google アナリティクス 4 の測定ID（例: G-XXXXXXXXXX） */
+  readonly VITE_GA_ID?: string
 }
 
 interface ImportMeta {

@@ -1,0 +1,27 @@
+# プッシュのたびに、型チェック・コードチェック・テスト・本番と同じビルドを自動で行う。
+# 失敗したら GitHub の Actions タブと通知メールで分かる（Cloudflare へ壊れた版を出す前に気づける）
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

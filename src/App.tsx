@@ -1,8 +1,10 @@
-import { RotateCw } from 'lucide-react'
+import { CloudCheck, RotateCw, X } from 'lucide-react'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { SiteFooter } from './components/layout/SiteFooter'
 import { SiteHeader } from './components/layout/SiteHeader'
 import { ToolNav } from './components/layout/ToolNav'
+import { trackPageView } from './lib/analytics'
+import { dismissOfflineReady, isOfflineReady, subscribeOfflineReady } from './lib/offlineReady'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ToolPage } from './pages/ToolPage'
 import { findPage, NOT_FOUND_PAGE } from './routes'
@@ -42,6 +44,11 @@ function Shell() {
       ?.setAttribute('content', page?.description ?? NOT_FOUND_PAGE.description)
   }, [page])
 
+  // アクセス解析（VITE_GA_ID を設定したときだけ）。? 以降の条件は含めず、ページ単位で数える
+  useEffect(() => {
+    trackPageView(pathname, page?.title ?? NOT_FOUND_PAGE.title)
+  }, [pathname, page])
+
   let content = <NotFoundPage />
   if (page?.tool) content = <ToolPage key={`${page.path}#${revision}`} tool={page.tool} />
   else if (page?.component) content = <page.component />
@@ -50,6 +57,7 @@ function Shell() {
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
       <UpdateNotice />
+      <OfflineReadyNotice />
       <ToolNav />
       <main
         ref={mainRef}
@@ -83,6 +91,33 @@ function UpdateNotice() {
             >
               <RotateCw className="size-4 text-orange-600" aria-hidden />
               読み込み直す
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 初めてオフライン用のキャッシュができたときに一度だけ出すお知らせ（main.tsx が Service Worker の準備を見て出す） */
+function OfflineReadyNotice() {
+  const ready = useSyncExternalStore(subscribeOfflineReady, isOfflineReady, () => false)
+  return (
+    <div role="status" className="print:hidden">
+      {ready && (
+        <div className="border-b border-emerald-300 bg-emerald-50">
+          <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-1.5 text-sm text-zinc-800">
+            <CloudCheck className="size-4 shrink-0 text-emerald-700" aria-hidden />
+            <p className="min-w-0 flex-1">
+              オフラインでも使えるようになりました。電波の届かない現場でも、このサイトのページを開けます。
+            </p>
+            <button
+              type="button"
+              onClick={dismissOfflineReady}
+              aria-label="お知らせを閉じる"
+              className="inline-flex size-10 shrink-0 items-center justify-center rounded-sm text-zinc-600 hover:bg-emerald-100 hover:text-zinc-900"
+            >
+              <X className="size-4" aria-hidden />
             </button>
           </div>
         </div>

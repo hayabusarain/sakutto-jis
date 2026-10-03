@@ -1,6 +1,7 @@
 import { ExternalLink, MessageSquareWarning } from 'lucide-react'
+import { useSyncExternalStore } from 'react'
 import { Link } from '../router/Link'
-import { REPORT_URL } from '../site'
+import { reportHref } from '../site'
 import { JISC_URL, standardLabel, standardNote, STANDARDS, type StandardCode } from '../standards'
 
 interface SourceNoteProps {
@@ -47,28 +48,43 @@ export function SourceNote({ standards }: SourceNoteProps) {
         </a>
         のJIS検索で閲覧できます。
       </p>
-      <p className="mt-2 text-xs leading-relaxed text-zinc-500">
-        <MessageSquareWarning className="mr-1 inline size-3.5 align-[-2px] text-orange-600" aria-hidden />
-        数値の不備や誤記を見つけた場合は、
-        {REPORT_URL ? (
-          <a
-            href={REPORT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-zinc-700 underline underline-offset-2 hover:text-zinc-900"
-          >
-            誤記報告フォーム
-          </a>
-        ) : (
-          <Link
-            to="/about#contact"
-            className="font-semibold text-zinc-700 underline underline-offset-2 hover:text-zinc-900"
-          >
-            こちら
-          </Link>
-        )}
-        からご連絡いただけると助かります。
-      </p>
+      <ReportLink />
     </aside>
+  )
+}
+
+const subscribeNothing = () => () => {}
+const readPageUrl = () => window.location.href
+
+/**
+ * 「この値、違っていませんか？」の誤記報告。フォームがあれば、今のページ（条件付きの URL）を入れた状態で開く。
+ * URL は事前レンダリングと食い違わないよう、表示後に読む
+ */
+function ReportLink() {
+  const pageUrl = useSyncExternalStore(subscribeNothing, readPageUrl, () => null)
+  const href = reportHref(pageUrl)
+  const className =
+    'mt-3 inline-flex min-h-10 items-center gap-1.5 rounded-sm border border-orange-300 bg-orange-50 px-3 text-xs font-semibold text-orange-900 hover:border-orange-500'
+  const label = (
+    <>
+      <MessageSquareWarning className="size-4 shrink-0 text-orange-600" aria-hidden />
+      この値、違っていませんか？（誤記を報告）
+    </>
+  )
+  return (
+    <div>
+      {href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+          {label}
+        </a>
+      ) : (
+        <Link to="/about#contact" className={className}>
+          {label}
+        </Link>
+      )}
+      <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+        どのページのどの値かを教えていただければ、原文で確かめて直します。
+      </p>
+    </div>
   )
 }

@@ -1,5 +1,6 @@
 import { Check, Copy, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { trackEvent } from '../../lib/analytics'
 import { copyText } from '../../lib/clipboard'
 
 interface CopyButtonProps {
@@ -22,6 +23,7 @@ export function CopyButton({ text, label = '結果をコピー', withUrl = true 
   const handleClick = async () => {
     const ok = await copyText(withUrl ? `${text}\n${window.location.href}` : text)
     setStatus(ok ? 'copied' : 'failed')
+    if (ok) trackEvent('copy_result')
   }
 
   return (

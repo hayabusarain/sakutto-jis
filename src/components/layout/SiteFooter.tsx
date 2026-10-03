@@ -73,9 +73,14 @@ export function SiteFooter() {
           </div>
         </div>
 
-        <p className="num mt-8 border-t border-zinc-800 pt-4 text-xs text-zinc-400">
-          © {SITE.startYear} {SITE.name}
-        </p>
+        <div className="mt-8 border-t border-zinc-800 pt-4 text-xs leading-relaxed text-zinc-400">
+          <p>
+            {SITE.name}は個人が運営する非公式のサイトです。日本産業標準調査会（JISC）・日本規格協会（JSA）とは関係ありません。
+          </p>
+          <p className="num mt-2">
+            © {SITE.startYear} {SITE.name}
+          </p>
+        </div>
       </div>
     </footer>
   )

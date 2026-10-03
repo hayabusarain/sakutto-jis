@@ -1,3 +1,5 @@
+import { normalizeGaId } from './lib/analytics'
+
 /**
  * サイト全体の設定。運営者情報など「（仮）」の項目は、公開前に実際の情報へ差し替える。
  */
@@ -42,6 +44,8 @@ export const SITE = {
   adsenseClient: normalizeAdsenseClient(import.meta.env.VITE_ADSENSE_CLIENT),
   /** Google Search Console の所有権確認コード（環境変数 VITE_GSC_VERIFICATION。meta タグの content の値） */
   gscVerification: String(import.meta.env.VITE_GSC_VERIFICATION ?? '').trim(),
+  /** Google アナリティクス 4 の測定ID（環境変数 VITE_GA_ID、例: G-XXXXXXXXXX）。未設定なら計測しない */
+  gaMeasurementId: normalizeGaId(import.meta.env.VITE_GA_ID),
 } as const
 
 /** ページごとの最終更新日（YYYY-MM-DD）。書いていないページは SITE.contentUpdatedAt */
@@ -64,6 +68,26 @@ export const SITE_CHANGELOG: readonly { date: string; text: string }[] = [
 
 /** 誤記報告の受付先。Googleフォーム等を用意したらURLを入れる（空なら運営者情報の連絡先へ案内） */
 export const REPORT_URL = ''
+
+/**
+ * 誤記報告フォームで「どのページの話か」を自動で入れる欄（Googleフォームの事前入力用の項目ID、例: 'entry.1234567890'）。
+ * Googleフォームの「事前入力したURLを取得」で、ページのURLを入れる記述式の質問の entry.○○ を調べて書く。
+ * 空なら、フォームを開くだけ（利用者がURLを貼る）
+ */
+export const REPORT_PAGE_FIELD = ''
+
+/**
+ * 誤記報告の宛先。フォームがあればフォーム（ページのURLを事前入力）、無ければ運営者情報の連絡先へ。
+ * 今のページの URL を受け取って、リンク先を返す（URL は描画後に読むこと）
+ */
+export function reportHref(pageUrl: string | null): string | null {
+  if (!REPORT_URL) return null
+  if (!REPORT_PAGE_FIELD || !pageUrl) return REPORT_URL
+  const url = new URL(REPORT_URL)
+  url.searchParams.set('usp', 'pp_url')
+  url.searchParams.set(REPORT_PAGE_FIELD, pageUrl)
+  return url.toString()
+}
 
 export const SITE_PAGES = [
   { path: '/about', label: '運営者情報' },

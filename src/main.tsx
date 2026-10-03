@@ -5,6 +5,8 @@ import { createRoot, hydrateRoot } from 'react-dom/client'
 import App from './App.tsx'
 import { findPage } from './routes'
 import { normalizePath } from './router/context'
+import { trackEvent } from './lib/analytics'
+import { markOfflineReady } from './lib/offlineReady'
 import { markUpdateAvailable } from './router/history'
 
 const container = document.getElementById('root')!
@@ -30,6 +32,7 @@ window.addEventListener('beforeprint', () => {
   document.querySelectorAll('details').forEach((details) => {
     details.open = true
   })
+  trackEvent('print')
 })
 
 /** 開いたままのページで、新しい版が公開されていないかを確かめる間隔 */
@@ -51,6 +54,14 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     serviceWorker
       .register('/sw.js')
       .then((registration) => {
+        // 初めて入れたときは、全ページのキャッシュが終わった時点で「オフラインでも使える」と一度だけ知らせる
+        if (!controlled) {
+          serviceWorker.ready
+            .then(() => markOfflineReady())
+            .catch(() => {
+              // 知らせられなくても、オフライン対応そのものには影響しない
+            })
+        }
         // スマホでタブやホーム画面のアプリを開いたままにしていても、戻ってきたときに新しい版を確かめる（1時間に1回まで）
         let lastCheck = Date.now()
         document.addEventListener('visibilitychange', () => {
