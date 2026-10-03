@@ -22,7 +22,7 @@ describe('ツールのページ', () => {
     const flange = htmlOf('/flange-bolt-length')
     expect(flange).toContain('href="/notes/flange-bolt-length"')
     expect(flange).toContain('href="/notes/across-flats-old-jis"')
-    expect(htmlOf('/o-ring')).not.toContain('href="/notes/')
+    expect(htmlOf('/o-ring')).not.toContain('id="related-notes"')
   })
 
   it('ツールの題名は計算・判別を先に、寸法表のページは「寸法表」の題名のまま', () => {
