@@ -11,6 +11,7 @@ import {
   rcInnerMinorDiameter,
   rPipeEndDiameter,
   rUsefulEndDiameter,
+  rUsefulLengthFromPipeEnd,
   threadHeight,
 } from './calc'
 import { PIPE_THREAD_SIZES } from './data'
@@ -136,7 +137,50 @@ describe('Rc の奥端のめねじ内径', () => {
   it('Rc1/8: 8.566 − 6.2/16 = 8.179', () => {
     expect(rcInnerMinorDiameter(findPipeThread('1/8')!)).toBe(8.179)
   })
-  it('有効ねじ部の長さが未確認のサイズは null', () => {
-    expect(rcInnerMinorDiameter(findPipeThread('3')!)).toBeNull()
+
+  it('2 1/2〜6 も計算できる（l は JIS B 0203 付表1 の 26.7・29.8・35.8・40.1・40.1）', () => {
+    expect(['2 1/2', '3', '4', '5', '6'].map((size) => rcInnerMinorDiameter(findPipeThread(size)!))).toEqual([
+      70.557, 83.064, 107.835, 132.966, 158.366,
+    ])
+  })
+
+  it('有効ねじ部の長さが null（未確認）なら計算しない', () => {
+    expect(rcInnerMinorDiameter({ ...findPipeThread('3')!, usefulInternalRc: null })).toBeNull()
+  })
+})
+
+describe('JIS B 0203:1999 付表1 の原文と照合した値', () => {
+  it('Rc の有効ねじ部の最小長さ l（全15サイズ。null は無い）', () => {
+    expect(PIPE_THREAD_SIZES.map((t) => t.usefulInternalRc)).toEqual([
+      6.2, 6.2, 9.4, 9.7, 12.7, 14.1, 16.2, 18.5, 18.5, 22.8, 26.7, 29.8, 35.8, 40.1, 40.1,
+    ])
+  })
+
+  it('基準の長さ a と許容差 b・c', () => {
+    expect(PIPE_THREAD_SIZES.map((t) => t.gaugeLength)).toEqual([
+      3.97, 3.97, 6.01, 6.35, 8.16, 9.53, 10.39, 12.7, 12.7, 15.88, 17.46, 20.64, 25.4, 28.58, 28.58,
+    ])
+    expect(PIPE_THREAD_SIZES.map((t) => t.gaugeToleranceExternal)).toEqual([
+      0.91, 0.91, 1.34, 1.34, 1.81, 1.81, 2.31, 2.31, 2.31, 2.31, 3.46, 3.46, 3.46, 3.46, 3.46,
+    ])
+    expect(PIPE_THREAD_SIZES.map((t) => t.gaugeToleranceInternal)).toEqual([
+      1.13, 1.13, 1.67, 1.67, 2.27, 2.27, 2.89, 2.89, 2.89, 2.89, 3.46, 3.46, 3.46, 3.46, 3.46,
+    ])
+  })
+
+  it('おねじの有効ねじ部 f と、管端から測った a + f（0.1mm に丸め。3/8 は 10.05 → 10.1）', () => {
+    expect(PIPE_THREAD_SIZES.map((t) => t.usefulExternalFromGauge)).toEqual([
+      2.5, 2.5, 3.7, 3.7, 5.0, 5.0, 6.4, 6.4, 6.4, 7.5, 9.2, 9.2, 10.4, 11.5, 11.5,
+    ])
+    expect(rUsefulLengthFromPipeEnd(findPipeThread('3/8')!)).toBe(10.1)
+    expect(rUsefulLengthFromPipeEnd(findPipeThread('1/2')!)).toBe(13.2)
+    for (const t of PIPE_THREAD_SIZES) expect(t.usefulExternal, t.size).toBe(rUsefulLengthFromPipeEnd(t))
+  })
+
+  it('G のめねじ内径 D1 の公差（JIS B 0202 付表2）: 28山 +0.282・19山 +0.445・14山 +0.541・11山 +0.640', () => {
+    expect(gMinorLimits(findPipeThread('1/16')!).max).toBe(6.843)
+    expect(gMinorLimits(findPipeThread('1/4')!)).toEqual({ min: 11.445, max: 11.89 })
+    expect(gMinorLimits(findPipeThread('1/2')!)).toEqual({ min: 18.631, max: 19.172 })
+    expect(gMinorLimits(findPipeThread('6')!)).toEqual({ min: 160.872, max: 161.512 })
   })
 })

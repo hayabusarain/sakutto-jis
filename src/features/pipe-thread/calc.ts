@@ -56,6 +56,16 @@ export function rPipeEndDiameter(thread: PipeThreadSize): number {
   return round3(thread.d - thread.gaugeLength * TAPER)
 }
 
+/**
+ * R（おねじ）の有効ねじ部の最小長さを管端から測った値 a + f [mm]（a が基準寸法のとき。0.1mm に丸める）。
+ * JIS B 0203 付表1 に載っているのは f（基準径の位置から大径側への長さ）だけなので、a を足した計算値。
+ * 0.01mm 単位の整数で足してから丸める（3/8: 6.35 + 3.7 = 10.05 → 10.1）
+ */
+export function rUsefulLengthFromPipeEnd(thread: PipeThreadSize): number {
+  const hundredths = Math.round(thread.gaugeLength * 100) + Math.round(thread.usefulExternalFromGauge * 100)
+  return Math.round(hundredths / 10) / 10
+}
+
 /** R（おねじ）の有効ねじ部の端（管端から有効ねじ部の最小長さの位置）での外径 = d + (有効ねじ部 − a)/16 [mm] */
 export function rUsefulEndDiameter(thread: PipeThreadSize): number {
   return round3(thread.d + (thread.usefulExternal - thread.gaugeLength) * TAPER)

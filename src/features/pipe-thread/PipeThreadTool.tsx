@@ -28,7 +28,13 @@ import {
   rUsefulEndDiameter,
   threadHeight,
 } from './calc'
-import { G_INTERNAL_MINOR_TOLERANCE, PIPE_THREAD_SIZES, THREAD_KINDS, type PipeThreadSize } from './data'
+import {
+  G_INTERNAL_MINOR_TOLERANCE,
+  PIPE_THREAD_SIZES,
+  PIPE_THREAD_TABLES,
+  THREAD_KINDS,
+  type PipeThreadSize,
+} from './data'
 import { DEFAULT_INPUT, isPipeThreadInput, KIND_KEYS, normalizePipeThreadInput } from './input'
 import { TextCopyButton } from './TextCopyButton'
 
@@ -55,8 +61,11 @@ const EXPORT_HEADERS = [
   '外径 d [mm]',
   '有効径 d2 [mm]',
   '谷径 d1 [mm]',
-  '基準の長さ a [mm]',
-  'R 有効ねじ部の最小長さ [mm]',
+  'R 基準の長さ a [mm]',
+  'R 基準の長さの許容差 ±b [mm]',
+  'Rc 基準径の位置（端面）の許容差 ±c [mm]',
+  'R 有効ねじ部の最小長さ f（基準径の位置から） [mm]',
+  'R 有効ねじ部の最小長さ a + f（管端から・計算値） [mm]',
   'Rc 有効ねじ部の最小長さ l [mm]',
   'R 管端の外径（計算値） [mm]',
   'G めねじ内径 最小 [mm]',
@@ -77,6 +86,9 @@ const EXPORT_ROWS = PIPE_THREAD_SIZES.map((t) => {
     t.d2,
     t.d1,
     t.gaugeLength,
+    t.gaugeToleranceExternal,
+    t.gaugeToleranceInternal,
+    t.usefulExternalFromGauge,
     t.usefulExternal,
     t.usefulInternalRc,
     rPipeEndDiameter(t),
@@ -87,7 +99,10 @@ const EXPORT_ROWS = PIPE_THREAD_SIZES.map((t) => {
   ]
 })
 
-const EXPORT_NOTE = `典拠: ${standardLabel('JIS B 0203')}（管用テーパねじ）・${standardLabel('JIS B 0202')}（管用平行ねじ）の基準寸法。外径・有効径・谷径はテーパねじでは基準径の位置の値。ピッチ・山の高さ・R 管端の外径・G 推奨下穴径・Rc 奥端内径は基準寸法から計算した値（空欄は未確認）。サクッとJIS`
+/** Rc の有効ねじ部の長さが未確認（null）のサイズがあるか（いまは全サイズ JIS B 0203 付表1 で確認済み） */
+const HAS_MISSING_RC = PIPE_THREAD_SIZES.some((t) => t.usefulInternalRc === null)
+
+const EXPORT_NOTE = `典拠: ${standardLabel('JIS B 0203')}（管用テーパねじ）${PIPE_THREAD_TABLES.taper}・${standardLabel('JIS B 0202')}（管用平行ねじ）${PIPE_THREAD_TABLES.parallel}・${PIPE_THREAD_TABLES.parallelTolerance}。外径・有効径・谷径はテーパねじでは基準径の位置の値。ピッチ・山の高さ・R 有効ねじ部の a + f・R 管端の外径・G 推奨下穴径・Rc 奥端内径は基準寸法から計算した値${HAS_MISSING_RC ? '（空欄は未確認）' : ''}。サクッとJIS`
 
 interface CalloutLine {
   label: string
@@ -126,6 +141,7 @@ export function PipeThreadTool() {
   const rcInner = rcInnerMinorDiameter(thread)
   const rEnd = rPipeEndDiameter(thread)
   const rUsefulEnd = rUsefulEndDiameter(thread)
+  const standardTable = kind.standard === 'JIS B 0203' ? PIPE_THREAD_TABLES.taper : PIPE_THREAD_TABLES.parallel
 
   let primary: { label: string; short: string; value?: string; note: string }
   if (input.kind === 'G') {
@@ -195,7 +211,7 @@ export function PipeThreadTool() {
     { key: 'd', header: '外径 d', cell: (row) => fixed(row.d, 3) },
     { key: 'd2', header: '有効径 d2', cell: (row) => fixed(row.d2, 3) },
     { key: 'd1', header: '谷径 d1', cell: (row) => fixed(row.d1, 3) },
-    { key: 'a-len', header: '基準の長さ', cell: (row) => fixed(row.gaugeLength, 2) },
+    { key: 'a-len', header: 'R 基準の長さ a', cell: (row) => fixed(row.gaugeLength, 2) },
     { key: 'g', header: 'G 下穴', cell: (row) => fixed(gRecommendedDrill(row), 1) },
     {
       key: 'rc',
@@ -246,12 +262,34 @@ export function PipeThreadTool() {
           <ResultItem label="外径 d（おねじ）/ D（めねじ）" value={fixed(thread.d, 3)} unit="mm" />
           <ResultItem label="有効径 d2" value={fixed(thread.d2, 3)} unit="mm" />
           <ResultItem label="谷径 d1（おねじ）/ 内径 D1（めねじ）" value={fixed(thread.d1, 3)} unit="mm" />
-          {input.kind !== 'G' && (
-            <ResultItem label="基準の長さ a（管端〜基準径の位置）" value={fixed(thread.gaugeLength, 2)} unit="mm" />
+          {input.kind === 'R' && (
+            <ResultItem
+              label="基準の長さ a（管端〜基準径の位置）"
+              value={fixed(thread.gaugeLength, 2)}
+              unit="mm"
+              note={`許容差 ±${fixed(thread.gaugeToleranceExternal, 2)} mm（b）`}
+            />
+          )}
+          {input.kind === 'Rc' && (
+            <ResultItem
+              label="基準径の位置（めねじ）"
+              value="ねじの端面"
+              note={`めねじを切った部分の端面が基準径の位置。軸方向の許容差 ±${fixed(thread.gaugeToleranceInternal, 2)} mm（c）`}
+            />
           )}
           {input.kind === 'R' && (
             <>
-              <ResultItem label="有効ねじ部の最小長さ（管端から）" value={fixed(thread.usefulExternal, 1)} unit="mm" />
+              <ResultItem
+                label="有効ねじ部の最小長さ f（基準径の位置から大径側へ）"
+                value={fixed(thread.usefulExternalFromGauge, 1)}
+                unit="mm"
+              />
+              <ResultItem
+                label="有効ねじ部の最小長さ a + f（管端から・計算値）"
+                value={fixed(thread.usefulExternal, 1)}
+                unit="mm"
+                note={`a が基準寸法 ${fixed(thread.gaugeLength, 2)} mm のときの長さ`}
+              />
               <ResultItem
                 label="管端での外径（計算値）"
                 value={fixed(rEnd, 3)}
@@ -263,7 +301,7 @@ export function PipeThreadTool() {
           )}
           {input.kind === 'Rc' && (
             <ResultItem
-              label="有効ねじ部の最小長さ l（不完全ねじ部を含む）"
+              label="有効ねじ部の最小長さ l（端面から奥へ・不完全ねじ部がある場合）"
               value={thread.usefulInternalRc === null ? undefined : fixed(thread.usefulInternalRc, 1)}
               unit="mm"
             />
@@ -279,8 +317,10 @@ export function PipeThreadTool() {
         </dl>
 
         <div className="mt-3 space-y-1">
-          <Citation code={kind.standard} suffix="の基準寸法" />
-          {input.kind === 'G' && <Citation code="JIS B 0202" suffix="のめねじ内径の公差から計算" />}
+          <Citation code={kind.standard} detail={standardTable} suffix="の基準寸法" />
+          {input.kind === 'G' && (
+            <Citation code="JIS B 0202" detail={PIPE_THREAD_TABLES.parallelTolerance} suffix="のめねじ内径 D1 の公差から計算" />
+          )}
         </div>
 
         <section className="mt-4 rounded-md border border-zinc-200" aria-labelledby="pipe-thread-callout">
@@ -342,6 +382,13 @@ export function PipeThreadTool() {
             <Formula>
               例: {fixed(thread.d, 3)} − {fixed(thread.gaugeLength, 2)} ÷ 16 = {fixed(rEnd, 3)} mm
             </Formula>
+            <p>
+              R の有効ねじ部の最小長さは、JIS B 0203 の表では基準径の位置からの長さ f です。管端から測った長さは、a が基準寸法のときの a + f（計算値）です。
+            </p>
+            <Formula>
+              例: {fixed(thread.gaugeLength, 2)} + {fixed(thread.usefulExternalFromGauge, 1)} ={' '}
+              {fixed(thread.gaugeLength + thread.usefulExternalFromGauge, 2)} → {fixed(thread.usefulExternal, 1)} mm
+            </Formula>
             <Formula>Rc 奥端の内径 = D1 − l ÷ 16</Formula>
             {rcInner !== null && (
               <Formula>
@@ -357,7 +404,8 @@ export function PipeThreadTool() {
               items={[
                 ['n', '25.4mm あたりの山数'],
                 ['d', '基準径の位置での外径'],
-                ['a', '基準の長さ（管端〜基準径の位置）'],
+                ['a', 'R の基準の長さ（管端〜基準径の位置）'],
+                ['f', 'R の有効ねじ部の最小長さ（基準径の位置から）'],
                 ['D1', '基準径の位置でのめねじ内径'],
                 ['l', 'Rc の有効ねじ部の最小長さ（不完全ねじ部を含む）'],
               ]}
@@ -386,7 +434,7 @@ export function PipeThreadTool() {
         }
       >
         <p className="px-4 pt-3 text-xs text-zinc-500">
-          管用ねじ（R・Rc・Rp・G）の寸法表。単位: mm。外径・有効径・谷径はテーパねじでは基準径の位置の値（G と共通）。G 下穴・Rc 奥端内径は規格の寸法から求めた計算値で、規格の値ではありません。行をタップするとそのサイズを選べます。
+          管用ねじ（R・Rc・Rp・G）の寸法表。単位: mm。外径・有効径・谷径はテーパねじでは基準径の位置の値（G と共通）。基準の長さ a はおねじ R の値（めねじは端面が基準径の位置）。G 下穴・Rc 奥端内径は規格の寸法から求めた計算値で、規格の値ではありません。行をタップするとそのサイズを選べます。
         </p>
         <div className="mt-2">
           <DataTable

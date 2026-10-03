@@ -16,7 +16,7 @@ import {
   rUsefulEndDiameter,
   TAPER,
 } from './calc'
-import { PIPE_THREAD_SIZES, THREAD_KINDS, type PipeThreadKind } from './data'
+import { PIPE_THREAD_SIZES, PIPE_THREAD_TABLES, THREAD_KINDS, type PipeThreadKind } from './data'
 
 const KINDS = Object.keys(THREAD_KINDS) as PipeThreadKind[]
 
@@ -94,7 +94,8 @@ export function PipeThreadGuide() {
 
       <Faq q="G（PF）の下穴径は？">
         <p>
-          G のめねじ内径は、基準寸法 D1 から D1 + 公差 までの範囲に入れます（{standardLabel('JIS B 0202')}）。このページの推奨下穴径は、その範囲の中央に最も近い 0.1mm 刻みの径（計算値）です。
+          G のめねじ内径は、基準寸法 D1 から D1 + 公差 までの範囲に入れます（{standardLabel('JIS B 0202')}{' '}
+          {PIPE_THREAD_TABLES.parallelTolerance}）。このページの推奨下穴径は、その範囲の中央に最も近い 0.1mm 刻みの径（計算値）です。
         </p>
         <div className="overflow-x-auto"><table className={table}>
           <thead>
@@ -124,7 +125,8 @@ export function PipeThreadGuide() {
 
       <Faq q="Rc（PT）の下穴径は？">
         <p>
-          Rc はテーパ 1/16 のめねじで、入口（基準径の位置）の内径が D1、奥に行くほど細くなります。有効ねじ部の最小長さ l の奥端では D1 − l/16 です。
+          Rc はテーパ 1/16 のめねじで、入口（ねじを切った部分の端面＝基準径の位置）の内径が D1、奥に行くほど細くなります。有効ねじ部の最小長さ l（{standardLabel('JIS B 0203')}{' '}
+          {PIPE_THREAD_TABLES.taper}）の奥端では D1 − l/16 です。
           例えば Rc1/2 は {fixed(half.d1, 3)} − {fixed(half.usefulInternalRc ?? 0, 1)} ÷ 16 ={' '}
           {fixed(rcInnerMinorDiameter(half) ?? 0, 3)} mm です。
         </p>
@@ -171,8 +173,8 @@ export function PipeThreadGuide() {
       <Faq q="テーパ 1/16 とは？">
         <p>
           軸方向に 16 進むと、直径が 1 変わる傾きです。長さ x では直径が x/16 変わります。R1/2 では、管端から基準径の位置までの{' '}
-          {fixed(half.gaugeLength, 2)} mm で直径が {fixed(halfTaperOverA, 3)} mm 変わり、有効ねじ部の端（管端から{' '}
-          {fixed(half.usefulExternal, 1)} mm）では {fixed(rUsefulEndDiameter(half), 3)} mm になります（計算値）。
+          {fixed(half.gaugeLength, 2)} mm で直径が {fixed(halfTaperOverA, 3)} mm 変わり、有効ねじ部の端（管端から a + f ={' '}
+          {fixed(half.usefulExternal, 1)} mm。a が基準寸法のとき）では {fixed(rUsefulEndDiameter(half), 3)} mm になります（計算値）。
         </p>
         <p>
           そのため、ノギスで測る位置によって外径が変わります。手元のねじが R か G か分からないときは、
