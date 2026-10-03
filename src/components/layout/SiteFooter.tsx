@@ -1,5 +1,6 @@
 import { TriangleAlert } from 'lucide-react'
 import { PIPE_SPECS } from '../../features/steel-pipe/data'
+import { NOTE_PAGES, NOTES_INDEX_PATH, NOTES_LABEL } from '../../pages/notes/notePages'
 import { SCREW_INDEX_META } from '../../pages/screws/screwPages'
 import { FLANGE_TABLE_PAGES, ORING_TABLE_PAGES, PIPE_TABLE_PAGES } from '../../pages/tables/tablePages'
 import { Link } from '../../router/Link'
@@ -30,7 +31,7 @@ export function SiteFooter() {
           </span>
         </p>
 
-        <div className="mt-8 grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="mt-8 grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-4">
           {CATEGORIES.map((category) => (
             <div key={category}>
               <h2 className="text-xs font-semibold tracking-wider text-zinc-400">
@@ -54,6 +55,22 @@ export function SiteFooter() {
                 <li key={page.path}>
                   <Link to={page.path} className="hover:text-white">
                     {page.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h2 className="text-xs font-semibold tracking-wider text-zinc-400">
+              <Link to={NOTES_INDEX_PATH} className="hover:text-white">
+                {NOTES_LABEL}
+              </Link>
+            </h2>
+            <ul className="mt-2 space-y-2 text-sm">
+              {NOTE_PAGES.map((note) => (
+                <li key={note.path}>
+                  <Link to={note.path} className="hover:text-white">
+                    {note.label}
                   </Link>
                 </li>
               ))}

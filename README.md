@@ -88,7 +88,7 @@ AdSense で収益化する場合は、独自ドメインを取って Cloudflare 
 | `VITE_ADSENSE_CLIENT` | AdSense のサイト運営者ID（`ca-pub-…`。`pub-…` でも可）。設定すると、審査用の meta タグ、広告のスクリプト（ツール・寸法表などのページだけ。運営者情報・プライバシーポリシー・免責事項・編集方針・404 には出さない）、`dist/ads.txt` を出力する。形式が違う値は警告を出して無視する |
 | `VITE_GSC_VERIFICATION` | Search Console の所有権確認コード（`google-site-verification` の meta タグの content の値） |
 
-- 広告枠の部品 `src/components/ui/AdSlot.tsx` を用意しています（環境変数と枠のIDが無いと何も表示しない）
+- 広告枠は、ツールのページの「ツールの後」と「ページの最後」の2か所だけに置いています。AdSense で広告ユニットを作り、そのIDを環境変数 `VITE_ADSENSE_SLOT_TOOL`・`VITE_ADSENSE_SLOT_BOTTOM` に設定すると表示されます（未設定なら何も出ません）。条件の入力欄と結果のあいだには置きません（誤タップを防ぐため）
 - 自動広告を使う場合は、上部に固定される「アンカー広告」をオフにしてください（上部に固定しているツールの切り替えバーと重なるため）
 - EEA・英国向けの同意メッセージは、AdSense の「プライバシーとメッセージ」で設定します
 

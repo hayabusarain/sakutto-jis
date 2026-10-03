@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Breadcrumb } from '../components/layout/Breadcrumb'
 import { SourceNote } from '../components/SourceNote'
+import { AdSlot } from '../components/ui/AdSlot'
 import { ShareButton } from '../components/ui/ShareButton'
 import { Link } from '../router/Link'
+import { SITE } from '../site'
 import { standardLabel } from '../standards'
 import { CATEGORY_LABELS, type ToolDefinition } from '../tools/registry'
 import { ChipNav, type ChipLink } from './content/PageHeader'
@@ -112,6 +114,9 @@ export function ToolPage({ tool }: { tool: ToolDefinition }) {
 
       <ToolComponent />
 
+      {/* 広告（設定したときだけ）。条件と結果のあいだには置かず、ツールの後とページの最後の2か所だけ */}
+      <AdSlot slot={SITE.adSlots.afterTool} />
+
       {related && (
         <section className="mt-6 print:hidden" aria-labelledby="related-pages">
           <h2 id="related-pages" className="text-xs font-bold tracking-wider text-zinc-600">
@@ -130,6 +135,8 @@ export function ToolPage({ tool }: { tool: ToolDefinition }) {
           <Guide />
         </div>
       )}
+
+      <AdSlot slot={SITE.adSlots.bottom} />
 
       <div className="mt-6">
         <SourceNote standards={tool.standards} />

@@ -44,6 +44,14 @@ export const SITE = {
   adsenseClient: normalizeAdsenseClient(import.meta.env.VITE_ADSENSE_CLIENT),
   /** Google Search Console の所有権確認コード（環境変数 VITE_GSC_VERIFICATION。meta タグの content の値） */
   gscVerification: String(import.meta.env.VITE_GSC_VERIFICATION ?? '').trim(),
+  /**
+   * AdSense の広告ユニットID（環境変数 VITE_ADSENSE_SLOT_TOOL・VITE_ADSENSE_SLOT_BOTTOM）。
+   * ツールのページの「ツールの後」と「ページの最後」の2か所だけに置く。空なら置かない
+   */
+  adSlots: {
+    afterTool: String(import.meta.env.VITE_ADSENSE_SLOT_TOOL ?? '').trim(),
+    bottom: String(import.meta.env.VITE_ADSENSE_SLOT_BOTTOM ?? '').trim(),
+  },
   /** Google アナリティクス 4 の測定ID（環境変数 VITE_GA_ID、例: G-XXXXXXXXXX）。未設定なら計測しない */
   gaMeasurementId: normalizeGaId(import.meta.env.VITE_GA_ID),
 } as const
@@ -55,6 +63,10 @@ export const PAGE_UPDATED_AT: Readonly<Record<string, string>> = {
 
 /** 掲載データの見直しの記録（新しい順）。編集方針のページに表示する */
 export const SITE_CHANGELOG: readonly { date: string; text: string }[] = [
+  {
+    date: '2026-10-03',
+    text: 'フランジのボルト・ナット・ガスケットの拾い出しツールと、現場メモ（フランジボルトの長さ・M12 の下穴・二面幅の新旧JIS）を追加しました。各ページに「この値、違っていませんか？」の誤記報告ボタンを付けました。',
+  },
   {
     date: '2026-10-03',
     text: '各ツールの JIS の数値を、規格票の原文とすべて照合しました。一致を確かめたフランジ（JIS B 2220）・ボルト穴径とざぐり径（JIS B 1001）・旧JIS の M3 の二面幅の「※」と、Oリング（JIS B 2401-1・-2）・普通公差（JIS B 0405）の「未照合」の注記を外しました。規格にあるのに載せていなかった 16K・20K の 90A のフランジと、Rc 2½〜6 の有効ねじ部の長さを追加し、数値の近くの典拠に表番号（例: JIS B 2220 表15）を表示しました。JIS B 1176 の年版を 2015（2014年版＋追補1）に改め、鋼管（JIS G 3452・G 3454）には 2026年版が発行されたこと（値は 2019年版と照合）を注記しました。',

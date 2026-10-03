@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Calculator, MessageSquareWarning, Smartphone, Table2 } from 'lucide-react'
+import { ArrowRight, BookOpen, Calculator, MessageSquareWarning, NotebookPen, Smartphone, Table2 } from 'lucide-react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { QuickSearch } from '../components/QuickSearch'
 import { replaceUrl } from '../router/history'
@@ -7,6 +7,7 @@ import { SITE } from '../site'
 import { standardLabel } from '../standards'
 import { CATEGORY_LABELS, TOOLS, type ToolCategory } from '../tools/registry'
 import { ChipNav } from './content/PageHeader'
+import { NOTE_PAGES, NOTES_INDEX_PATH, NOTES_LABEL } from './notes/notePages'
 import { SCREW_INDEX_META, SCREW_PAGES } from './screws/screwPages'
 import { FLANGE_TABLE_PAGES, ORING_TABLE_PAGES, PIPE_TABLE_PAGES } from './tables/tablePages'
 
@@ -169,6 +170,38 @@ export function HomePage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="mt-10" aria-labelledby="notes">
+        <h2
+          id="notes"
+          className="flex items-center gap-3 text-sm font-bold tracking-wider text-zinc-600"
+        >
+          <NotebookPen className="size-4 shrink-0" aria-hidden />
+          {NOTES_LABEL}（現場でよく迷う点の解説）
+          <span className="h-px flex-1 bg-zinc-300" aria-hidden />
+        </h2>
+        <ul className="mt-3 divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 bg-white">
+          {NOTE_PAGES.map((note) => (
+            <li key={note.path}>
+              <Link
+                to={note.path}
+                className="group flex min-h-12 items-center gap-3 px-4 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+              >
+                <span className="flex-1">{note.h1}</span>
+                <ArrowRight
+                  className="size-4 shrink-0 text-zinc-400 transition-transform group-hover:translate-x-0.5 group-hover:text-orange-600"
+                  aria-hidden
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-right text-sm">
+          <Link to={NOTES_INDEX_PATH} className="font-semibold text-zinc-700 underline underline-offset-2 hover:text-zinc-900">
+            {NOTES_LABEL}の一覧
+          </Link>
+        </p>
       </section>
 
       <section className="mt-10" aria-labelledby="features">
