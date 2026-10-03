@@ -1,7 +1,7 @@
 import type { ExportCell } from '../../components/ui/TableExport'
 import { standardLabel } from '../../standards'
 import { FLAT_DEPTH_TOL, findORing, flatGroove, oRingNumbers } from './calc'
-import { E_NOTE, SOURCE_NOTE, type ORingSeries } from './data'
+import { B3_MISPRINT, D1_TOL_NOTE, E_NOTE, HOUSING_TABLES, RING_TABLES, SOURCE_NOTE, type ORingSeries } from './data'
 
 export interface ExportTable {
   title: string
@@ -11,7 +11,12 @@ export interface ExportTable {
   note: string
 }
 
-const NOTE = `典拠: ${standardLabel('JIS B 2401-1')}（Oリング）/ ${standardLabel('JIS B 2401-2')}（ハウジング）。${SOURCE_NOTE}溝幅 b の許容差は +0.25/0。サクッとJIS`
+/** 典拠（表の番号まで）と数値の出どころ */
+function note(series: ORingSeries, flat: boolean): string {
+  const ring = RING_TABLES[series]
+  const housing = HOUSING_TABLES[flat ? 'flat' : 'cylinder']
+  return `典拠: ${standardLabel('JIS B 2401-1')} ${ring.no} ${ring.title} / ${standardLabel('JIS B 2401-2')} ${housing.no} ${housing.title}。${SOURCE_NOTE}${D1_TOL_NOTE}溝幅 b の許容差は +0.25/0。`
+}
 
 /**
  * 寸法表の書き出し（Excel・CSV 用）。画面の表より列を増やし、許容差は上・下を別の列にする。
@@ -23,7 +28,7 @@ export function oRingExportTable(series: ORingSeries, flat: boolean): ExportTabl
   const common = ['呼び番号', '内径 d1 [mm]', 'd1 許容差 ± [mm]', '太さ d2 [mm]', 'd2 許容差 ± [mm]']
   if (flat) {
     return {
-      title: `JIS B 2401 ${series} 系列 Oリングと平面溝（固定用）の寸法`,
+      title: `JIS B 2401-1・-2 ${series} 系列 Oリングと平面溝（固定用）の寸法`,
       filename: `oring_${series}_flat_groove`,
       headers: [
         ...common,
@@ -47,11 +52,11 @@ export function oRingExportTable(series: ORingSeries, flat: boolean): ExportTabl
         ring.group.flatWidth,
         ring.group.rMax,
       ]),
-      note: NOTE,
+      note: `${note(series, true)}サクッとJIS`,
     }
   }
   return {
-    title: `JIS B 2401 ${series} 系列 Oリングと円筒面の溝（運動用・固定用）の寸法`,
+    title: `JIS B 2401-1・-2 ${series} 系列 Oリングと円筒面の溝（運動用・固定用）の寸法`,
     filename: `oring_${series}_cylinder_groove`,
     headers: [
       ...common,
@@ -86,6 +91,6 @@ export function oRingExportTable(series: ORingSeries, flat: boolean): ExportTabl
         ring.group.eMax,
       ]
     }),
-    note: `${NOTE}。d はピストン型の溝底径・ロッド型の軸径、D はピストン型のシリンダ内径・ロッド型の溝底径。BU はバックアップリング。${E_NOTE}`,
+    note: `${note(series, false)}d はピストン型の溝底径・ロッド型の軸径（表3 の d3・d5）、D はピストン型のシリンダ内径・ロッド型の溝底径（表3 の d4・d6）。BU はバックアップリング。${E_NOTE}${series === 'P' ? B3_MISPRINT.note : ''}サクッとJIS`,
   }
 }

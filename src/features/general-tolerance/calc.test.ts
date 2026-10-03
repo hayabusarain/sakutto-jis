@@ -15,6 +15,7 @@ import {
   TABLES,
   TOLERANCE_KINDS,
 } from './calc'
+import * as data from './data'
 import {
   ANGLE_TOLERANCES,
   CHAMFER_TOLERANCES,
@@ -272,7 +273,28 @@ describe('上・下の寸法', () => {
     expect(formatDms(22 * 3600 + 30 * 60 + 15)).toBe('22°30′15″')
   })
 
-  it('図面の注記', () => {
-    expect(drawingNote('m')).toBe('普通公差 JIS B 0405-m')
+  it('図面の注記は規格の例（JIS B 0405 の 5.）と同じ「JIS B 0405-m」の形', () => {
+    expect(drawingNote('m')).toBe('JIS B 0405-m')
+    expect(drawingNote('f')).toBe('JIS B 0405-f')
+  })
+})
+
+describe('典拠の表（JIS B 0405:1991 の原文と照合済み）', () => {
+  it('長さは表1、面取り部分は表2、角度は表3', () => {
+    expect(TABLES.linear.source).toEqual({ no: '表1', title: '面取り部分を除く長さ寸法に対する許容差' })
+    expect(TABLES.chamfer.source).toEqual({
+      no: '表2',
+      title: '面取り部分の長さ寸法（かどの丸み及びかどの面取寸法）に対する許容差',
+    })
+    expect(TABLES.angle.source).toEqual({ no: '表3', title: '角度寸法の許容差' })
+  })
+
+  it('原文と全値を照合したので、「照合中」の注記は持たない', () => {
+    expect('VERIFICATION_NOTE' in data).toBe(false)
+  })
+
+  it('面取り部分の表（表2）には「—」がない（v の 0.5 以上 3 以下も ±0.4）', () => {
+    for (const cls of TOLERANCE_CLASSES) expect(CHAMFER_TOLERANCES[cls]).not.toContain(null)
+    expect(lookupTolerance('chamfer', 'v', 1)).toMatchObject({ status: 'ok', tolerance: 400 })
   })
 })

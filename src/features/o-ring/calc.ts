@@ -1,4 +1,5 @@
 import {
+  B3_MISPRINT,
   BACKUP_PRESSURE_LIMITS,
   G_ROWS,
   GROUPS,
@@ -261,7 +262,10 @@ export function findByMatingDiameter(housing: HousingType, diameter: number, bot
   return { matches, exact, below: group(lower, Math.max), above: group(higher, Math.min) }
 }
 
-/** JIS B 2401 の P・G 系列の太さ d2 の種類（小さい順）: 1.9・2.4・3.1・3.5・5.7・8.4（V 系列は含まない） */
+/**
+ * JIS B 2401-1 の P・G 系列の太さ d2 の種類（小さい順）: 1.9・2.4・3.1・3.5・5.7・8.4
+ * （真空フランジ用の V 系列の 4・6・10 は含まない）
+ */
 export const CROSS_SECTIONS: readonly number[] = [...new Set(Object.values(GROUPS).map((group) => group.d2))].sort(
   (a, b) => a - b,
 )
@@ -326,8 +330,19 @@ export function identifyByRing(d1: number, d2: number, limit = 5): RingIdentific
   }
 }
 
+/**
+ * JIS B 2401-2:2012 表3 で、溝幅 b3（バックアップリング2個）が誤って「1.5」と印刷されている欄の番号か
+ * （P48A〜P60。サイトは 11.5 を載せている。data.ts の B3_MISPRINT）
+ */
+export function hasB3Misprint(ring: ORing): boolean {
+  if (ring.series !== 'P') return false
+  const numbers = oRingNumbers('P')
+  const index = numbers.indexOf(ring.no)
+  return index >= numbers.indexOf(B3_MISPRINT.first) && index <= numbers.indexOf(B3_MISPRINT.last)
+}
+
 // ---------------------------------------------------------------------------
-// バックアップリングが要るかの目安（旧 JIS B 2406:1991 表1。現行 JIS B 2401-2:2012 とは未照合）
+// バックアップリングが要るかの目安（JIS B 2401-2:2012 表2。旧 JIS B 2406:1991 の表1 と同じ値）
 
 /** 使用圧力の区分の表記 [MPa]（例: 「4.0 以下」「4.0 を超え 6.3 以下」） */
 export function pressureBandLabel(index: number): string {
@@ -343,7 +358,7 @@ export function pressureBandShortLabel(index: number): string {
 
 export type NoBackupClearance =
   | { status: 'ok'; /** 圧力の区分 */ index: number; /** すきま 2g の最大値 [mm] */ max: number }
-  /** 使用圧力が 25.0 MPa を超える（この表・溝の規格の対象外） */
+  /** 使用圧力が 25.0 MPa を超える（表2 の区分にない） */
   | { status: 'above' }
   | { status: 'invalid' }
 
@@ -357,7 +372,7 @@ export function noBackupMaxClearance(hardness: ORingHardness, pressureMpa: numbe
 
 /**
  * すきま 2g [mm] が、バックアップリングなしで使える最大値を超えるか（超えるならバックアップリングを使う）。
- * 25.0 MPa を超える・値が不正なときは null。
+ * 25.0 MPa を超える（表2 の区分にない）・値が不正なときは null。
  */
 export function needsBackupRing(hardness: ORingHardness, pressureMpa: number, clearance2g: number): boolean | null {
   const found = noBackupMaxClearance(hardness, pressureMpa)

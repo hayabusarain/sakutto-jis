@@ -6,6 +6,7 @@ import {
   CHAMFER_TOLERANCES,
   LINEAR_RANGES,
   LINEAR_TOLERANCES,
+  TABLE_REFS,
   type SizeRange,
   type ToleranceClass,
 } from './data'
@@ -19,12 +20,14 @@ interface ToleranceTable {
   ranges: readonly SizeRange[]
   /** linear・chamfer は μm、angle は分（′） */
   tolerances: Record<ToleranceClass, readonly (number | null)[]>
+  /** JIS B 0405:1991 の表の番号と表題 */
+  source: { no: string; title: string }
 }
 
 export const TABLES: Record<ToleranceKind, ToleranceTable> = {
-  linear: { ranges: LINEAR_RANGES, tolerances: LINEAR_TOLERANCES },
-  chamfer: { ranges: CHAMFER_RANGES, tolerances: CHAMFER_TOLERANCES },
-  angle: { ranges: ANGLE_RANGES, tolerances: ANGLE_TOLERANCES },
+  linear: { ranges: LINEAR_RANGES, tolerances: LINEAR_TOLERANCES, source: TABLE_REFS.linear },
+  chamfer: { ranges: CHAMFER_RANGES, tolerances: CHAMFER_TOLERANCES, source: TABLE_REFS.chamfer },
+  angle: { ranges: ANGLE_RANGES, tolerances: ANGLE_TOLERANCES, source: TABLE_REFS.angle },
 }
 
 const EPS = 1e-9
@@ -173,7 +176,10 @@ export function angleLimits(angleDegrees: number, toleranceMinutes: number): Ang
   }
 }
 
-/** 図面（表題欄の近く）に書く普通公差の指示 */
+/**
+ * 図面に書く普通公差の指示。JIS B 0405 の 5.（図面上の指示）の例「JIS B 0405-m」の形で、
+ * 表題欄の中又はその付近に書く（「普通公差 JIS B 0405-m」と前に言葉を添える書き方も多い）。
+ */
 export function drawingNote(cls: ToleranceClass): string {
-  return `普通公差 JIS B 0405-${cls}`
+  return `JIS B 0405-${cls}`
 }

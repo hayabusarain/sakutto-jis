@@ -6,6 +6,7 @@ import {
   flatGroove,
   flatSqueezeRange,
   grooveDepth,
+  hasB3Misprint,
   needsBackupRing,
   noBackupMaxClearance,
   oRingNumbers,
@@ -15,7 +16,19 @@ import {
   squeezeRange,
   stretch,
 } from './calc'
-import { BACKUP_PRESSURE_LIMITS, HARDNESSES, NO_BACKUP_MAX_CLEARANCE } from './data'
+import {
+  B3_MISPRINT,
+  BACKUP_PRESSURE_LIMITS,
+  D1_TOL_NOTE,
+  DYNAMIC_MATERIAL_NOTE,
+  E_NOTE,
+  GROUPS,
+  HARDNESSES,
+  HOUSING_TABLES,
+  NO_BACKUP_MAX_CLEARANCE,
+  RING_TABLES,
+  SOURCE_NOTE,
+} from './data'
 
 describe('findORing', () => {
   it('P20: 19.8 × 2.4、ハウジング d20 / D24、溝幅 3.2', () => {
@@ -103,14 +116,15 @@ describe('データの整合性', () => {
 })
 
 describe('JIS の表に載っているつぶし率の範囲を再現する', () => {
-  // 円筒面（運動用・固定用）
+  // 円筒面（運動用・固定用）。値は JIS B 2401-2:2012 表3 の参考欄の印刷値。
+  // G25 の最大は 21.85 と印刷されている（計算は (3.2 − 2.5) ÷ 3.2 = 21.875%。小数1桁の比較で一致）
   it.each([
     ['P', 'P3', 14.8, 24.2],
     ['P', 'P10A', 10.8, 19.7],
     ['P', 'P22A', 9.4, 16.7],
     ['P', 'P48A', 8.4, 14.2],
     ['P', 'P150A', 7.9, 12.3],
-    ['G', 'G25', 13.3, 21.9],
+    ['G', 'G25', 13.3, 21.85],
     ['G', 'G150', 8.4, 14.2],
   ] as const)('円筒面 %s %s: %s〜%s%%', (series, no, min, max) => {
     const range = squeezeRange(findORing(series, no)!)!
@@ -118,7 +132,7 @@ describe('JIS の表に載っているつぶし率の範囲を再現する', () 
     expect(range.max).toBeCloseTo(max, 1)
   })
 
-  // 平面（固定用）
+  // 平面（固定用）。JIS B 2401-2:2012 表4 の参考欄の印刷値
   it.each([
     ['P', 'P3', 20.3, 31.8],
     ['P', 'P10A', 19.9, 29.7],
@@ -169,7 +183,7 @@ describe('flatGroove', () => {
   })
 })
 
-describe('バックアップリングなしで使えるすきま 2g（旧 JIS B 2406:1991 表1）', () => {
+describe('バックアップリングなしで使えるすきま 2g（JIS B 2401-2:2012 表2）', () => {
   it('表の値（硬さ 70・90 × 圧力の5区分）', () => {
     expect(NO_BACKUP_MAX_CLEARANCE[70]).toEqual([0.35, 0.3, 0.15, 0.07, 0.03])
     expect(NO_BACKUP_MAX_CLEARANCE[90]).toEqual([0.65, 0.6, 0.5, 0.3, 0.17])
@@ -185,7 +199,7 @@ describe('バックアップリングなしで使えるすきま 2g（旧 JIS B 
     NO_BACKUP_MAX_CLEARANCE[70].forEach((value, i) => expect(NO_BACKUP_MAX_CLEARANCE[90][i]).toBeGreaterThan(value))
   })
 
-  it('区分の上端はその区分に含む。25.0 MPa を超えると表の対象外', () => {
+  it('区分の上端はその区分に含む。25.0 MPa を超えると表の区分にない', () => {
     expect(noBackupMaxClearance(70, 0)).toEqual({ status: 'ok', index: 0, max: 0.35 })
     expect(noBackupMaxClearance(70, 4)).toEqual({ status: 'ok', index: 0, max: 0.35 })
     expect(noBackupMaxClearance(70, 4.01)).toEqual({ status: 'ok', index: 1, max: 0.3 })
@@ -213,5 +227,63 @@ describe('バックアップリングなしで使えるすきま 2g（旧 JIS B 
     expect(pressureBandShortLabel(0)).toBe('〜4.0')
     expect(pressureBandShortLabel(1)).toBe('4.0超〜6.3')
     expect(pressureBandShortLabel(4)).toBe('16.0超〜25.0')
+  })
+})
+
+describe('溝幅 b3 の印刷の誤り（JIS B 2401-2:2012 表3 の P48A〜P60 の欄）', () => {
+  it('サイトの値は 11.5（b2 9.0 より広い。同じ太さの G150 グループと同じ）', () => {
+    expect(GROUPS.P5_7.widths[2]).toBe(11.5)
+    expect(GROUPS.P5_7.widths[2]).toBeGreaterThan(GROUPS.P5_7.widths[1])
+    expect(GROUPS.G5_7.widths).toEqual(GROUPS.P5_7.widths)
+    expect(findORing('P', 'P50A')!.group.widths[2]).toBe(11.5)
+  })
+
+  it('P48A〜P60 だけが該当する', () => {
+    const affected = oRingNumbers('P').filter((no) => hasB3Misprint(findORing('P', no)!))
+    expect(affected[0]).toBe(B3_MISPRINT.first)
+    expect(affected.at(-1)).toBe(B3_MISPRINT.last)
+    expect(affected).toEqual(['P48A', 'P50A', 'P52', 'P53', 'P55', 'P56', 'P58', 'P60'])
+    for (const no of ['P48', 'P50', 'P62', 'P150']) expect(hasB3Misprint(findORing('P', no)!), no).toBe(false)
+    expect(hasB3Misprint(findORing('G', 'G150')!)).toBe(false)
+  })
+})
+
+describe('典拠・注記の文言（JIS B 2401-1・-2:2012 の原文と照合済み）', () => {
+  it('数値の出どころは 2012年版の表。「確認中」「未照合」は付けない', () => {
+    expect(SOURCE_NOTE).toContain('JIS B 2401-1:2012 表5・表6')
+    expect(SOURCE_NOTE).toContain('JIS B 2401-2:2012 表3・表4')
+    expect(SOURCE_NOTE).toContain('旧 JIS B 2406:1991 と同じ値')
+    for (const text of [SOURCE_NOTE, E_NOTE, DYNAMIC_MATERIAL_NOTE, D1_TOL_NOTE]) {
+      expect(text).not.toMatch(/確認中|未照合|未確認/)
+      // 2012年版は第1部・第2部に分かれている（「JIS B 2401:2012」という規格はない）
+      expect(text).not.toMatch(/JIS B 2401:/)
+    }
+  })
+
+  it('表の番号', () => {
+    expect(RING_TABLES.P.no).toBe('表5')
+    expect(RING_TABLES.G.no).toBe('表6')
+    expect(HOUSING_TABLES.backup.no).toBe('表2')
+    expect(HOUSING_TABLES.cylinder.no).toBe('表3')
+    expect(HOUSING_TABLES.flat.no).toBe('表4')
+  })
+
+  it('運動用の材料の注意は 2012年版の注記1 の言い方（VMQ・望ましい）', () => {
+    expect(DYNAMIC_MATERIAL_NOTE).toContain('VMQ')
+    expect(DYNAMIC_MATERIAL_NOTE).toContain('機械的強度の小さい材料')
+    expect(DYNAMIC_MATERIAL_NOTE).toContain('望ましい')
+    expect(DYNAMIC_MATERIAL_NOTE).not.toContain('4種C')
+  })
+
+  it('材料による内径の許容差の倍率は ACM・HNBR も含む', () => {
+    expect(D1_TOL_NOTE).toContain('NBR・EPDM の値')
+    expect(D1_TOL_NOTE).toContain('VMQ（旧4種C）・ACM は1.5倍')
+    expect(D1_TOL_NOTE).toContain('FKM（旧4種D）・HNBR は1.2倍')
+  })
+
+  it('E は規格の用語「溝加工深さのばらつき」', () => {
+    expect(E_NOTE).toContain('溝加工深さのばらつき')
+    expect(E_NOTE).toContain('K の最大値と最小値の差')
+    expect(E_NOTE).toContain('表3')
   })
 })

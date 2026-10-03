@@ -1,24 +1,67 @@
 /**
- * Oリングの寸法（JIS B 2401-1:2012）と、ハウジング（溝）の寸法（JIS B 2401-2:2012）[mm]。
+ * Oリングの寸法（JIS B 2401-1:2012 表5・表6）と、ハウジング（溝）の寸法（JIS B 2401-2:2012 表3・表4）[mm]。
  * P: 運動用・固定用 / G: 固定用。太さ d2 と溝の形は、太さのグループごとに決まる。
  *
- * 数値は旧 JIS B 2406:1991（付表1・付表2）の表から取った。2012年版で同じ値かは規格原文で未照合
- * （docs/data-verification.md）。真空フランジ用の V 系列は載せていない。
+ * 数値は旧 JIS B 2406:1991 の表から入力し、2012年版の規格原文（JIS B 2401-1 表5・表6、JIS B 2401-2 表2・表3・表4）と
+ * 全値を照合して同じ値であることを確かめた（docs/data-verification.md）。
+ * 真空フランジ用の V 系列（JIS B 2401-1 表7・JIS B 2401-2 表5）は、このサイトでは扱っていない。
  */
 export type ORingSeries = 'P' | 'G'
 
 /** 数値の出どころの注記（Oリングの典拠の近く・コピー・CSV に出す） */
-export const SOURCE_NOTE = '寸法は旧 JIS B 2406:1991 の表の値です（JIS B 2401:2012 でも同じ値かは規格原文で確認中）。'
+export const SOURCE_NOTE =
+  '寸法は JIS B 2401-1:2012 表5・表6（Oリング）と JIS B 2401-2:2012 表3・表4（溝）の値です（旧 JIS B 2406:1991 と同じ値）。'
 
 /**
- * E の説明。JIS B 2406:1991 付表1 の注(2)「E は寸法 K の最大値と最小値の差で、同軸度の2倍に相当」。
- * 半径方向の寸法 K は、軸心が e ずれると 2e だけ変わるので、軸心のずれ（偏心量）は E/2 まで。
+ * E の説明。JIS B 2401-2:2012 表3 の注 a)「E は，寸法 K の最大値と最小値との差を意味し，同軸度の2倍となっている。」
+ * 箇条4 の記号では E は「溝加工深さのばらつき」、K は「溝加工深さ」。
+ * 半径方向の寸法 K は、軸心が e ずれると 2e だけ変わるので、軸心のずれ（偏心量）は E/2 まで（サイトでの換算）。
  */
 export const E_NOTE =
-  'E は、規格の図の寸法 K の最大値と最小値の差です（同軸度の2倍に相当。旧 JIS B 2406:1991 付表1 の注）。軸心のずれ（偏心量）に直すと E/2 以下です。'
+  'E は溝加工深さのばらつきで、規格の図の溝加工深さ K の最大値と最小値の差です（同軸度の2倍。JIS B 2401-2 表3 の注 a)）。軸心のずれ（偏心量）に直すと E/2 以下です。'
 
-/** 運動用の注意。JIS B 2406:1991 付表1 の備考（2012年版の文言は未照合） */
-export const DYNAMIC_MATERIAL_NOTE = 'ただし 4種C（シリコーン・VMQ）など強度の低い材料は運動用に使わない。'
+/**
+ * 運動用の材料の注意。JIS B 2401-2:2012 表3 の注記1「ただし，P3〜P400でもVMQのような機械的強度の小さい材料は，
+ * 運動用に使用しないことが望ましい。」（推奨。G25〜G300 を運動用に使わないことは同じ注記で言い切っている）
+ */
+export const DYNAMIC_MATERIAL_NOTE =
+  'ただし VMQ（シリコーンゴム）のような機械的強度の小さい材料は、運動用に使用しないことが望ましいとされています。'
+
+/** 典拠の表（JIS B 2401-1:2012）。番号と表題（原文のまま。読点は「、」にしている） */
+export const RING_TABLES: Record<ORingSeries, { no: string; title: string }> = {
+  P: { no: '表5', title: '運動用Oリング（P）の呼び番号、内径及び太さの基準寸法・許容差' },
+  G: { no: '表6', title: '固定用Oリング（G）の呼び番号、内径及び太さの基準寸法・許容差' },
+}
+
+/** 典拠の表（JIS B 2401-2:2012） */
+export const HOUSING_TABLES = {
+  cylinder: { no: '表3', title: '運動用及び固定用（円筒面）のハウジングの形状・寸法' },
+  flat: { no: '表4', title: '固定用（平面）のハウジングの形状・寸法' },
+  backup: { no: '表2', title: 'バックアップリングを使用しない場合の直径隙間（2g）の最大値' },
+} as const
+
+/**
+ * 材料による内径 d1 の許容差。JIS B 2401-1:2012 表5・表6・表7 の注「材料の種類FKM，VMQ，HNBR及びACMのd1許容差は，
+ * VMQ及びACMについては上記許容差の1.5倍とし，FKM及びHNBRについては上記許容差の1.2倍とする。」
+ * 表の値は NBR の許容差（JIS B 2401-2 表3 の注 c)）なので、倍率の付かない NBR・EPDM は表の値のまま。
+ * 旧識別記号（表2 の参考）: VMQ-70 = 4種C、FKM-70 = 4種D。ACM・HNBR・FKM-90 には旧記号がない。
+ */
+export const D1_TOL_NOTE =
+  '内径 d1 の許容差は NBR・EPDM の値です。VMQ（旧4種C）・ACM は1.5倍、FKM（旧4種D）・HNBR は1.2倍になります（JIS B 2401-1 表5・表6 の注）。'
+
+/** DYNAMIC_MATERIAL_NOTE と「G は固定用だけ」の典拠 */
+export const USAGE_SOURCE = 'JIS B 2401-2 表3 の注記1'
+
+/**
+ * JIS B 2401-2:2012 表3 の P48A〜P60 の欄は、溝幅 b3（バックアップリング2個）が「1.5」と印刷されている。
+ * 同じグループの続き（P62〜P150）と、太さが同じ G150〜G300 は 11.5 で、b3 は b2（9.0）より大きいはずなので、
+ * 印刷の誤りとみて 11.5 を載せている（正誤票には載っていない）。
+ */
+export const B3_MISPRINT = {
+  first: 'P48A',
+  last: 'P60',
+  note: 'JIS B 2401-2:2012 表3 の P48A〜P60 の欄は、溝幅 b3（バックアップリング2個）が「1.5」と印刷されていますが、同じ太さの P62〜P150・G150〜G300 の欄は 11.5 で、b3 は b2（9.0）より広いはずなので、印刷の誤りとみて 11.5 としています。',
+} as const
 
 /** Oリングの硬さ（デュロメータ硬さ タイプA） */
 export type ORingHardness = 70 | 90
@@ -29,9 +72,9 @@ export const HARDNESSES: readonly ORingHardness[] = [70, 90]
 export const BACKUP_PRESSURE_LIMITS = [4.0, 6.3, 10.0, 16.0, 25.0] as const
 
 /**
- * バックアップリングを使わないときの、すきま 2g の最大値 [mm]（旧 JIS B 2406:1991 表1）。
- * すきま 2g がこの値を超えるときはバックアップリングを使う。適用は使用圧力 25.0 MPa 以下。
- * 現行 JIS B 2401-2:2012 の表とは未照合（docs/data-verification.md で △）。
+ * バックアップリングを使わないときの、すきま 2g（直径隙間）の最大値 [mm]。
+ * JIS B 2401-2:2012 表2（5.3: 表2 の値以下ならバックアップリングを使わなくてもよく、超えるときは併用する）。
+ * 旧 JIS B 2406:1991 の表1 と同じ値。表の圧力の区分は 25.0 MPa（「16.0 を超え 25.0 以下」）まで。
  */
 export const NO_BACKUP_MAX_CLEARANCE: Record<ORingHardness, readonly number[]> = {
   70: [0.35, 0.3, 0.15, 0.07, 0.03],
@@ -44,18 +87,18 @@ export interface CrossSectionGroup {
   d2Tol: number
   /** D − d（溝の深さの2倍） */
   dDiff: number
-  /** 溝幅 b（バックアップリング 0・1・2 個）。許容差は +0.25/0 */
+  /** 溝幅 b（表3 の b1・b2・b3 = バックアップリング 0・1・2 個）。許容差は +0.25/0 */
   widths: readonly [number, number, number]
-  /** 溝底の角の丸み R の最大値 */
+  /** 溝底の角の丸み R の最大値（表3・表4 の r1） */
   rMax: number
   /** E の最大値（寸法 K の最大値と最小値の差 = 同軸度の2倍。軸心のずれは E/2 まで） */
   eMax: number
-  /** d・D の寸法許容差（d は 0/−、D は +/0）。未確認は null */
+  /** d・D の寸法許容差（d は 0/−、D は +/0。JIS B 2401-2 表3）。null は規定なし（今の7グループはすべて規定あり） */
   diaTol: number | null
-  /** 平面溝（固定用）: 深さ h（±0.05）・溝幅 b（+0.25/0） */
+  /** 平面溝（固定用・表4）: 深さ h（±0.05）・溝幅 b4（+0.25/0） */
   flatDepth: number
   flatWidth: number
-  /** 平面溝: 内圧用の溝外径 − 外圧用の溝内径 */
+  /** 平面溝: 内圧用の溝外径 d7 − 外圧用の溝内径 d8（d8 は呼び番号の数値） */
   flatOffset: number
 }
 
@@ -63,6 +106,7 @@ export const GROUPS = {
   P1_9: { d2: 1.9, d2Tol: 0.08, dDiff: 3, widths: [2.5, 3.9, 5.4], rMax: 0.4, eMax: 0.05, diaTol: 0.05, flatDepth: 1.4, flatWidth: 2.5, flatOffset: 3.2 },
   P2_4: { d2: 2.4, d2Tol: 0.09, dDiff: 4, widths: [3.2, 4.4, 6.0], rMax: 0.4, eMax: 0.05, diaTol: 0.06, flatDepth: 1.8, flatWidth: 3.2, flatOffset: 4 },
   P3_5: { d2: 3.5, d2Tol: 0.1, dDiff: 6, widths: [4.7, 6.0, 7.8], rMax: 0.8, eMax: 0.08, diaTol: 0.08, flatDepth: 2.7, flatWidth: 4.7, flatOffset: 6 },
+  // b3 11.5: 表3 の P48A〜P60 の欄は 1.5 と誤って印刷されている（B3_MISPRINT）
   P5_7: { d2: 5.7, d2Tol: 0.13, dDiff: 10, widths: [7.5, 9.0, 11.5], rMax: 0.8, eMax: 0.1, diaTol: 0.1, flatDepth: 4.6, flatWidth: 7.5, flatOffset: 10 },
   P8_4: { d2: 8.4, d2Tol: 0.15, dDiff: 15, widths: [11.0, 13.0, 17.0], rMax: 1.2, eMax: 0.12, diaTol: 0.1, flatDepth: 6.9, flatWidth: 11.0, flatOffset: 15 },
   G3_1: { d2: 3.1, d2Tol: 0.1, dDiff: 5, widths: [4.1, 5.6, 7.3], rMax: 0.7, eMax: 0.08, diaTol: 0.1, flatDepth: 2.4, flatWidth: 4.1, flatOffset: 5 },
