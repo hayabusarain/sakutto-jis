@@ -128,6 +128,83 @@
   }
 
   /*
+   * 印刷用の早見表（src/pages/print の [data-print-sheet]）。A4 縦1枚に、紙の部分だけを印刷する。
+   * サイトの見出し・ナビ・フッター（main の外側）と広告は出さず、文字の大きさ（ヘッダーの切り替え）も標準に戻す
+   */
+  @page sheet {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  html:has([data-print-sheet]) {
+    font-size: 100%;
+  }
+
+  html:has([data-print-sheet]) body {
+    page: sheet;
+  }
+
+  #root:has([data-print-sheet]) > div {
+    min-height: 0;
+  }
+
+  #root:has([data-print-sheet]) > div > :not(main) {
+    display: none;
+  }
+
+  #root:has([data-print-sheet]) main {
+    max-width: none;
+    padding: 0;
+  }
+
+  body:has([data-print-sheet]) :is(ins.adsbygoogle, .google-auto-placed) {
+    display: none !important;
+  }
+
+  /* 早見表の表。行が多い早見表ほど小さい文字にする（SheetPage の density） */
+  .sheet-table {
+    font-size: 10pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sheet-table th,
+  .sheet-table td {
+    padding: 1.1mm 1.2mm;
+    line-height: 1.25;
+  }
+
+  .sheet-table tbody th,
+  .sheet-table td {
+    white-space: nowrap;
+  }
+
+  .sheet-table thead th {
+    font-size: 7.5pt;
+    white-space: normal;
+  }
+
+  [data-density='loose'] .sheet-table {
+    font-size: 11pt;
+  }
+
+  [data-density='loose'] .sheet-table tbody :is(th, td) {
+    padding-block: 1.6mm;
+  }
+
+  [data-density='compact'] .sheet-table {
+    font-size: 8pt;
+  }
+
+  [data-density='compact'] .sheet-table :is(th, td) {
+    padding: 0.35mm 1mm;
+  }
+
+  [data-density='compact'] .sheet-table thead th {
+    font-size: 6.5pt;
+  }
+
+  /*
    * 濃い地に白い文字の部品（結果のパネル・選んでいるボタンなど）。
    * ブラウザの印刷は既定で背景色を省くため、そのままでは白い文字が薄い灰色になり、
    * 選んだボタンが選んでいないように見える。地の色ごと印刷する。

@@ -5,6 +5,7 @@ import { Link } from '../router/Link'
 import { standardLabel } from '../standards'
 import { CATEGORY_LABELS, type ToolDefinition } from '../tools/registry'
 import { ChipNav, type ChipLink } from './content/PageHeader'
+import { sheetsForTool } from './print/printPages'
 import { SCREW_INDEX_META, SCREW_PAGES } from './screws/screwPages'
 import { tablePagesOf } from './tables/tablePages'
 
@@ -29,6 +30,7 @@ function relatedPages(toolPath: string): { title: string; links: ChipLink[] } | 
 export function ToolPage({ tool }: { tool: ToolDefinition }) {
   const { component: ToolComponent, guide: Guide, icon: Icon } = tool
   const related = relatedPages(tool.path)
+  const sheets = sheetsForTool(tool.path)
 
   return (
     <>
@@ -69,6 +71,19 @@ export function ToolPage({ tool }: { tool: ToolDefinition }) {
             {related.title}
           </h2>
           <ChipNav label={related.title} className="mt-2" links={related.links} />
+        </section>
+      )}
+
+      {sheets.length > 0 && (
+        <section className="mt-4 print:hidden" aria-labelledby="print-sheets">
+          <h2 id="print-sheets" className="text-xs font-bold tracking-wider text-zinc-600">
+            印刷用 早見表（A4・QR コード付き）
+          </h2>
+          <ChipNav
+            label="印刷用 早見表"
+            className="mt-2"
+            links={sheets.map((sheet) => ({ to: sheet.path, label: sheet.label }))}
+          />
         </section>
       )}
 
