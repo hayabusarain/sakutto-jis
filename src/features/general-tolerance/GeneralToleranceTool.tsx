@@ -27,14 +27,7 @@ import {
   TABLES,
   type ToleranceKind,
 } from './calc'
-import {
-  CLASS_NAMES,
-  MIN_SIZE,
-  TOLERANCE_CLASSES,
-  VERIFICATION_NOTE,
-  type SizeRange,
-  type ToleranceClass,
-} from './data'
+import { CLASS_NAMES, MIN_SIZE, TOLERANCE_CLASSES, type SizeRange, type ToleranceClass } from './data'
 import { DEFAULT_INPUT, isGeneralToleranceInput, normalizeInput, STORAGE_KEY } from './state'
 
 const KIND_OPTIONS: { value: ToleranceKind; label: string }[] = [
@@ -50,8 +43,8 @@ const KIND_TITLES: Record<ToleranceKind, string> = {
 }
 
 const KIND_HINTS: Record<ToleranceKind, string> = {
-  linear: '穴位置・外形・段差など、ふつうの長さ寸法。',
-  chamfer: 'C1・R2 などのかどの面取り・丸みの寸法。',
+  linear: '穴位置・外形・段差・円弧の半径など、ふつうの長さ寸法。',
+  chamfer: 'C1・R2 などの、かどの面取り・かどの丸みの寸法（円弧の半径 R50 などは「長さ」）。',
   angle: '角度の許容差は、角度をはさむ短い方の辺の長さで決まります。',
 }
 
@@ -84,16 +77,21 @@ function ClassPicker({ value, onChange }: { value: ToleranceClass; onChange: (va
   )
 }
 
-const EXPORT_NOTE = `典拠: ${standardLabel('JIS B 0405')}。${VERIFICATION_NOTE}（サクッとJIS）`
+/** ISO との関係（JIS B 0405 のまえがき: ISO 2768-1:1989 を技術的内容を変更せずに翻訳） */
+const ISO_SUFFIX = '準拠（ISO 2768-1:1989 と同じ値）'
 
-/** 値の確認状況の注記（全表の値が規格原文で未照合のため） */
-function VerificationNote({ className = '' }: { className?: string }) {
-  return (
-    <p className={`text-xs leading-relaxed text-zinc-600 ${className}`}>
-      <span className="font-bold text-orange-700">※</span> {VERIFICATION_NOTE.replace(/^※\s*/, '')}
-    </p>
-  )
+/** 書き出し（コピー・CSV）の注記。典拠は表の番号と表題まで */
+function exportNote(kind: ToleranceKind): string {
+  const { no, title } = TABLES[kind].source
+  return `典拠: ${standardLabel('JIS B 0405')} ${no} ${title}（ISO 2768-1:1989 と同じ値）。（サクッとJIS）`
 }
+
+/**
+ * 数値の書かれていない直角の扱い。JIS B 0405 の 1.(b) と JIS B 0419:1991 の 6.1
+ * （JIS B 0419 を指示したときは、暗示された直角に JIS B 0405 の角度の普通公差を適用しない）
+ */
+const IMPLIED_RIGHT_ANGLE_NOTE =
+  '角度の数値が書かれていない直角（90°）は、図面に JIS B 0419 の指示がなければこの表を使います。「JIS B 0419-mK」のように JIS B 0419 も指示されているときは、その直角には JIS B 0405 の角度の普通公差は使わず、JIS B 0419 の直角度の普通公差によります（JIS B 0419:1991 の 6.1）。'
 
 /** 図面の注記だけをコピーする（URL は付けない） */
 function NoteCopyButton({ text }: { text: string }) {
@@ -135,7 +133,9 @@ function ToleranceTable({
   const { ranges, tolerances } = TABLES[kind]
   const indexed = ranges.map((range, index) => ({ range, index }))
   const unit = kind === 'angle' ? '' : ' [mm]'
-  const firstHeader = kind === 'angle' ? '短い方の辺の長さ [mm]' : '寸法の区分 [mm]'
+  const { no } = TABLES[kind].source
+  // 書き出しの見出しは規格の表の言い方（基準寸法の区分・対象とする角度の短い方の辺の長さの区分）
+  const firstHeader = kind === 'angle' ? '対象とする角度の短い方の辺の長さの区分 [mm]' : '基準寸法の区分 [mm]'
   const cellText = (index: number, c: ToleranceClass) => {
     const value = tolerances[c][index]
     return value === null ? '—' : formatTolerance(kind, value)
@@ -168,13 +168,16 @@ function ToleranceTable({
   return (
     <section className="border-t border-zinc-200 first:border-t-0">
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3">
-        <h3 className="text-sm font-bold text-zinc-800">{KIND_TITLES[kind]}</h3>
+        <h3 className="text-sm font-bold text-zinc-800">
+          {KIND_TITLES[kind]}
+          <span className="ml-1.5 text-xs font-normal text-zinc-500">（{no}）</span>
+        </h3>
         <TableExport
-          title={`普通公差 ${KIND_TITLES[kind]}の許容差${unit}（JIS B 0405）`}
+          title={`普通公差 ${KIND_TITLES[kind]}の許容差${unit}（JIS B 0405 ${no}）`}
           filename={`jis-b-0405-${kind}`}
           headers={[firstHeader, ...TOLERANCE_CLASSES.map((c) => `${c} ${CLASS_NAMES[c]}`)]}
           rows={indexed.map((row) => [row.range.label, ...TOLERANCE_CLASSES.map((c) => cellText(row.index, c))])}
-          note={EXPORT_NOTE}
+          note={exportNote(kind)}
         />
       </div>
       <div className="mt-2">
@@ -231,6 +234,8 @@ export function GeneralToleranceTool() {
   const sizeText = size === null ? '' : size.toFixed(Math.min(sizeDecimals, 6))
   const unitText = isAngle ? '' : 'mm'
   const note = drawingNote(cls)
+  const source = TABLES[kind].source
+  const isRightAngle = isAngle && angleValid && Math.abs(angle - 90) < 1e-9
   const classLabel = `${CLASS_NAMES[cls]} ${cls}`
   const nominalText = isAngle ? (angleValid ? `${trim(angle, 4)}°` : '') : `${sizeText} mm`
 
@@ -239,9 +244,10 @@ export function GeneralToleranceTool() {
   else if (found?.status === 'below')
     message = `${MIN_SIZE} mm 未満の寸法には普通公差の表を使わず、寸法のあとに許容差を個々に指示します。`
   else if (found?.status === 'above')
-    message = '4000 mm を超える長さ寸法は、普通公差の表にありません。許容差を個々に指示してください。'
+    message =
+      '4000 mm を超える長さ寸法は、普通公差の表（表1）にありません。図面に許容差を個々に書いておくと確実です。'
   else if (found?.status === 'none' && range)
-    message = `${classLabel} には「${range.label}」の区分の許容差がありません（表の「—」）。ほかの等級にするか、許容差を個々に指示してください。`
+    message = `${classLabel} には「${range.label}」の区分の許容差がありません（${source.no} の「—」）。ほかの等級を使うか、許容差を個々に書いておくと確実です。`
   else if (ok && isAngle)
     message = selectedAngle
       ? `${nominalText} → ${selectedAngle.lower} 〜 ${selectedAngle.upper}（短い方の辺 ${sizeText} mm：${range?.label}）`
@@ -258,8 +264,7 @@ export function GeneralToleranceTool() {
         selected.lower !== '—' ? `範囲: ${selected.lower} 〜 ${selected.upper}${unitText ? ` ${unitText}` : ''}` : '',
         `区分: ${range?.label}${isAngle ? '（短い方の辺の長さ）' : ''}`,
         `図面の注記: ${note}`,
-        `典拠: ${standardLabel('JIS B 0405')}`,
-        VERIFICATION_NOTE,
+        `典拠: ${standardLabel('JIS B 0405')} ${source.no} ${source.title}（ISO 2768-1:1989 と同じ値）`,
         '（サクッとJIS）',
       ]
     : []
@@ -344,6 +349,8 @@ export function GeneralToleranceTool() {
           </dl>
         )}
 
+        {isRightAngle && <p className="mt-2 text-xs leading-relaxed text-zinc-600">{IMPLIED_RIGHT_ANGLE_NOTE}</p>}
+
         {size !== null && size > 0 && highlightIndex !== null && isOnBoundary(kind, size) && (
           <p className="mt-2 text-xs leading-relaxed text-zinc-600">
             区分の境目です。{sizeText} mm ちょうどは「{range?.label}」に入ります（「〜以下」の区分に含む）。
@@ -389,18 +396,20 @@ export function GeneralToleranceTool() {
         <div className="mt-4 rounded-md border border-zinc-200 bg-zinc-50 p-3">
           <p className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-zinc-500">
             <PenLine className="size-3.5" aria-hidden />
-            図面の注記（表題欄の近くに書く）
+            図面の注記（表題欄の中か、その近くに書く）
           </p>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <code className="num text-base font-semibold text-zinc-900">{note}</code>
             <NoteCopyButton text={note} />
           </div>
-          <p className="mt-1 text-xs text-zinc-500">長さ・面取り・角度に、同じ等級の普通公差が適用されます。</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            長さ・面取り・角度に、同じ等級の普通公差が適用されます。規格の例は「{note}」の形で、「普通公差 {note}
+            」と書くことも多いです。
+          </p>
         </div>
 
-        <div className="mt-3 space-y-1">
-          <Citation code="JIS B 0405" suffix="の許容差（ISO 2768-1 と同じ値）" />
-          <VerificationNote />
+        <div className="mt-3">
+          <Citation code="JIS B 0405" detail={`${source.no} ${source.title}`} suffix={ISO_SUFFIX} />
         </div>
 
         <div className="mt-4">
@@ -412,6 +421,7 @@ export function GeneralToleranceTool() {
             {isAngle ? (
               <>
                 <p>角度は、角度をはさむ2辺のうち短い方の辺の長さで区分を選びます。</p>
+                <p>{IMPLIED_RIGHT_ANGLE_NOTE}</p>
                 <Formula>最大 = 角度 + 許容差</Formula>
                 <Formula>最小 = 角度 − 許容差（1° = 60′）</Formula>
                 {selectedAngle && ok && (
@@ -447,8 +457,8 @@ export function GeneralToleranceTool() {
               ]}
             />
             <p>
-              {MIN_SIZE} mm 未満の寸法は普通公差の対象外で、寸法のあとに許容差を個々に指示します。長さ寸法の表は 4000 mm
-              までです。
+              {MIN_SIZE} mm 未満の長さ寸法・面取り部分の寸法は普通公差の対象外で、寸法のあとに許容差を個々に指示します（表1・表2
+              の注）。長さ寸法の表（表1）は 4000 mm までです。
             </p>
           </FormulaInfo>
         </div>
@@ -459,11 +469,13 @@ export function GeneralToleranceTool() {
           単位: mm（角度の許容差は度・分）。区分の「30超〜120」は「30 を超え 120 以下」、「〜10」は「10
           以下」、「6超」は「6 を超えるもの」の意味です。入力した寸法の区分の行と、選んだ等級を強調しています。
         </p>
-        <VerificationNote className="px-4 pt-1" />
         <div className="mt-1">
           {(['linear', 'chamfer', 'angle'] as const).map((k) => (
             <ToleranceTable key={k} kind={k} highlightIndex={k === kind ? highlightIndex : null} cls={cls} />
           ))}
+        </div>
+        <div className="border-t border-zinc-200 p-4">
+          <Citation code="JIS B 0405" detail="表1・表2・表3" suffix={ISO_SUFFIX} />
         </div>
       </Card>
 
