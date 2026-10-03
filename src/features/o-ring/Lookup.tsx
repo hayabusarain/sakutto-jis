@@ -162,7 +162,8 @@ export function RingLookup({ d1, d2, selected, onPick }: RingLookupProps) {
       {result.d2Far && (
         <p className="mb-2 rounded-sm border border-orange-300 bg-orange-50 px-2 py-1.5 text-xs font-semibold text-orange-900">
           太さ {trim(d2)} は P・G の太さ（{CROSS_SECTIONS.map((value) => trim(value)).join('・')}）から離れています。
-          つぶれ・膨潤のほか、V 系列（真空フランジ用）や JIS 以外（インチ系の AS568 など）のOリングの可能性があります。
+          つぶれ・膨潤のほか、このサイトで扱っていない V 系列（真空フランジ用。太さ 4・6・10 mm）や JIS 以外（インチ系の
+          AS568 など）のOリングの可能性があります。
         </p>
       )}
       <p className={headingClass}>

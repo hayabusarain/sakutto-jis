@@ -6,11 +6,22 @@ import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { TableExport } from '../../components/ui/TableExport'
 import { FLAT_DEPTH_TOL, grooveDepth } from '../../features/o-ring/calc'
-import { DYNAMIC_MATERIAL_NOTE, E_NOTE, SOURCE_NOTE, type ORingSeries } from '../../features/o-ring/data'
+import {
+  B3_MISPRINT,
+  D1_TOL_NOTE,
+  DYNAMIC_MATERIAL_NOTE,
+  E_NOTE,
+  HOUSING_TABLES,
+  RING_TABLES,
+  SOURCE_NOTE,
+  USAGE_SOURCE,
+  type ORingSeries,
+} from '../../features/o-ring/data'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { Link } from '../../router/Link'
 import { SITE } from '../../site'
+import { standardLabel } from '../../standards'
 import { ActionLink, ChipNav, PageHeader, TableNote } from '../content/PageHeader'
 import { oRingGrooveRows, oRingGroupRanges, type ORingGroupRange, type ORingTableRow } from './tableData'
 import { ORING_TABLE_PAGES, ORING_TOOL_PATH } from './tablePages'
@@ -21,12 +32,12 @@ const rowLinkClass =
 const SERIES_TEXT: Record<ORingSeries, { use: string; note: string; example: string }> = {
   P: {
     use: '運動用・固定用',
-    note: `P はピストン・ロッドなどの運動用にも、固定用にも使えます（${DYNAMIC_MATERIAL_NOTE.replace(/。$/, '')}）。`,
+    note: `P はピストン・ロッドなどの運動用にも、固定用にも使えます。${DYNAMIC_MATERIAL_NOTE.replace(/。$/, '')}（${USAGE_SOURCE}）。`,
     example: 'P20',
   },
   G: {
     use: '固定用',
-    note: 'G は固定用です。往復運動などの運動用には使えません。',
+    note: `G は固定用です。往復運動などの運動用には使えません（${USAGE_SOURCE}）。`,
     example: 'G50',
   },
 }
@@ -112,6 +123,8 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
   ])
 
   const exampleDepth = grooveDepth(example.ring)
+  const ringTable = RING_TABLES[series]
+  const { cylinder, flat } = HOUSING_TABLES
 
   return (
     <>
@@ -124,7 +137,7 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
         lead={
           <>
             <p>
-              JIS B 2401 のOリング {series} 系列（{text.use}）{numbers} の {rows.length}{' '}
+              JIS B 2401-1・-2 のOリング {series} 系列（{text.use}）{numbers} の {rows.length}{' '}
               サイズについて、Oリングの内径・太さと、ハウジング（溝）の寸法をまとめた一覧表です。円筒面（ピストン・ロッド）の溝の d・D と、平面（フランジ面など）の溝の径を載せています。
             </p>
             <p>{text.note}つぶし率・充てん率や溝の図は、ツールで確認できます。</p>
@@ -161,8 +174,12 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
             />
           </div>
           <div className="space-y-1 p-4">
-            <Citation code="JIS B 2401-2" suffix="のハウジングの形状・寸法" />
+            <Citation
+              code="JIS B 2401-2"
+              detail={`${cylinder.no} ${cylinder.title}、${flat.no} ${flat.title}`}
+            />
             <p className="text-xs leading-relaxed text-zinc-600">{SOURCE_NOTE}</p>
+            {series === 'P' && <p className="text-xs leading-relaxed text-zinc-600">{B3_MISPRINT.note}</p>}
           </div>
         </Card>
 
@@ -174,11 +191,11 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
           </TableNote>
           <div className="flex justify-end px-4 pt-2">
             <TableExport
-              title={`Oリング ${series} 系列 寸法表と溝寸法（JIS B 2401）`}
+              title={`Oリング ${series} 系列 寸法表と溝寸法（JIS B 2401-1・-2）`}
               filename={`o-ring_${series}`}
               headers={exportHeaders}
               rows={exportRows}
-              note={`典拠: JIS B 2401-1:2012 / JIS B 2401-2:2012。${SOURCE_NOTE}${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
+              note={`典拠: ${standardLabel('JIS B 2401-1')} ${ringTable.no} / ${standardLabel('JIS B 2401-2')} ${cylinder.no}・${flat.no}。${SOURCE_NOTE}${D1_TOL_NOTE}${series === 'P' ? B3_MISPRINT.note : ''}${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`}
             />
           </div>
           <div className="mt-2">
@@ -191,8 +208,8 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
             />
           </div>
           <div className="space-y-1 p-4">
-            <Citation code="JIS B 2401-1" suffix="のOリング寸法" />
-            <Citation code="JIS B 2401-2" suffix="のハウジング寸法（円筒面・平面）" />
+            <Citation code="JIS B 2401-1" detail={`${ringTable.no} ${ringTable.title}`} />
+            <Citation code="JIS B 2401-2" detail={`${cylinder.no}（円筒面）・${flat.no}（平面）`} suffix="のハウジング寸法" />
             <p className="text-xs leading-relaxed text-zinc-600">{SOURCE_NOTE}</p>
           </div>
         </Card>
@@ -205,10 +222,7 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
             <li>
               平面の溝（固定用）は、内側から圧力がかかる内圧用は溝の外径、外側から圧力がかかる外圧用（真空など）は溝の内径が規格で決まっています。
             </li>
-            <li>
-              内径 d1 の許容差は 1種〜3種の値です。4種C（シリコーンゴム・VMQ）は 1.5 倍、4種D（フッ素ゴム・FKM）は 1.2
-              倍になります（旧 JIS B 2406:1991 の注による）。
-            </li>
+            <li>{D1_TOL_NOTE}</li>
             {aNumbers.length > 0 && (
               <li>
                 {aNumbers.join('・')} は、数字が同じ番号（{aNumbers.map((no) => no.slice(0, -1)).join('・')}
@@ -232,8 +246,9 @@ export function ORingTablePage({ series }: { series: ORingSeries }) {
               </Formula>
               <FormulaLegend
                 items={[
-                  ['d', '呼び番号の数値（円筒面の溝の d・外圧用の溝内径）'],
-                  ['D − d', '太さのグループごとの値（JIS B 2401-2）'],
+                  ['d', '呼び番号の数値（円筒面の溝の d = 表3 の d3・d5、外圧用の溝内径 = 表4 の d8）'],
+                  ['D', '表3 の d4・d6'],
+                  ['D − d', '太さのグループごとの値（JIS B 2401-2 表3）'],
                 ]}
               />
             </FormulaInfo>

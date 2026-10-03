@@ -158,7 +158,7 @@ describe('grooveCallout（図面指示）', () => {
       '溝底径 φ20 0/-0.06',
       '溝幅 3.2 +0.25/0',
       '溝底の角 R0.4以下',
-      '溝の振れ E（K の最大−最小）0.05以下（軸心のずれ 0.025以下）',
+      '溝加工深さのばらつき E（K の最大−最小）0.05以下（軸心のずれ 0.025以下）',
       'Oリング P20（内径 19.8 × 太さ 2.4）',
     ])
   })
@@ -170,7 +170,7 @@ describe('grooveCallout（図面指示）', () => {
     expect(lines[2]).toBe('溝底径 φ55 +0.1/0')
     expect(lines[3]).toBe('溝幅 7.3 +0.25/0')
     // E 0.08 は K の最大−最小。軸心のずれ（偏心量）はその半分の 0.04 まで
-    expect(lines[5]).toBe('溝の振れ E（K の最大−最小）0.08以下（軸心のずれ 0.04以下）')
+    expect(lines[5]).toBe('溝加工深さのばらつき E（K の最大−最小）0.08以下（軸心のずれ 0.04以下）')
     expect(lines.some((line) => line.includes('偏心量'))).toBe(false)
   })
 
@@ -195,10 +195,17 @@ describe('oRingExportTable（表の書き出し）', () => {
     expect(table.headers).toHaveLength(table.rows[0].length)
     const p20 = table.rows.find((row) => row[0] === 'P20')!
     expect(p20).toEqual(['P20', 19.8, 0.22, 2.4, 0.09, 20, 0, -0.06, 24, 0.06, 0, 3.2, 4.4, 6, 0.4, 0.05])
-    expect(table.note).toContain('JIS B 2401-2:2012')
-    // 数値の出どころ（旧 JIS B 2406:1991 の表）と E の定義も書き出す
-    expect(table.note).toContain('旧 JIS B 2406:1991')
+    // 典拠は表の番号まで（P は JIS B 2401-1 表5、円筒面の溝は JIS B 2401-2 表3）
+    expect(table.note).toContain('JIS B 2401-1:2012 表5')
+    expect(table.note).toContain('JIS B 2401-2:2012 表3')
+    // 旧 JIS B 2406:1991 と同じ値であること、材料による倍率、E の定義、表3 の b3 の印刷の誤りも書き出す
+    expect(table.note).toContain('旧 JIS B 2406:1991 と同じ値')
+    expect(table.note).toContain('HNBR は1.2倍')
     expect(table.note).toContain('K の最大値と最小値の差')
+    expect(table.note).toContain('P48A〜P60')
+    expect(table.note).not.toContain('確認中')
+    expect(table.note.endsWith('サクッとJIS')).toBe(true)
+    expect(table.title).toContain('JIS B 2401-1・-2')
   })
 
   it('平面: 外圧用の溝内径・内圧用の溝外径・深さと許容差', () => {
@@ -207,5 +214,9 @@ describe('oRingExportTable（表の書き出し）', () => {
     expect(table.headers).toHaveLength(table.rows[0].length)
     const g25 = table.rows[0]
     expect(g25).toEqual(['G25', 24.4, 0.25, 3.1, 0.1, 25, 30, 2.4, 0.05, 4.1, 0.7])
+    // G は表6、平面の溝は表4。b3 の印刷の誤りは P の円筒面だけの話なので書かない
+    expect(table.note).toContain('JIS B 2401-1:2012 表6')
+    expect(table.note).toContain('JIS B 2401-2:2012 表4')
+    expect(table.note).not.toContain('P48A〜P60')
   })
 })

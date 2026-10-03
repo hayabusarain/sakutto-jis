@@ -2,17 +2,18 @@ import { Citation } from '../../components/Citation'
 import { FormulaInfo } from '../../components/ui/FormulaInfo'
 import { fixed } from '../../lib/format'
 import { pressureBandLabel, pressureBandShortLabel } from './calc'
-import { BACKUP_PRESSURE_LIMITS, HARDNESSES, NO_BACKUP_MAX_CLEARANCE } from './data'
+import { BACKUP_PRESSURE_LIMITS, HARDNESSES, HOUSING_TABLES, NO_BACKUP_MAX_CLEARANCE } from './data'
 
 /**
  * バックアップリングが要るかの目安（すきま 2g の最大値の表）。
- * 値は旧 JIS B 2406:1991 の表1。現行 JIS B 2401-2:2012 の表とは未照合なので、その旨を出す。
+ * 値は JIS B 2401-2:2012 表2（旧 JIS B 2406:1991 の表1 と同じ値）。
  */
 export function BackupClearanceInfo() {
   return (
     <FormulaInfo title="バックアップリングが要るかの目安（すきま 2g）">
       <p>
-        バックアップリングを入れずに使える、すきま 2g の最大値です。すきま 2g がこの値を超えるときは、バックアップリングを使います。
+        バックアップリングを入れずに使える、すきま 2g（規格の用語では直径隙間）の最大値です。すきま 2g
+        がこの値以下ならバックアップリングなしでもよく、超えるときはバックアップリングを併用します。
       </p>
       <table className="w-full text-xs">
         <caption className="sr-only">バックアップリングなしで使えるすきま 2g の最大値（mm）</caption>
@@ -49,10 +50,13 @@ export function BackupClearanceInfo() {
         軸径 d）。硬さはデュロメータ硬さ（タイプA）で、材料記号の数字（NBR-70-1 なら 70、NBR-90 なら 90）にあたります。
       </p>
       <p className="text-xs">
-        使用圧力が {fixed(BACKUP_PRESSURE_LIMITS[BACKUP_PRESSURE_LIMITS.length - 1], 1)} MPa
-        を超えるときは、この表と溝の寸法の表（旧 JIS B 2406 の適用範囲）の対象外です。
+        表の圧力の区分は {fixed(BACKUP_PRESSURE_LIMITS[BACKUP_PRESSURE_LIMITS.length - 1], 1)} MPa
+        までです。これを超える圧力では、バックアップリングの要否をメーカーの資料などで確かめてください。
       </p>
-      <Citation code="JIS B 2406" detail="表1" suffix="の値（現行 JIS B 2401-2:2012 の表とは未照合）" />
+      <Citation
+        code="JIS B 2401-2"
+        detail={`${HOUSING_TABLES.backup.no} ${HOUSING_TABLES.backup.title}（5.3 バックアップリングの要否判断）`}
+      />
     </FormulaInfo>
   )
 }

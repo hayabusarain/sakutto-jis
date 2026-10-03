@@ -3,7 +3,7 @@ import { FLAT_DEPTH_TOL, flatGroove, squeeze, type FlatPressure, type HousingTyp
 
 /**
  * Oリング溝の DXF（R12・単位 mm・1:1）。
- * 数値はすべて JIS B 2401-2 の表（data.ts。旧 JIS B 2406:1991 の表の値）から。溝底の角は規格が R の最大値しか決めていないので、
+ * 数値はすべて JIS B 2401-2:2012 の表3・表4（data.ts）から。溝底の角は規格が R の最大値しか決めていないので、
  * 角は描かずに「R… MAX」の注記にする。文字は ASCII のみ（%%c = φ、%%p = ±）。
  */
 
@@ -103,7 +103,7 @@ export function cylinderGrooveDxf(ring: ORing, housing: HousingType, backup: 0 |
     `O-RING GROOVE, CYLINDRICAL, ${housing === 'piston' ? 'PISTON' : 'ROD'} TYPE  JIS B 2401-2  ${ring.no}  BACKUP RING ${backup}`,
     `O-RING ${ring.no} (JIS B 2401-1)  d1 ${n(ring.d1)} %%p${n(ring.d1Tol)}  d2 ${n(group.d2)} %%p${n(group.d2Tol)}`,
     `b ${n(b)} +0.25/0   R${n(group.rMax)} MAX (GROOVE BOTTOM CORNERS)`,
-    // E は K の最大−最小（旧 JIS B 2406:1991 付表1 の注）。軸心のずれはその半分まで
+    // E は溝加工深さ K の最大−最小（JIS B 2401-2 表3 の注 a)）。軸心のずれはその半分まで
     `E ${n(group.eMax)} MAX (K MAX-MIN, AXIS OFFSET ${n(group.eMax / 2)} MAX)`,
     `SQUEEZE ${squeeze(group.d2, depth).toFixed(1)}% (NOMINAL)   CIRCLE: O-RING SECTION, FREE STATE (REF)`,
     'REFERENCE ONLY - CHECK AGAINST JIS B 2401-2 BEFORE USE (SAKUTTO JIS)',
