@@ -51,7 +51,15 @@ import { ExportInAside, ExportInBody } from './ExportSlot'
 import { FlangePreview } from './FlangePreview'
 import { IDENTIFY_CARD_ID, IdentifyCard } from './IdentifyCard'
 import { DEFAULT_INPUT, isFlangeInput, normalizeFlangeInput, THREAD_CHOICES } from './input'
-import { BOLT_TYPE_LABELS, conditionsText, detailSummary, markedText, NUT_LABELS, sizeLabel } from './labels'
+import {
+  BOLT_TYPE_LABELS,
+  conditionsText,
+  detailSummary,
+  markedText,
+  NUT_LABELS,
+  otherSpannerText,
+  sizeLabel,
+} from './labels'
 import { Marked, UnverifiedLegend } from './Unverified'
 
 const RESULT_CARD_ID = 'flange-result'
@@ -133,8 +141,6 @@ export function FlangeBoltTool() {
 
   const nuts = input.type === 'stud' ? 2 : 1
   const spanner = spannerSize(row.bolt, input.nut)
-  const otherNut = input.nut === 'style1' ? 'ja1' : 'style1'
-  const otherSpanner = spannerSize(row.bolt, otherNut)
   const rowUnverified = isRowUnverified(input.pressure, row.size)
   const faceHeight = raisedFaceHeight(row.size)
   const tUnverified = isUnverified(input.pressure, row.size, 't')
@@ -155,6 +161,8 @@ export function FlangeBoltTool() {
   const boltName = BOLT_TYPE_LABELS[input.type]
   const spec = result?.length ? `M${row.bolt} × ${result.length}` : `M${row.bolt}`
   const spannerUse = input.type === 'stud' ? '両側のナット用' : '頭側・ナット側'
+  // もう一方の規格（JIS本体 ⇔ 旧JIS）の二面幅が違うときは並べて出す（M10・M12・M22。現場のスパナは旧JIS のこともある）
+  const otherSpanner = otherSpannerText(row.bolt, input.nut)
 
   const selectFlange = (pressure: PressureClass, size: string) => {
     setSizeNotice(null)
@@ -170,7 +178,9 @@ export function FlangeBoltTool() {
   const copyText = [
     `【フランジボルト】JIS ${input.pressure} ${row.size}`,
     `${boltName} ${markedText(spec, tUnverified && Boolean(result?.length))}　${row.n}本（ナット ${row.n * nuts}個${input.washers ? `・座金 ${row.n * input.washers}枚` : ''}）`,
-    spanner ? `スパナ ${spanner} mm × 2（${spannerUse}・${NUT_LABELS[input.nut]}）` : '',
+    spanner
+      ? `スパナ ${spanner} mm × 2（${spannerUse}・${NUT_LABELS[input.nut]}${otherSpanner ? `。${otherSpanner} mm` : ''}）`
+      : '',
     result
       ? `必要長さ ${trim(result.required)} mm（ガスケット ${trim(gasket ?? 0)} mm・突き出し ${input.threads}山${
           t2Blank ? '' : `・相手側 ${trim(t2)} mm`
@@ -421,16 +431,8 @@ export function FlangeBoltTool() {
           <ResultItem
             label="スパナ（二面幅）"
             value={spanner}
-            unit="mm"
-            note={
-              spanner === undefined
-                ? undefined
-                : `${spannerUse}に2本（${NUT_LABELS[input.nut]}）${
-                    otherSpanner !== undefined && otherSpanner !== spanner
-                      ? `。${NUT_LABELS[otherNut]}なら ${otherSpanner} mm`
-                      : ''
-                  }`
-            }
+            unit={otherSpanner ? `mm（${otherSpanner}）` : 'mm'}
+            note={spanner === undefined ? undefined : `${spannerUse}に2本（${NUT_LABELS[input.nut]}）`}
           />
           <ResultItem
             label="ナットからの実際の突き出し"

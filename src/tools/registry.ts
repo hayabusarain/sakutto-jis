@@ -64,7 +64,7 @@ export interface ToolDefinition {
 export const TOOLS: readonly ToolDefinition[] = [
   {
     path: '/flange-bolt-length',
-    seoTitle: 'JISフランジ寸法表（5K・10K・16K・20K）とボルト長さ計算',
+    seoTitle: 'JISフランジのボルト長さ計算と寸法（ガスケット厚から・DXF）',
     name: 'JISフランジ＆ボルト長さ',
     navLabel: 'フランジ・ボルト長',
     description:
@@ -77,7 +77,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   },
   {
     path: '/steel-pipe',
-    seoTitle: '鋼管寸法表 SGP・Sch40・Sch80（外径・厚さ・重量）',
+    seoTitle: '鋼管の重量計算と寸法（SGP・Sch40・Sch80・外径の実測から判別）',
     name: '鋼管の寸法・重量（SGP・Sch）',
     navLabel: '鋼管寸法・重量',
     description:
@@ -90,7 +90,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   },
   {
     path: '/pipe-thread',
-    seoTitle: '管用ねじ寸法表と下穴径（R・Rc・Rp・G／PT・PF）',
+    seoTitle: '管用ねじの下穴径と寸法表（R・Rc・Rp・G／PT・PF）',
     name: '管用ねじ（R・Rc・Rp・G）寸法と下穴径',
     navLabel: '管用ねじ',
     description:
@@ -103,7 +103,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   },
   {
     path: '/tap-drill',
-    seoTitle: 'ねじ下穴径 早見表と計算（M1〜M68 並目・細目）',
+    seoTitle: 'ねじ下穴径の計算と早見表（M1〜M68 並目・細目・ひっかかり率）',
     name: 'ねじ下穴径（メートルねじ）',
     navLabel: 'ねじ下穴径',
     description:
@@ -116,7 +116,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   },
   {
     path: '/bolt-size',
-    seoTitle: 'ボルト・ナット二面幅と座ぐり寸法表（M3〜M36）',
+    seoTitle: 'ボルト・ナットの二面幅と座ぐり寸法（スパナから逆引き・旧JIS・M3〜M36）',
     name: 'ボルト・ナットの二面幅と座ぐり寸法',
     navLabel: '二面幅・座ぐり',
     description:
@@ -129,7 +129,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   },
   {
     path: '/o-ring',
-    seoTitle: 'Oリング寸法表と溝寸法（JIS B 2401 P・G）',
+    seoTitle: 'Oリング溝寸法とつぶし率の計算（JIS B 2401 P・G・実寸から呼び番号）',
     name: 'Oリング・Oリング溝寸法',
     navLabel: 'Oリング・溝',
     description:
@@ -155,7 +155,7 @@ export const TOOLS: readonly ToolDefinition[] = [
   },
   {
     path: '/general-tolerance',
-    seoTitle: '普通公差 JIS B 0405 早見表と計算（f・m・c・v）',
+    seoTitle: '普通公差の計算と早見表（JIS B 0405 f・m・c・v）',
     name: '普通公差（JIS B 0405）',
     navLabel: '普通公差',
     description:

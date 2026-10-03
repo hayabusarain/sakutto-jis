@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef, useState } from 'react'
 import { Breadcrumb } from '../components/layout/Breadcrumb'
 import { SourceNote } from '../components/SourceNote'
 import { ShareButton } from '../components/ui/ShareButton'
@@ -5,6 +6,8 @@ import { Link } from '../router/Link'
 import { standardLabel } from '../standards'
 import { CATEGORY_LABELS, type ToolDefinition } from '../tools/registry'
 import { ChipNav, type ChipLink } from './content/PageHeader'
+import { NoteLinks } from './notes/NoteLayout'
+import { NOTES_INDEX_META, notesForTool } from './notes/notePages'
 import { SCREW_INDEX_META, SCREW_PAGES } from './screws/screwPages'
 import { tablePagesOf } from './tables/tablePages'
 
@@ -26,9 +29,57 @@ function relatedPages(toolPath: string): { title: string; links: ChipLink[] } | 
   return null
 }
 
+/**
+ * 見出しの下の説明文。スマホ（sm 未満）では2行に縮め、入力欄が最初の画面に入るようにする。
+ * 文章は縮めても DOM に残る（検索エンジン・読み上げソフトには全文が届く）。
+ * 2行に収まらないときは「続きを読む」で全文を出せる。測るまで（事前レンダリング・最初の描画）もボタンを出しておく
+ * （どのツールの説明文も、スマホの2行（約40字）より長い。後からボタンが出て表示がずれないように）
+ */
+function ToolDescription({ text }: { text: string }) {
+  const id = useId()
+  const ref = useRef<HTMLParagraphElement>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [clamped, setClamped] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const element = ref.current
+    if (!element || expanded) return
+    const measure = () => setClamped(element.scrollHeight > element.clientHeight + 1)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [expanded])
+
+  return (
+    <div className="mt-2 max-w-3xl">
+      <p
+        id={id}
+        ref={ref}
+        className={`text-sm leading-relaxed text-zinc-600 sm:text-base ${expanded ? '' : 'max-sm:line-clamp-2'} print:line-clamp-none`}
+      >
+        {text}
+      </p>
+      {(expanded || clamped !== false) && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={id}
+          onClick={() => setExpanded(!expanded)}
+          className="-mb-2 inline-flex min-h-10 items-center text-xs font-semibold text-zinc-700 underline underline-offset-2 hover:text-zinc-900 sm:hidden print:hidden"
+        >
+          {expanded ? '閉じる' : '続きを読む'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function ToolPage({ tool }: { tool: ToolDefinition }) {
   const { component: ToolComponent, guide: Guide, icon: Icon } = tool
   const related = relatedPages(tool.path)
+  const notes = notesForTool(tool.path)
 
   return (
     <>
@@ -41,9 +92,7 @@ export function ToolPage({ tool }: { tool: ToolDefinition }) {
           <Icon className="size-7 shrink-0 text-zinc-400" aria-hidden />
           {tool.name}
         </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-600 sm:text-base">
-          {tool.description}
-        </p>
+        <ToolDescription text={tool.description} />
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <ul className="flex flex-wrap gap-1.5" aria-label="参照規格">
             {tool.standards.map((code) => (
@@ -70,6 +119,10 @@ export function ToolPage({ tool }: { tool: ToolDefinition }) {
           </h2>
           <ChipNav label={related.title} className="mt-2" links={related.links} />
         </section>
+      )}
+
+      {notes.length > 0 && (
+        <NoteLinks id="related-notes" title={`${NOTES_INDEX_META.label}（解説）`} pages={notes} className="mt-6" />
       )}
 
       {Guide && (
