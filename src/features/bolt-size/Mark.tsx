@@ -11,8 +11,9 @@ export function Mark({ show = true, dark = false }: { show?: boolean; dark?: boo
   )
 }
 
-/** ※ の凡例と、どの値が未確認か（UNVERIFIED から作る） */
+/** ※ の凡例と、どの値が未確認か（UNVERIFIED から作る）。未確認の値が無ければ何も出さない */
 export function MarkLegend({ className = '' }: { className?: string }) {
+  if (UNVERIFIED.length === 0) return null
   return (
     <p className={`text-xs leading-relaxed text-zinc-500 ${className}`}>
       <span className="font-semibold text-orange-800">{UNVERIFIED_LEGEND}</span>
