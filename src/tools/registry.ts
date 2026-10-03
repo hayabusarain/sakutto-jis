@@ -3,6 +3,7 @@ import {
   Cylinder,
   Disc3,
   Drill,
+  ListChecks,
   Nut,
   Ruler,
   ScanSearch,
@@ -15,6 +16,8 @@ import { BoltSizeTool } from '../features/bolt-size/BoltSizeTool'
 import { BoltSizeGuide } from '../features/bolt-size/Guide'
 import { FlangeBoltTool } from '../features/flange-bolt/FlangeBoltTool'
 import { FlangeBoltGuide } from '../features/flange-bolt/Guide'
+import { FlangeTakeoffTool } from '../features/flange-takeoff/FlangeTakeoffTool'
+import { FlangeTakeoffGuide } from '../features/flange-takeoff/Guide'
 import { GeneralToleranceTool } from '../features/general-tolerance/GeneralToleranceTool'
 import { GeneralToleranceGuide } from '../features/general-tolerance/Guide'
 import { ORingGuide } from '../features/o-ring/Guide'
@@ -74,6 +77,19 @@ export const TOOLS: readonly ToolDefinition[] = [
     icon: Disc3,
     component: FlangeBoltTool,
     guide: FlangeBoltGuide,
+  },
+  {
+    path: '/flange-takeoff',
+    seoTitle: 'フランジのボルト・ナット・ガスケット拾い出し（JIS 5K〜20K）',
+    name: 'フランジのボルト・ナット・ガスケット拾い出し',
+    navLabel: '拾い出し',
+    description:
+      'JIS 5K〜20K のフランジ継手を呼び径とか所数で並べると、ボルト（呼び×長さ）・ナット・平座金・ガスケットの必要数をまとめて数えます。予備も足せて、表のコピー・CSV で発注に使えます。',
+    category: 'piping',
+    standards: ['JIS B 2220', 'JIS B 1180', 'JIS B 1181', 'JIS B 1256', 'JIS B 0205-2'],
+    icon: ListChecks,
+    component: FlangeTakeoffTool,
+    guide: FlangeTakeoffGuide,
   },
   {
     path: '/steel-pipe',
