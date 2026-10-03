@@ -65,6 +65,18 @@ describe('事前レンダリング', () => {
     expect(html).toContain('表17 呼び圧力16Kフランジの寸法')
     // 90A は 16K にもある（表17）
     expect(html).toContain('/flange-bolt-length?pressure=16K&amp;size=90A')
+    // ナット高さの典拠: 16K は M22 を使うので JIS B 1181 の表3（第1選択）と表4（第2選択）
+    expect(html).toContain('表3・表4 六角ナット・スタイル1')
+    // 表8: 16K の SOH・BL などは RF にしない
+    expect(html).toContain('全面座（FF）などで、RF はありません')
+  })
+
+  it('5K のフランジ寸法表: M22 を使わないのでナット高さは表3 だけ。SOP・SOH・BL などは FF だけ（表8）', () => {
+    const { html } = render('/flange-bolt-length/5k')
+    expect(html).toContain('表14 呼び圧力5Kフランジの寸法')
+    expect(html).toContain('表3 六角ナット・スタイル1')
+    expect(html).not.toContain('表3・表4 六角ナット・スタイル1')
+    expect(html).toContain('全面座（FF）だけです')
   })
 
   it('ねじのまとめにツールへのリンクと前後のサイズがある', () => {

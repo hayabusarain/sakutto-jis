@@ -17,6 +17,7 @@ import { downloadText } from '../../lib/download'
 import { parseNumber, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { standardLabel, type StandardCode } from '../../standards'
+import { BOLT_SIZES } from '../bolt-size/data'
 import { pipeDimensions } from '../steel-pipe/calc'
 import { ClassComparisonCard } from './ClassComparisonCard'
 import {
@@ -137,6 +138,12 @@ export function FlangeBoltTool() {
   const rowUnverified = isRowUnverified(input.pressure, row.size)
   const faceHeight = raisedFaceHeight(row.size)
   const tUnverified = isUnverified(input.pressure, row.size, 't')
+  // 典拠の表番号。M22 は JIS B 1180・B 1181 本体の第2選択（表4）、座金は JIS B 1256 の第2選択（表8）
+  const secondChoiceBolt = BOLT_SIZES.find((size) => size.d === row.bolt)?.secondChoice === true
+  const bodyTable = secondChoiceBolt ? '表4' : '表3'
+  const nutTable = input.nut === 'style1' ? `${bodyTable} 六角ナット・スタイル1` : '附属書JA 表JA.9 六角ナット・上'
+  const headTable = input.nut === 'style1' ? bodyTable : '附属書JA 表JA.8'
+  const washerTable = secondChoiceBolt ? '表8 並形・部品等級A（第2選択）' : '表7 並形・部品等級A（第1選択）'
 
   const citedStandards: StandardCode[] = [
     'JIS B 2220',
@@ -453,16 +460,22 @@ export function FlangeBoltTool() {
         )}
 
         <div className="mt-3 space-y-1">
-          <Citation code="JIS B 2220" detail={flangeTableLabel(input.pressure)} suffix="のフランジ寸法" />
-          <Citation code="JIS B 1181" suffix="のナット高さ・二面幅" />
+          <Citation code="JIS B 2220" detail={flangeTableLabel(input.pressure)} />
+          <Citation code="JIS B 1181" detail={nutTable} suffix="のナット高さ・二面幅" />
           {input.type === 'hex' && input.rounding === 'jis' && (
-            <Citation code="JIS B 1180" suffix="のボルト頭の二面幅・呼び長さの系列" />
+            <Citation
+              code="JIS B 1180"
+              detail={headTable === '表3' ? '表3' : `${headTable}（二面幅）・表3（呼び長さ）`}
+              suffix="のボルト頭の二面幅・呼び長さの系列"
+            />
           )}
-          {input.type === 'hex' && input.rounding === '5mm' && <Citation code="JIS B 1180" suffix="のボルト頭の二面幅" />}
+          {input.type === 'hex' && input.rounding === '5mm' && (
+            <Citation code="JIS B 1180" detail={headTable} suffix="のボルト頭の二面幅" />
+          )}
           {input.type === 'stud' && input.rounding === 'jis' && (
-            <Citation code="JIS B 1180" suffix="の六角ボルトの呼び長さの系列を準用" />
+            <Citation code="JIS B 1180" detail="表3" suffix="の六角ボルトの呼び長さの系列を準用" />
           )}
-          {input.washers > 0 && <Citation code="JIS B 1256" suffix="の座金厚さ（並形）" />}
+          {input.washers > 0 && <Citation code="JIS B 1256" detail={washerTable} suffix="の座金厚さ" />}
           <Citation code="JIS B 0205-2" suffix="の並目ピッチ（突き出しの計算）" />
         </div>
 

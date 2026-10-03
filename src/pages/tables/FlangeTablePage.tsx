@@ -5,6 +5,7 @@ import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { TableExport } from '../../components/ui/TableExport'
+import { BOLT_SIZES } from '../../features/bolt-size/data'
 import { flangeThicknessTolerance, raisedFaceHeight } from '../../features/flange-bolt/calc'
 import {
   FLANGE_SEAT_COMBINATION_TABLE,
@@ -59,6 +60,12 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
   const hasStatus = rows.some((row) => flangeTableStatus(row) !== '')
   const tableNo = FLANGE_TABLE_NO[pressure]
   const bolts = [...new Set(rows.map((row) => row.bolt))].sort((a, b) => a - b)
+  // ナット高さの表（JIS B 1181 スタイル1。M22 は第2選択の表4、ほかは第1選択の表3）
+  const nutTables = [
+    ...new Set(bolts.map((bolt) => (BOLT_SIZES.find((size) => size.d === bolt)?.secondChoice ? '表4' : '表3'))),
+  ]
+    .sort()
+    .join('・')
   const { gasket, threads } = TABLE_BOLT_CONDITIONS
 
   const columns: Column<FlangeTableRow>[] = [
@@ -186,8 +193,8 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
             <DataTable columns={columns} rows={rows} rowKey={(r) => r.size} caption={`JIS ${pressure} フランジ寸法表`} />
           </div>
           <div className="space-y-1 p-4">
-            <Citation code="JIS B 2220" detail={flangeTableLabel(pressure)} suffix="のフランジ寸法" />
-            <Citation code="JIS B 1181" suffix="のナット高さ（ボルト長さの計算）" />
+            <Citation code="JIS B 2220" detail={flangeTableLabel(pressure)} />
+            <Citation code="JIS B 1181" detail={`${nutTables} 六角ナット・スタイル1`} suffix="のナット高さ（ボルト長さの計算）" />
             <Citation code="JIS B 0205-2" suffix="の並目ピッチ（突き出しの計算）" />
           </div>
         </Card>
@@ -203,7 +210,9 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
             <li>
               {pressure === '20K'
                 ? '20K には全面座（FF）がなく、平面座（RF）などです'
-                : `${pressure} で平面座（RF）にできるのは WN・IT 形だけで、スリップオン溶接式（${pressure === '16K' ? 'SOH' : 'SOP・SOH'}）や閉止フランジ（BL）などは全面座（FF）などです`}
+                : `${pressure} で平面座（RF）にできるのは WN・IT 形だけで、スリップオン溶接式（${pressure === '16K' ? 'SOH' : 'SOP・SOH'}）や閉止フランジ（BL）などは${
+                    pressure === '5K' ? '全面座（FF）だけです' : '全面座（FF）などで、RF はありません'
+                  }`}
               （JIS B 2220 {FLANGE_SEAT_COMBINATION_TABLE}）。
             </li>
             <li>

@@ -4,7 +4,8 @@
  * D: 外径 / C: ボルト穴中心円の径（PCD）/ n: ボルト穴の数 / h: ボルト穴の径 / bolt: ボルトの呼び / t: フランジの厚さ
  * t は平面座（RF）のフランジでは座の高さ f を含む厚さ（表13 の図。表22 の厚さの許容差も RF は「t−f」に対して決めている）。
  * ボルトの締付け長さは RF どうし・FF どうしのどちらでも 2t + ガスケット厚さ。
- * なお表8 では、RF にできるのは 5K・10K・16K の WN・IT と 20K の各形式で、5K・10K・16K の SOP・SOH・SW・TR・BL は RF にしない（FF など）。
+ * なお表8 では、RF にできるのは 5K・10K・16K の WN・IT と 20K の SOH・SW・TR・WN・IT・BL で、5K・10K・16K の SOP・SOH・SW・TR・BL は RF にしない
+ * （5K は FF だけ、10K・16K は FF・MF・TG）。20K に FF は無い。LJ にはガスケット座が無い（表8 の注記）。
  * 全値を JIS B 2220:2012 の原文（kikakurui の規格票の画像）と照合済み。
  */
 export interface FlangeRow {
