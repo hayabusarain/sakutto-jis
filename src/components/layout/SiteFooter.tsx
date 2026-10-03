@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react'
 import { PIPE_SPECS } from '../../features/steel-pipe/data'
 import { NOTE_PAGES, NOTES_INDEX_PATH, NOTES_LABEL } from '../../pages/notes/notePages'
+import { PRINT_INDEX_META } from '../../pages/print/printPages'
 import { SCREW_INDEX_META } from '../../pages/screws/screwPages'
 import { FLANGE_TABLE_PAGES, ORING_TABLE_PAGES, PIPE_TABLE_PAGES } from '../../pages/tables/tablePages'
 import { Link } from '../../router/Link'
@@ -15,6 +16,7 @@ const TABLE_LINKS = [
   ...PIPE_TABLE_PAGES.map((page) => ({ path: page.path, label: `鋼管 ${PIPE_SPECS[page.spec].label}` })),
   ...ORING_TABLE_PAGES.map((page) => ({ path: page.path, label: `Oリング ${page.series}` })),
   { path: SCREW_INDEX_META.path, label: 'ねじ M3〜M36' },
+  { path: PRINT_INDEX_META.path, label: '印刷用 早見表（A4）' },
 ]
 
 export function SiteFooter() {

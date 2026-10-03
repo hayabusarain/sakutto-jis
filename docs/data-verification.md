@@ -167,13 +167,17 @@ B 1001 の80値と、B 1180・B 1181 の7項目 × 16サイズ、B 1176 の3項�
 
 ## 画面上の「※」印
 
-規格原文で確認できていない値には、画面・コピー文・CSV・寸法表・ねじのまとめページ・クイック検索で「※ 規格原文で未確認の値」の印と凡例を付けます。印を付ける値は、`src/features/flange-bolt/data.ts` と `src/features/bolt-size/data.ts` の `UNVERIFIED` で管理しています。
+規格原文で確認できていない値には、画面・コピー文・CSV・寸法表・ねじのまとめページ・印刷用の早見表・クイック検索で「※ 規格原文で未確認の値」の印と凡例を付けます。印を付ける値は、`src/features/flange-bolt/data.ts` と `src/features/bolt-size/data.ts` の `UNVERIFIED` で管理しています。
 
 **いまは両方とも空で、※ を付けている値はありません。** 2026年10月の照合で、それまで ※ を付けていた値（フランジの 16K の厚さ・5K 50A の厚さ・5K と 10K の 90A・175A・225A の行、ボルト穴径 4級・ざぐり径 D'、附属書JA の M3 の二面幅）はすべて原文と一致したため外しました。
 
 仕組み（`isUnverified()`・`isRowUnverified()`、凡例、寸法表の CSV の「確認状況」の列）は、今後原文で確認できていない値を載せるときのために残しています。`UNVERIFIED` に足せば、各ページに ※ と凡例が出ます。仕組みのテストは仮の一覧を使っています（`flange-bolt/calc.test.ts`・`bolt-size/data.test.ts`・`pages/tables/tableData.test.ts`・`lib/quickSearch.unverified.test.ts`）。管用ねじの Rc の有効ねじ部の長さが `null` のサイズも「未確認」と表示する仕組みが残っていますが、いまは該当がありません。
 
 読者向けには、この文書の要点を「編集方針・データの確認方法」のページ（`/editorial-policy`）にまとめています。
+
+## 印刷用の早見表（`src/pages/print`）
+
+`/print` の A4 の早見表（ねじ・10K フランジ・5K〜20K フランジ・SGP と管用ねじ）は、独自の値を持ちません。数値はすべて各ツールの `data.ts`・`calc.ts` と、寸法表・ねじのまとめページの行の作り方（`tableData.ts`・`screwSummary.ts`）から作り、表示の桁もツール・寸法表と同じ関数でそろえています（`sheetData.ts`。値が一致することを `print.test.ts`・`routes.test.ts` で確かめています）。紙には典拠の規格・表番号、データの確認日（`SITE.contentUpdatedAt`）、注意書き（`DATA_DISCLAIMER`）、計算値（ボルト長さの目安・G の下穴・内径）であることを印刷します。QR コードの行き先は各ツールのページです。
 
 ## サイト独自の目安（規格の値ではないもの）
 

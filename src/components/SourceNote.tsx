@@ -1,7 +1,7 @@
 import { ExternalLink, MessageSquareWarning } from 'lucide-react'
 import { useSyncExternalStore } from 'react'
 import { Link } from '../router/Link'
-import { reportHref } from '../site'
+import { DATA_DISCLAIMER, reportHref } from '../site'
 import { JISC_URL, standardLabel, standardNote, STANDARDS, type StandardCode } from '../standards'
 
 interface SourceNoteProps {
@@ -36,7 +36,7 @@ export function SourceNote({ standards }: SourceNoteProps) {
         </p>
       )}
       <p className="text-xs leading-relaxed text-zinc-500">
-        本ツールのデータはJIS規格に基づき万全を期して作成しておりますが、実業務でのご使用時は必要に応じて公式規格書をご確認ください。規格原文は
+        {DATA_DISCLAIMER}規格原文は
         <a
           href={JISC_URL}
           target="_blank"

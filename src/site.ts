@@ -65,7 +65,7 @@ export const PAGE_UPDATED_AT: Readonly<Record<string, string>> = {
 export const SITE_CHANGELOG: readonly { date: string; text: string }[] = [
   {
     date: '2026-10-03',
-    text: 'フランジのボルト・ナット・ガスケットの拾い出しツールと、現場メモ（フランジボルトの長さ・M12 の下穴・二面幅の新旧JIS）を追加しました。各ページに「この値、違っていませんか？」の誤記報告ボタンを付けました。',
+    text: 'フランジのボルト・ナット・ガスケットの拾い出しツール、印刷用の早見表（A4・QRコード付き）、現場メモ（フランジボルトの長さ・M12 の下穴・二面幅の新旧JIS）を追加しました。各ページに「この値、違っていませんか？」の誤記報告ボタンを付けました。',
   },
   {
     date: '2026-10-03',
@@ -77,6 +77,10 @@ export const SITE_CHANGELOG: readonly { date: string; text: string }[] = [
   },
   { date: '2026-09-30', text: '編集方針・データの確認方法のページを公開しました。' },
 ]
+
+/** データについての注意書き（各ページの「参照規格」の欄・印刷用の早見表で同じ文言にする） */
+export const DATA_DISCLAIMER =
+  '本ツールのデータはJIS規格に基づき万全を期して作成しておりますが、実業務でのご使用時は必要に応じて公式規格書をご確認ください。'
 
 /** 誤記報告の受付先。Googleフォーム等を用意したらURLを入れる（空なら運営者情報の連絡先へ案内） */
 export const REPORT_URL = ''

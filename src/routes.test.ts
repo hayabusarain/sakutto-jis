@@ -2,6 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { render, sitemapEntries } from './entry-server'
 import { findPage, PAGES } from './routes'
 import { normalizePath } from './router/context'
+import { DATA_DISCLAIMER, SITE } from './site'
+import { formatJaDate } from './pages/content/dates'
+import { PIPE_EDITION_NOTE } from './features/steel-pipe/data'
+
+/** 描画した HTML の表の行を、セルの文字の並びにする（React が入れる <!-- --> とタグを除く） */
+function tableRows(html: string): string[][] {
+  return [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map(([, row]) =>
+    [...row.matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/g)].map(([, cell]) =>
+      cell
+        .replace(/<!-- -->/g, '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .trim(),
+    ),
+  )
+}
 
 describe('PAGES', () => {
   it('パス・題名は重複しない', () => {
@@ -18,6 +34,11 @@ describe('PAGES', () => {
       '/screw/m3',
       '/screw/m36',
       '/editorial-policy',
+      '/print',
+      '/print/screw',
+      '/print/flange-10k',
+      '/print/flange',
+      '/print/pipe',
     ]) {
       expect(findPage(path)?.component, path).toBeDefined()
     }
@@ -85,6 +106,104 @@ describe('事前レンダリング', () => {
     expect(html).toContain('/bolt-size?d=12')
     expect(html).toContain('href="/screw/m10"')
     expect(html).toContain('href="/screw/m14"')
+  })
+
+  describe('印刷用の早見表', () => {
+    const date = formatJaDate(SITE.contentUpdatedAt)
+
+    for (const path of ['/print/screw', '/print/flange-10k', '/print/flange', '/print/pipe']) {
+      it(`${path}: 印刷用の印・データ確認日・注意書き・サイト名・印刷ボタンがある`, () => {
+        const { html } = render(path)
+        expect(html).toContain('data-print-sheet')
+        expect(html).toContain(`データ確認日 <span class="num whitespace-nowrap text-zinc-800">${date}</span>`)
+        expect(html).toContain(DATA_DISCLAIMER)
+        expect(html).toContain(SITE.name)
+        expect(html).toContain('印刷する')
+        // QR コードは表示後に描く（部品を早見表のページでだけ読み込む）ので、事前レンダリングでは枠だけ
+        expect(html).not.toContain('shape-rendering="crispEdges"')
+        expect(html).toContain('>QR コード</div>')
+      })
+    }
+
+    it('ねじ: M12 は下穴 10.2・二面幅 18（旧JIS 19）。典拠の表番号と QR コードの行き先がある', () => {
+      const { html } = render('/print/screw')
+      expect(tableRows(html).find((row) => row[0] === 'M12')).toEqual([
+        'M12',
+        '1.75',
+        '10.2',
+        '18',
+        '19',
+        '13.5',
+        '28',
+        '10',
+        '20×13',
+      ])
+      expect(tableRows(html).find((row) => row[0] === 'M22')?.slice(3, 5)).toEqual(['34', '32'])
+      expect(html).toContain('表2 呼び径及びピッチの選択')
+      expect(html).toContain('表3 めねじ内径の公差')
+      expect(html).toContain('表JA.8 六角ボルト・上')
+      expect(html).toContain('付表 ボルト穴径及びざぐり径の寸法')
+      expect(html).toContain('/tap-drill')
+      expect(html).toContain('/bolt-size')
+    })
+
+    it('10K フランジ: 50A の行（155・120・4-19・M16・24・16・60・80）と JIS B 2220 表15', () => {
+      const { html } = render('/print/flange-10k')
+      expect(tableRows(html).find((row) => row[0] === '50A')).toEqual([
+        '50A',
+        '155',
+        '120',
+        '4-19',
+        'M16',
+        '24',
+        '16',
+        '60',
+        '80',
+      ])
+      expect(html).toContain('表15 呼び圧力10Kフランジの寸法')
+      expect(html).toContain('/flange-bolt-length')
+    })
+
+    it('5K〜20K のフランジ: 4つの表と表番号。10K 50A の行は 10K の早見表と同じ', () => {
+      const { html } = render('/print/flange')
+      const rows50 = tableRows(html).filter((row) => row[0] === '50A')
+      expect(rows50).toHaveLength(4)
+      expect(rows50[1]).toEqual(['50A', '155', '120', '4-19', 'M16', '16', '60'])
+      expect(html).toContain('表14・表15・表17・表18（呼び圧力5K・10K・16K・20Kフランジの寸法）')
+    })
+
+    it('SGP・管用ねじ: SGP 50A と 1/2 の行。G 下穴は計算値と書き、2026年版との照合状況を添える', () => {
+      const { html } = render('/print/pipe')
+      expect(tableRows(html).find((row) => row[0] === '50A')).toEqual(['50A', '2', '60.5', '3.8', '52.9', '5.31'])
+      expect(tableRows(html).find((row) => row[0] === '1/2')).toEqual([
+        '1/2',
+        '15A',
+        '14',
+        '1.8143',
+        '20.955',
+        '18.631',
+        '18.9',
+      ])
+      expect(html).toContain('G 下穴（計算値）')
+      expect(html).toContain('表4 寸法，寸法の許容差及び単位質量')
+      expect(html).toContain(PIPE_EDITION_NOTE)
+      expect(html).toContain('/steel-pipe')
+      expect(html).toContain('/pipe-thread')
+    })
+
+    it('一覧から4枚の早見表へリンクし、ツールのページからも案内する', () => {
+      const { html } = render('/print')
+      for (const path of ['/print/screw', '/print/flange-10k', '/print/flange', '/print/pipe']) {
+        expect(html).toContain(`href="${path}"`)
+      }
+      expect(render('/tap-drill').html).toContain('href="/print/screw"')
+      expect(render('/pipe-thread').html).toContain('href="/print/pipe"')
+    })
+
+    it('sitemap に早見表のページが入る', () => {
+      const paths = sitemapEntries.map((entry) => entry.path)
+      expect(paths).toEqual(expect.arrayContaining(['/print', '/print/screw', '/print/flange-10k', '/print/flange', '/print/pipe']))
+    })
   })
 
   it('存在しないパスは 404', () => {

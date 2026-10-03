@@ -8,6 +8,7 @@ import { standardLabel } from '../standards'
 import { CATEGORY_LABELS, TOOLS, type ToolCategory } from '../tools/registry'
 import { ChipNav } from './content/PageHeader'
 import { NOTE_PAGES, NOTES_INDEX_PATH, NOTES_LABEL } from './notes/notePages'
+import { PRINT_INDEX_META, PRINT_SHEETS } from './print/printPages'
 import { SCREW_INDEX_META, SCREW_PAGES } from './screws/screwPages'
 import { FLANGE_TABLE_PAGES, ORING_TABLE_PAGES, PIPE_TABLE_PAGES } from './tables/tablePages'
 
@@ -55,6 +56,13 @@ const TABLE_GROUPS = [
     links: [
       { to: SCREW_INDEX_META.path, label: '一覧表' },
       ...SCREW_PAGES.map((page) => ({ to: page.path, label: page.label })),
+    ],
+  },
+  {
+    title: '印刷用 早見表（A4・QR コード付き）',
+    links: [
+      { to: PRINT_INDEX_META.path, label: '一覧' },
+      ...PRINT_SHEETS.map((sheet) => ({ to: sheet.path, label: sheet.label })),
     ],
   },
 ]
