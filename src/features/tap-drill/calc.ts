@@ -10,7 +10,8 @@ import {
 
 /**
  * 基準山形の「ひっかかりの高さ」H1 の2倍を、ピッチ P に対する係数で表したもの。
- * H = (√3 / 2)P = 0.866025P、H1 = (5/8)H、2 × H1 = 1.082532P（JIS B 0205-1）
+ * H = (√3 / 2)P = 0.866025P、H1 = (5/8)H、2 × H1 = 1.082532P（JIS B 0205-1 の 4.）。
+ * D1 = D − 1.082532P は JIS B 0205-4 の 5. の式（表1 の基準寸法と一致）
  */
 export const TWO_H1_PER_PITCH = 1.082532
 
@@ -45,9 +46,24 @@ export function minorDiameterLimits(d: number, p: number, grade: ToleranceGrade)
   return { min: toMm(min), max: toMm(min + tolerance) }
 }
 
-/** ひっかかり率 [%] = (D − 下穴径) ÷ (2 × H1) × 100 */
+/** ひっかかり率 [%] = (D − 下穴径) ÷ (2 × H1) × 100（JIS B 1004:2009 表1 の式 Pte = (d − Dhs) ÷ (2 × H1) × 100） */
 export function engagementPercent(d: number, p: number, hole: number): number {
   return ((d - hole) / (TWO_H1_PER_PITCH * p)) * 100
+}
+
+/** JIS B 1004:2009 表1 の下穴径の系列（ひっかかり率 [%]） */
+export const B1004_SERIES = [100, 95, 90, 85, 80, 75, 70, 65] as const
+export type B1004Series = (typeof B1004_SERIES)[number]
+
+/**
+ * JIS B 1004 の系列の下穴径 Dhs = d − 2 × H1 × Pte ÷ 100 [mm]。
+ * 規格の表と同じく、ピッチ 1.5mm 以下は 0.01mm、1.75mm 以上は 0.1mm に丸める
+ * （例: M12 は 95 % で 10.2、90 % で 10.3。M10×1.25 は 95 % で 8.71）。
+ */
+export function b1004SeriesHole(d: number, p: number, percent: B1004Series): number {
+  const stepUm = p >= 1.75 ? 100 : 10
+  const holeUm = d * 1000 - (TWO_H1_PER_PITCH * 1000 * p * percent) / 100
+  return toMm(Math.round(holeUm / stepUm) * stepUm)
 }
 
 /** 下穴径の刻み [mm]。細いピッチは 0.05mm、ピッチ1mm以上は市販ドリルの主流に合わせ 0.1mm */
@@ -108,7 +124,17 @@ export function recommendHole(d: number, p: number, grade: ToleranceGrade): Reco
   return { hole: toMm(best), basis: 'rule' }
 }
 
-/** 指定の等級が規定されていないピッチ（M1〜M1.4 など）では、規定のある等級に切り替える */
+/**
+ * M1.4 以下のめねじについての注意（6H・7H を選んでいるときだけ。ほかは null）。
+ * JIS B 0209-1 の 12. は M1.4 以下に 5H/6h・4H/6h 又はより精密な組合せを選ぶとしている（5.2 でも、指示が無いときは 5H）。
+ * M1.4×0.3 は 6H の公差も表3 にあるので、ツールでは 6H のまま計算できる
+ */
+export function smallSizeGradeNote(d: number, grade: ToleranceGrade): string | null {
+  if (d > 1.4 || grade < 6) return null
+  return 'M1.4 以下は 5H か 4H を選ぶとされています（JIS B 0209-1 の 12.）'
+}
+
+/** 指定の等級が規定されていないピッチ（M1〜M1.2 の並目、ピッチ 0.2・0.25 など）では、規定のある等級に切り替える */
 export function availableGrade(d: number, p: number, preferred: ToleranceGrade): ToleranceGrade {
   if (minorDiameterLimits(d, p, preferred)) return preferred
   const fallback = ([6, 5, 4, 7] as const).find((grade) => minorDiameterLimits(d, p, grade))
@@ -149,9 +175,9 @@ export function holeCandidates(d: number, p: number): HoleCandidate[] {
 // ねじの基準寸法と有効断面積
 // ---------------------------------------------------------------------------
 
-/** とがり山の高さ H = (√3 / 2)P = 0.866025P（JIS B 0205-4 の基準山形） */
+/** とがり山の高さ H = (√3 / 2)P = 0.866025P（JIS B 0205-1 の 4. 基準山形の寸法。JIS B 1082 の 3.1 にも同じ式） */
 export const H_PER_PITCH = 0.866025
-/** 有効径 D2 = d2 = D − 2 × (3/8)H = D − 0.649519P（JIS B 0205-4） */
+/** 有効径 D2 = d2 = D − 2 × (3/8)H = D − 0.649519P（JIS B 0205-4 の 5. 基準寸法。表1 の値と一致） */
 export const PITCH_DIAMETER_PER_PITCH = 0.649519
 /** おねじの d3 = d1 − H/6 = d − 1.226869P（JIS B 1082 の有効断面積の式で使う径） */
 export const D3_PER_PITCH = 1.226869
@@ -176,7 +202,7 @@ const minusPitch = (d: number, coefficient: number, p: number) =>
   toMm(Math.round(d * 1000 - coefficient * 1000 * p))
 
 /**
- * 有効断面積 As = π/4 × ((d2 + d3) / 2)² [mm²]（JIS B 1082）。
+ * 有効断面積 As = π/4 × ((d2 + d3) / 2)² [mm²]（JIS B 1082:2009 の 3.1 式(1)。有効数字3桁にすると表1 の値と一致）。
  * d2・d3 は丸める前の値で計算する（小数3桁に丸めた値で計算すると M24 が 352.49 となり、有効数字3桁で 353 にならない）。
  */
 export function stressArea(d: number, p: number): number {
@@ -229,7 +255,10 @@ export interface ChartRow {
   note?: string
 }
 
-/** 規格のサイズとピッチをすべて（呼び径の順、同じ呼び径は並目 → 細目の順） */
+/**
+ * JIS B 0205-2 表2 のサイズとピッチをすべて（呼び径の順、同じ呼び径は並目 → 細目の順）。
+ * 5.4 の「さらに小さいピッチ」（表1 の最大の呼び径まで使える）は含まない
+ */
 function allThreads() {
   return METRIC_SIZES.flatMap((size) =>
     pitchesOf(size).map((p) => ({

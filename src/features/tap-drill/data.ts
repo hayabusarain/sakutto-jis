@@ -1,7 +1,9 @@
 /**
- * 一般用メートルねじの呼び径とピッチ（JIS B 0205-2:2001 表1 = ISO 261:1998）。
+ * 一般用メートルねじの呼び径とピッチ（JIS B 0205-2:2001 表2 呼び径及びピッチの選択 = ISO 261:1998。
+ * 表1 は 5.4 の「さらに小さいピッチ」を使える最大の呼び径の表で、ここには載せていない）。
  * choice: 1=第1選択, 2=第2選択, 3=第3選択（1 → 2 → 3 の順に優先）。
  * coarse: 並目ピッチ（無いサイズは null）。fine: 細目ピッチ（規格の掲載順）。
+ * pitchNotes: 表2 の注(1)(2) と、5.1 の括弧付きピッチ（できるだけ避ける）。
  */
 export interface MetricSize {
   d: number
@@ -57,11 +59,12 @@ export const METRIC_SIZES: readonly MetricSize[] = [
   { d: 32, choice: 3, coarse: null, fine: [2, 1.5] },
   { d: 33, choice: 2, coarse: 3.5, fine: [3, 2, 1.5], pitchNotes: { '3': 'なるべく避ける' } },
   {
+    // 表2 の注(2) は呼び径 35 に付く「転がり軸受を固定するねじに限って用いることができる」。M35 のピッチは 1.5 だけ
     d: 35,
     choice: 3,
     coarse: null,
     fine: [1.5],
-    pitchNotes: { '1.5': '転がり軸受の固定ナット専用' },
+    pitchNotes: { '1.5': '転がり軸受を固定するねじ専用' },
   },
   { d: 36, choice: 1, coarse: 4, fine: [3, 2, 1.5] },
   { d: 38, choice: 3, coarse: null, fine: [1.5] },
@@ -86,9 +89,9 @@ export const TOLERANCE_GRADES = [4, 5, 6, 7] as const
 export type ToleranceGrade = (typeof TOLERANCE_GRADES)[number]
 
 /**
- * めねじ内径（D1）の公差 T_D1 [μm]（JIS B 0209-1:2001 = ISO 965-1）。
- * 公差位置 H は下の寸法許容差が 0 なので、D1 の範囲は「基準寸法 〜 基準寸法 + T_D1」。
- * null はその等級が規定されていないピッチ。
+ * めねじ内径（D1）の公差 T_D1 [μm]（JIS B 0209-1:2001 表3 めねじ内径の公差 = ISO 965-1。等級 8 は載せていない）。
+ * 公差位置 H は下の寸法許容差 EI が 0（同 表1）なので、D1 の範囲は「基準寸法 〜 基準寸法 + T_D1」。
+ * null はその等級が規定されていないピッチ（表3 の「—」）。
  */
 export const TD1_UM: Readonly<Record<string, Readonly<Record<ToleranceGrade, number | null>>>> = {
   '0.2': { 4: 38, 5: null, 6: null, 7: null },
@@ -120,6 +123,8 @@ export const TD1_UM: Readonly<Record<string, Readonly<Record<ToleranceGrade, num
 /**
  * 並目ねじの推奨ドリル径 [mm]（ISO 2306:1972 表1。ドリル径 ≒ 呼び径 − ピッチ）。
  * 公差域クラスの範囲に入るときは、この値を推奨下穴径として優先する。
+ * ISO 2306 は JIS ではなく原文を確認できていない。JIS B 1004:2009 表2・JIS B 0209-1 の D1 の範囲
+ * （6H、M1・M1.2 は 5H。4H でも）に全サイズ入ることは確かめた。JIS B 1004 の系列の値と同じなのは M12 の 10.2（95 %）だけ。
  */
 export const ISO2306_COARSE_DRILL: Readonly<Record<string, number>> = {
   '1': 0.75,

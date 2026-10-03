@@ -39,8 +39,10 @@ export const SCREW_PAGES: readonly ScrewPageMeta[] = SUMMARY_SIZES.map((d) => {
   const across = bolt.sIso === bolt.sJa ? `${trim(bolt.sIso)} mm` : `${trim(bolt.sIso)} mm（旧JIS ${trim(bolt.sJa)} mm）`
   const standards: StandardCode[] = [
     'JIS B 0205-2',
+    'JIS B 0205-4',
     'JIS B 0209-1',
     'ISO 2306',
+    'JIS B 1004',
     'JIS B 1082',
     'JIS B 1180',
     'JIS B 1181',

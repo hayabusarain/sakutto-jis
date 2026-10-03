@@ -18,6 +18,9 @@ import { screwPath } from '../../pages/screws/paths'
 import { Link } from '../../router/Link'
 import { CalloutPanel } from './Callout'
 import {
+  BOLT_JA_TABLE,
+  boltTableRef,
+  CAP_TABLE,
   coarsePitchOf,
   DEFAULT_INPUT,
   EXPORT_HEADERS,
@@ -25,16 +28,21 @@ import {
   exportRows,
   findBolt,
   flangesUsingBolt,
+  HOLE_TABLE,
   holeOf,
   isBoltSizeInput,
+  JA_FUTURE_NOTE,
   normalizeBoltSizeInput,
+  NUT_JA_TABLE,
+  nutTableRef,
   representativeFlange,
+  secondChoiceNote,
   sizeRangeLabel,
   summaryText,
   FLANGE_TOOL_PATH,
   TAP_DRILL_TOOL_PATH,
 } from './calc'
-import { BOLT_SIZES, HOLE_CLASSES, isUnverified, UNVERIFIED, type BoltSize } from './data'
+import { BOLT_SIZES, HOLE4_NOTE, HOLE_CLASSES, isUnverified, UNVERIFIED, type BoltSize } from './data'
 import { Mark, MarkLegend, NonJisLegend, NonJisMark } from './Mark'
 import { ToolFinder } from './ToolFinder'
 
@@ -43,6 +51,8 @@ const SIZE_PICKS = ['6', '8', '10', '12', '16', '20', '24'] as const
 const CLASS_OPTIONS = HOLE_CLASSES.map((c) => ({ value: c, label: c }))
 const RESULT_ID = 'bolt-size-result'
 const EXPORT_ROWS = exportRows()
+/** JIS B 1180・B 1181 本体で第2選択のサイズ（M14・M18・M22・M27） */
+const SECOND_CHOICE_LABELS = BOLT_SIZES.filter((size) => size.secondChoice).map((size) => `M${size.d}`)
 
 /** 全サイズが未確認の項目は、表では列見出しに ※ を付ける */
 const allUnverified = (field: 'hole4' | 'spotFace') =>
@@ -115,6 +125,7 @@ export function BoltSizeTool() {
   const holeUnverified = holeClass === '4級' && isUnverified('hole4', size.d)
   const jaUnverified = isUnverified('sJa', size.d)
   const jaDiffers = size.sIso !== size.sJa
+  const secondChoice = secondChoiceNote(size)
   const selectSize = (d: number) => setInput({ ...input, d })
 
   const hasFlanges = flangesUsingBolt(size.d).length > 0
@@ -217,7 +228,7 @@ export function BoltSizeTool() {
             value={holeClass}
             options={CLASS_OPTIONS}
             onChange={(next) => setInput({ ...input, holeClass: next })}
-            hint="1級ほど穴が小さく、穴位置の精度が必要になります。迷ったら 2級。"
+            hint="1級ほど穴が小さく、穴位置の精度が必要になります。迷ったら 2級が目安。4級は主に鋳抜き穴用です。"
           />
         </div>
       </Card>
@@ -242,7 +253,7 @@ export function BoltSizeTool() {
               JIS本体（ISO）の値です。旧JIS（附属書JA）は{' '}
               <span className="num font-semibold text-white">{trim(size.sJa)} mm</span>
               <Mark dark />
-              としていますが、規格原文で確認できていません（資料により値が違います）。
+              としていますが、規格原文で確認できていません。
             </>
           ) : (
             <>JIS本体（ISO）と旧JIS（附属書JA）で同じ二面幅です。</>
@@ -265,12 +276,18 @@ export function BoltSizeTool() {
           </Group>
           <Group title="六角ナット（JIS B 1181）">
             <ResultItem label="高さ m（本体スタイル1 最大）" value={trim(size.nutStyle1)} unit="mm" />
-            <ResultItem label="高さ m（附属書JA 1種 / 3種）" value={`${trim(size.nutJa1)} / ${trim(size.nutJa3)}`} unit="mm" />
+            <ResultItem
+              label="高さ m（附属書JA 1種 / 3種）"
+              value={`${trim(size.nutJa1)} / ${trim(size.nutJa3)}`}
+              unit="mm"
+              note="1種の高さは 2種・4種も同じ"
+            />
           </Group>
+          {secondChoice && <p className="mt-2 text-xs leading-relaxed text-zinc-600">{secondChoice}</p>}
           <Group title={size.capNonJis ? '六角穴付きボルト（DIN 912 などの値）' : '六角穴付きボルト（JIS B 1176）'}>
             <ResultItem label="六角レンチ（六角穴の二面幅）" value={trim(size.capKey)} unit="mm" />
             <ResultItem
-              label="頭部径 dk / 頭部の高さ k"
+              label="頭部径 dk / 頭部の高さ k（最大）"
               value={`${trim(size.capDk)} / ${trim(size.capK)}`}
               unit="mm"
               note={size.capNonJis ? `M${size.d} は JIS B 1176 に無いサイズです（DIN 912 などの値）` : undefined}
@@ -288,10 +305,16 @@ export function BoltSizeTool() {
                 )
               }
               unit="mm"
-              note={hole === null ? `M${size.d} の ${holeClass} は表にありません` : undefined}
+              note={
+                hole === null
+                  ? `M${size.d} の ${holeClass} は表にありません`
+                  : holeClass === '4級'
+                    ? HOLE4_NOTE
+                    : undefined
+              }
             />
             <ResultItem
-              label="ざぐり径 D'（六角ボルト・ナット用）"
+              label="ざぐり径 D'（JIS B 1001）"
               value={
                 <>
                   {trim(size.spotFace)}
@@ -299,6 +322,7 @@ export function BoltSizeTool() {
                 </>
               }
               unit="mm"
+              note="深さは一般に黒皮が取れる程度（JIS B 1001 備考5）"
             />
             <ResultItem
               label="CAP用座ぐり 径 × 深さ"
@@ -306,8 +330,8 @@ export function BoltSizeTool() {
               unit="mm"
               note={
                 size.counterbore
-                  ? `穴径 φ${trim(size.counterbore.d1)}（設計でよく使われる参考値）`
-                  : 'このサイズの参考値は確認中です'
+                  ? `穴径 φ${trim(size.counterbore.d1)}（JIS の規定ではなく、設計でよく使われる参考値）`
+                  : 'このサイズの参考値は載せていません'
               }
             />
           </Group>
@@ -317,14 +341,14 @@ export function BoltSizeTool() {
         <MarkLegend className="mt-3" />
 
         <div className="mt-3 space-y-1">
-          <Citation code="JIS B 1180" suffix="本体・附属書JA" />
-          <Citation code="JIS B 1181" suffix="本体（スタイル1）・附属書JA" />
+          <Citation code="JIS B 1180" detail={`本体 ${boltTableRef(size)}・附属書JA ${BOLT_JA_TABLE}`} />
+          <Citation code="JIS B 1181" detail={`本体 ${nutTableRef(size)}・附属書JA ${NUT_JA_TABLE}`} />
           {size.capNonJis ? (
             <Citation code="JIS B 1176" suffix="に無いサイズ（値は DIN 912 など）" />
           ) : (
-            <Citation code="JIS B 1176" />
+            <Citation code="JIS B 1176" detail={CAP_TABLE} />
           )}
-          <Citation code="JIS B 1001" suffix="のボルト穴径・ざぐり径" />
+          <Citation code="JIS B 1001" detail={HOLE_TABLE} />
           {hasFlanges && <Citation code="JIS B 2220" suffix="のフランジのボルト" />}
         </div>
 
@@ -340,9 +364,20 @@ export function BoltSizeTool() {
                 .join('・')}{' '}
               です（例: M12 は本体 {trim(findBolt(12)!.sIso)} mm、附属書JA {trim(findBolt(12)!.sJa)} mm）。
             </p>
-            <p>ナットの高さは、本体スタイル1は最大値、附属書JAは呼び寸法です。3種は薄いナット（いわゆる薄ナット）です。</p>
+            <p>{JA_FUTURE_NOTE}</p>
             <p>
-              六角穴付きボルト用の座ぐり（径・深さ）は規格本体の規定ではなく、頭部が面から出ないように設計でよく使われている参考値です。頭部径・頭部の高さに余裕を持たせています。
+              ナットの高さは、本体スタイル1は最大値、附属書JAは基準寸法です（1種の高さは 2種・4種も同じ）。3種は薄いナット（いわゆる薄ナット）です。附属書JA
+              の仕上げ程度「並」のナットは高さの許容差が ±（M8〜M36 で ±0.8〜1.0 mm）なので、この値より少し高いことがあります。
+            </p>
+            <p>
+              {SECOND_CHOICE_LABELS.join('・')} は、JIS B 1180・B 1181 本体では第2選択（表4）のサイズで、附属書JA
+              では括弧付き（なるべく用いない）です。
+            </p>
+            <p>
+              六角穴付きボルトの頭部径 dk・頭部の高さ k は最大値です（dk はローレットの無い頭部の値で、ローレット付きはもう少し大きくなります）。
+            </p>
+            <p>
+              六角穴付きボルト用の座ぐり（穴径・径・深さ）は JIS B 1001・B 1176 の規定ではなく、頭部が面から出ないように設計でよく使われている参考値です。頭部径・頭部の高さに余裕を持たせています。
             </p>
             <p>
               「工具のサイズからボルトを探す」は、この表の二面幅（本体・附属書JA）と六角レンチの値を逆に引いています。表に無いサイズ（M3 未満・M36 超）は出てきません。
@@ -372,7 +407,7 @@ export function BoltSizeTool() {
         }
       >
         <p className="px-4 pt-3 text-xs text-zinc-500">
-          単位: mm。二面幅の（ ）は附属書JA（旧JIS）。行をタップするとそのサイズを選べます。
+          単位: mm。二面幅の（ ）は附属書JA（旧JIS）。{SECOND_CHOICE_LABELS.join('・')} は JIS本体で第2選択。行をタップするとそのサイズを選べます。
         </p>
         <div className="mt-2">
           <DataTable

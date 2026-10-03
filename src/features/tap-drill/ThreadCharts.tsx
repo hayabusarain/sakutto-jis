@@ -1,5 +1,6 @@
 import { Ruler, Table2 } from 'lucide-react'
 import { memo } from 'react'
+import { Citation } from '../../components/Citation'
 import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { TableExport } from '../../components/ui/TableExport'
@@ -10,6 +11,7 @@ import {
   formatHole,
   formatSignificant,
   pitchesOf,
+  smallSizeGradeNote,
   threadBasics,
   threadName,
   type ChartRow,
@@ -29,21 +31,23 @@ interface ChartProps {
 
 const CHOICE_TEXT = { 1: '', 2: '第2選択', 3: '第3選択' } as const
 
-/** 備考: 第2・第3選択、用途の限られるピッチ */
-function remarks(row: { choice: 1 | 2 | 3; note?: string }): string {
-  return [CHOICE_TEXT[row.choice], row.note].filter(Boolean).join('・')
+/** 備考: 第2・第3選択、用途の限られるピッチ、M1.4 以下で 6H 以上の等級 */
+function remarks(row: { d: number; grade: ToleranceGrade; choice: 1 | 2 | 3; note?: string }): string {
+  const small = smallSizeGradeNote(row.d, row.grade) ? 'M1.4 以下は 5H・4H を推奨' : ''
+  return [CHOICE_TEXT[row.choice], row.note, small].filter(Boolean).join('・')
 }
 
 const DRILL_NOTE = [
-  `典拠: ${standardLabel('JIS B 0205-2')}（ピッチ）`,
+  `典拠: ${standardLabel('JIS B 0205-2')} 表2（呼び径とピッチ）`,
   `${standardLabel('JIS B 0205-4')}（D1 = D − 1.082532P）`,
-  `${standardLabel('JIS B 0209-1')}（めねじ内径の公差 T_D1）`,
+  `${standardLabel('JIS B 0209-1')} 表3（めねじ内径の公差 T_D1）`,
+  `${standardLabel('JIS B 1004')} 表1（ひっかかり率の式）`,
   `${standardLabel('ISO 2306')}（並目の推奨ドリル径）。切削タップ用の目安（サクッとJIS）`,
 ].join('／')
 
 const BASICS_NOTE = [
-  `典拠: ${standardLabel('JIS B 0205-4')}（D2 = D − 0.649519P、D1 = D − 1.082532P）`,
-  `${standardLabel('JIS B 1082')}（d3 = d1 − H/6、As = π/4 × ((d2 + d3)/2)²、有効数字3桁）（サクッとJIS）`,
+  `典拠: ${standardLabel('JIS B 0205-4')}（D2 = D − 0.649519P、D1 = D − 1.082532P。表1 と一致）`,
+  `${standardLabel('JIS B 1082')} 3.1（d3 = d1 − H/6、As = π/4 × ((d2 + d3)/2)²、有効数字3桁。表1 にあるねじは表の値と一致）（サクッとJIS）`,
 ].join('／')
 
 const isSelected = (d: number, p: number) => (row: { d: number; p: number }) => row.d === d && row.p === p
@@ -110,6 +114,18 @@ function drillColumns(grade: ToleranceGrade, withPitch: boolean): Column<ChartRo
 /** 表を高さ制限付きで出す（印刷では全行を出す） */
 const SCROLL_CLASS = 'max-h-[30rem] print:max-h-none'
 
+/** 早見表の典拠（表の下に置く） */
+function DrillChartCitations({ coarse }: { coarse: boolean }) {
+  return (
+    <div className="space-y-1 px-4 py-3">
+      <Citation code="JIS B 0205-2" detail="表2 呼び径及びピッチの選択" />
+      <Citation code="JIS B 0209-1" detail="表3 めねじ内径の公差" suffix="から D1 の範囲を計算" />
+      <Citation code="JIS B 1004" detail="表1 下穴径の系列" suffix="のひっかかり率の式" />
+      {coarse && <Citation code="ISO 2306" suffix="の推奨ドリル径（範囲に入るとき）" />}
+    </div>
+  )
+}
+
 /** 並目ねじの下穴径の早見表（M1〜M68）。事前レンダリングされ、検索にも答える */
 export const CoarseChartCard = memo(function CoarseChartCard({ grade, selectedD, selectedP, onSelect }: ChartProps) {
   const rows = drillChart('coarse', grade)
@@ -148,6 +164,7 @@ export const CoarseChartCard = memo(function CoarseChartCard({ grade, selectedD,
           maxHeightClass={SCROLL_CLASS}
         />
       </div>
+      <DrillChartCitations coarse />
     </Card>
   )
 })
@@ -190,6 +207,7 @@ export const FineChartCard = memo(function FineChartCard({ grade, selectedD, sel
           maxHeightClass={SCROLL_CLASS}
         />
       </div>
+      <DrillChartCitations coarse={false} />
     </Card>
   )
 })
@@ -259,6 +277,10 @@ export const BasicsChartCard = memo(function BasicsChartCard({ selectedD, select
           caption="メートルねじの基準寸法と有効断面積の一覧"
           maxHeightClass={SCROLL_CLASS}
         />
+      </div>
+      <div className="space-y-1 px-4 py-3">
+        <Citation code="JIS B 0205-4" detail="5. 基準寸法の式" suffix="で D2・D1 を計算（表1 基準寸法と一致）" />
+        <Citation code="JIS B 1082" detail="3.1 式(1)" suffix="で d3・As を計算（表1 一般用メートルねじの有効断面積にあるねじは表の値と一致）" />
       </div>
     </Card>
   )

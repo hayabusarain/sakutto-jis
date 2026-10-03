@@ -99,7 +99,7 @@ export function CalloutPanel({ size, holeClass }: { size: BoltSize; holeClass: H
         <CalloutLine
           label={`M${size.d} 六角穴付きボルトの深座ぐり（参考値）`}
           text={size.counterbore ? counterboreCallout(n, size.counterbore, style) : null}
-          empty={`M${size.d} の座ぐりの参考値は確認中です`}
+          empty={`M${size.d} の座ぐりの参考値は載せていません`}
         />
       </div>
 
@@ -110,7 +110,7 @@ export function CalloutPanel({ size, holeClass }: { size: BoltSize; holeClass: H
             : '従来: 穴の数は「-」、「キリ」「深ザグリ」「深さ」と文字で書く、以前から図面で使われている書き方です。'}
         </p>
         <p>
-          書き方の例です（参考）。記号の形や並べ方は、JIS B 0001（機械製図）や社内の製図ルールで確かめてください。座ぐりの寸法は規格本体の規定ではなく、設計でよく使われる参考値です。
+          書き方の例です（参考）。記号の形や並べ方は、JIS B 0001（機械製図）や社内の製図ルールで確かめてください。深座ぐりの寸法（穴径を含む）は JIS B 1001・B 1176 の規定ではなく、設計でよく使われる参考値です。
         </p>
       </div>
     </div>

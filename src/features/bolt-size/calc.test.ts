@@ -6,10 +6,12 @@ import {
   boltSizesInFlanges,
   boltsByAcrossFlats,
   boltsByKey,
+  boltTableRef,
   coarsePitchOf,
   counterboreCallout,
   DEFAULT_INPUT,
   EXPORT_HEADERS,
+  EXPORT_NOTE,
   exportRows,
   findBolt,
   flangesUsingBolt,
@@ -20,7 +22,9 @@ import {
   keyMatchLabel,
   markIf,
   normalizeBoltSizeInput,
+  nutTableRef,
   representativeFlange,
+  secondChoiceNote,
   sizeRangeLabel,
   summaryText,
 } from './calc'
@@ -179,14 +183,14 @@ describe('このボルトを使うフランジ', () => {
   })
 })
 
-describe('規格原文で未確認の値の ※', () => {
+describe('規格原文で確認済みの値には ※ を付けない', () => {
   it('markIf', () => {
     expect(markIf('24', true)).toBe('24※')
     expect(markIf('24', false)).toBe('24')
   })
 
-  it('二面幅の表示（M3 は附属書JA が未確認）', () => {
-    expect(acrossFlatsText(bolt(3))).toBe('5.5（5.5※）')
+  it('二面幅の表示（M3 の附属書JA 5.5 は原文で確認済みなので1つだけ）', () => {
+    expect(acrossFlatsText(bolt(3))).toBe('5.5')
     expect(acrossFlatsText(bolt(10))).toBe('16（17）')
     expect(acrossFlatsText(bolt(16))).toBe('24')
   })
@@ -194,35 +198,65 @@ describe('規格原文で未確認の値の ※', () => {
   it('結果のコピー', () => {
     const text = summaryText(bolt(10), '4級')
     expect(text).toContain('二面幅（スパナ）: 16 mm（旧JIS 17 mm）')
-    expect(text).toContain('ボルト穴 4級: 13※ mm')
-    expect(text).toContain("ざぐり径 D': 24※ mm")
-    expect(text).toContain('※ 規格原文で未確認の値')
+    expect(text).toContain('ボルト穴 4級: 13 mm（主として鋳抜き穴用）')
+    expect(text).toContain("ざぐり径 D': 24 mm")
+    expect(text).not.toContain('※')
     expect(text).toContain('JIS B 1001:1985')
     expect(summaryText(bolt(10), '2級')).toContain('ボルト穴 2級: 11 mm／')
     expect(summaryText(bolt(3), '4級')).toContain('ボルト穴 4級: —／')
-    expect(summaryText(bolt(3), '2級')).toContain('（旧JIS 5.5※ mm）')
+    expect(summaryText(bolt(3), '2級')).toContain('二面幅（スパナ）: 5.5 mm\n')
+    expect(summaryText(bolt(3), '2級')).not.toContain('※')
     expect(summaryText(bolt(18), '2級')).toContain('六角レンチ（六角穴付きボルト）: 14 mm（JIS B 1176 に無いサイズ。DIN 912 などの値）')
     expect(summaryText(bolt(16), '2級')).not.toContain('DIN 912')
+    expect(summaryText(bolt(12), '2級')).toContain('CAP用座ぐり（参考値。JIS の規定ではない）: φ20 深さ13（穴 φ14）')
   })
 
   it('表の出力', () => {
     const rows = exportRows()
     expect(rows).toHaveLength(BOLT_SIZES.length)
     for (const row of rows) expect(row).toHaveLength(EXPORT_HEADERS.length)
+    for (const row of rows) for (const cell of row) expect(cell, row[0]).not.toContain('※')
     const m3 = rows[0]
     expect(m3[0]).toBe('M3')
-    expect(m3[2]).toBe('5.5※')
+    expect(m3[2]).toBe('5.5')
     expect(m3[14]).toBe('')
     const m10 = rows.find((row) => row[0] === 'M10')!
     expect(m10[2]).toBe('17')
-    expect(m10[14]).toBe('13※')
-    expect(m10[15]).toBe('24※')
+    expect(m10[14]).toBe('13')
+    expect(m10[15]).toBe('24')
     expect(m10[12]).toBe('11')
+  })
+
+  it('表の出力の注記: 典拠の表・4級・CAP座ぐり。※ の凡例は未確認の値が無いので書かない', () => {
+    expect(EXPORT_NOTE).toContain('表JA.8 六角ボルト・上')
+    expect(EXPORT_NOTE).toContain('付表 ボルト穴径及びざぐり径の寸法')
+    expect(EXPORT_NOTE).toContain('4級は主として鋳抜き穴に適用')
+    expect(EXPORT_NOTE).toContain('CAP座ぐりは JIS B 1001・B 1176 の規定ではなく')
+    expect(EXPORT_NOTE).not.toContain('※')
   })
 
   it('M36 は CAP 座ぐりが空欄', () => {
     const m36 = exportRows().find((row) => row[0] === 'M36')!
     expect(m36.slice(16, 19)).toEqual(['', '', ''])
+  })
+})
+
+describe('典拠の表と第2選択の注記', () => {
+  it('JIS B 1180・B 1181 本体の表: M14・M18・M22・M27 は表4（第2選択）、ほかは表3（第1選択）', () => {
+    expect(boltTableRef(bolt(12))).toBe('表3 呼び径六角ボルト（第1選択）')
+    expect(boltTableRef(bolt(22))).toBe('表4 呼び径六角ボルト（第2選択）')
+    expect(nutTableRef(bolt(16))).toBe('表3 六角ナット・スタイル1（第1選択）')
+    expect(nutTableRef(bolt(27))).toBe('表4 六角ナット・スタイル1（第2選択）')
+  })
+
+  it('第2選択の注記（M14 は JIS B 1176 でも括弧付き。M18 は JIS B 1176 に無い）', () => {
+    expect(secondChoiceNote(bolt(12))).toBeNull()
+    expect(secondChoiceNote(bolt(14))).toBe(
+      'M14 は JIS本体では第2選択（表4）のサイズです。旧JIS（附属書JA）と JIS B 1176 では括弧付きで「なるべく用いない」とされています。',
+    )
+    expect(secondChoiceNote(bolt(18))).toBe(
+      'M18 は JIS本体では第2選択（表4）のサイズです。旧JIS（附属書JA）では括弧付きで「なるべく用いない」とされています。',
+    )
   })
 })
 

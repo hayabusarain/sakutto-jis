@@ -6,6 +6,7 @@ import {
   BOLT_SIZES,
   HOLE_CLASSES,
   isUnverified,
+  UNVERIFIED,
   UNVERIFIED_LEGEND,
   type BoltSize,
   type HoleClass,
@@ -64,12 +65,48 @@ export function markIf(text: string, unverified: boolean): string {
   return unverified ? `${text}※` : text
 }
 
-/** 二面幅の表示「16（17）」。（ ）は附属書JA。同じなら1つだけ（M3 は附属書JA が未確認なので両方書く） */
+/** 二面幅の表示「16（17）」。（ ）は附属書JA。同じなら1つだけ（附属書JA の値が未確認のときは ※ を付けて両方書く） */
 export function acrossFlatsText(size: BoltSize): string {
   const jaUnverified = isUnverified('sJa', size.d)
   if (same(size.sIso, size.sJa) && !jaUnverified) return trim(size.sIso)
   return `${trim(size.sIso)}（${markIf(trim(size.sJa), jaUnverified)}）`
 }
+
+// ---------------------------------------------------------------------------
+// 典拠の表（規格票の原文で確認した表番号。Citation の detail に使う）
+
+/** JIS B 1180 本体の表（M14・M18・M22・M27 は第2選択の表4、ほかは第1選択の表3） */
+export function boltTableRef(size: BoltSize): string {
+  return size.secondChoice ? '表4 呼び径六角ボルト（第2選択）' : '表3 呼び径六角ボルト（第1選択）'
+}
+
+/** JIS B 1181 本体の表（スタイル1） */
+export function nutTableRef(size: BoltSize): string {
+  return size.secondChoice ? '表4 六角ナット・スタイル1（第2選択）' : '表3 六角ナット・スタイル1（第1選択）'
+}
+
+/** 附属書JA（旧JIS）の表。中・並の表も M6 以上は同じ値 */
+export const BOLT_JA_TABLE = '表JA.8 六角ボルト・上'
+export const NUT_JA_TABLE = '表JA.9 六角ナット・上'
+/** JIS B 1176 の表（並目ねじ） */
+export const CAP_TABLE = '表3 六角穴付きボルト（並目ねじ）の寸法'
+/** JIS B 1001 の表（表番号は無い） */
+export const HOLE_TABLE = '付表 ボルト穴径及びざぐり径の寸法'
+
+/**
+ * 第2選択のサイズの注記（第1選択なら null）。
+ * JIS B 1180・B 1181 本体では表4（第2選択）、附属書JA では括弧付き（なるべく用いない）。
+ * JIS B 1176 でも (M14) は「なるべく用いない」（M18・M22・M27 は JIS B 1176 に無い）
+ */
+export function secondChoiceNote(size: BoltSize): string | null {
+  if (!size.secondChoice) return null
+  const parenthesized = size.capNonJis ? '旧JIS（附属書JA）' : '旧JIS（附属書JA）と JIS B 1176 '
+  return `M${size.d} は JIS本体では第2選択（表4）のサイズです。${parenthesized}では括弧付きで「なるべく用いない」とされています。`
+}
+
+/** 附属書JA（旧JIS）の扱い（JIS B 1180・B 1181 の JA.1） */
+export const JA_FUTURE_NOTE =
+  '旧JIS（附属書JA）は、規格の中で「将来廃止するので、新規設計の機器、部位などには使用しないのがよい」とされています。'
 
 // ---------------------------------------------------------------------------
 // 工具のサイズからボルトを探す
@@ -238,7 +275,9 @@ export function summaryText(size: BoltSize, holeClass: HoleClass): string {
   const jaUnverified = isUnverified('sJa', size.d)
   const jaDiffers = !same(size.sIso, size.sJa)
   const holeText =
-    hole === null ? '—' : `${markIf(trim(hole), holeClass === '4級' && isUnverified('hole4', size.d))} mm`
+    hole === null
+      ? '—'
+      : `${markIf(trim(hole), holeClass === '4級' && isUnverified('hole4', size.d))} mm${holeClass === '4級' ? '（主として鋳抜き穴用）' : ''}`
   const lines = [
     `【ボルト寸法】M${size.d}`,
     `二面幅（スパナ）: ${trim(size.sIso)} mm${
@@ -247,7 +286,7 @@ export function summaryText(size: BoltSize, holeClass: HoleClass): string {
     `六角レンチ（六角穴付きボルト）: ${trim(size.capKey)} mm${size.capNonJis ? '（JIS B 1176 に無いサイズ。DIN 912 などの値）' : ''}`,
     `ボルト穴 ${holeClass}: ${holeText}／ざぐり径 D': ${markIf(trim(size.spotFace), isUnverified('spotFace', size.d))} mm`,
     size.counterbore
-      ? `CAP用座ぐり（参考値）: φ${trim(size.counterbore.d)} 深さ${trim(size.counterbore.h)}（穴 φ${trim(size.counterbore.d1)}）`
+      ? `CAP用座ぐり（参考値。JIS の規定ではない）: φ${trim(size.counterbore.d)} 深さ${trim(size.counterbore.h)}（穴 φ${trim(size.counterbore.d1)}）`
       : '',
   ].filter(Boolean)
   // ※ を付けた値があるときだけ凡例を書く
@@ -308,7 +347,12 @@ export function exportRows(): string[][] {
 }
 
 export const EXPORT_NOTE = [
-  `${CITATION_TEXT}（B 1180・B 1181 は本体と附属書JA）`,
-  'CAP座ぐりは規格本体の規定ではなく、設計でよく使われる参考値',
-  UNVERIFIED_LEGEND,
+  `${CITATION_TEXT}（B 1180 は本体の表3・表4と附属書JA の${BOLT_JA_TABLE}、B 1181 は本体の表3・表4と附属書JA の${NUT_JA_TABLE}、B 1176 は${CAP_TABLE}、B 1001 は${HOLE_TABLE}）`,
+  'M14・M18・M22・M27 は JIS B 1180・B 1181 本体の第2選択',
+  'ナット高さ スタイル1 は最大値、附属書JA は基準寸法（1種の値は2種・4種も同じ）',
+  '六角穴付きボルトの頭部径 dk・頭部高さ k は最大値（dk はローレットの無い頭部）',
+  '4級は主として鋳抜き穴に適用',
+  'CAP座ぐりは JIS B 1001・B 1176 の規定ではなく、設計でよく使われる参考値',
+  // ※ を付けた値があるときだけ凡例を書く
+  ...(UNVERIFIED.length > 0 ? [UNVERIFIED_LEGEND] : []),
 ].join('。')

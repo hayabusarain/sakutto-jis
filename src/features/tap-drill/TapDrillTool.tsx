@@ -17,7 +17,7 @@ import { useToolState } from '../../hooks/useToolState'
 import { fixed, parseNumber, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { screwPath } from '../../pages/screws/paths'
-import { standardLabel } from '../../standards'
+import { standardLabel, type StandardCode } from '../../standards'
 import { BOLT_SIZES } from '../bolt-size/data'
 import {
   availableGrade,
@@ -35,6 +35,7 @@ import {
   PITCH_DIAMETER_PER_PITCH,
   pitchesOf,
   recommendHole,
+  smallSizeGradeNote,
   suggestDrillFix,
   threadBasics,
   threadName as nameOf,
@@ -217,6 +218,8 @@ export function TapDrillTool() {
   const selected = { d, p }
   const recommendedText = recommended === null ? null : formatHole(recommended)
 
+  const copyStandards: StandardCode[] = ['JIS B 0205-4', 'JIS B 0209-1', 'JIS B 1004', 'JIS B 1082']
+  if (recommendation?.basis === 'iso2306') copyStandards.push('ISO 2306')
   const copyText = [
     `【ねじ下穴径】${threadName}（ピッチ ${trim(p)}）${grade}H`,
     recommendedText !== null
@@ -224,7 +227,7 @@ export function TapDrillTool() {
       : '推奨下穴径: —',
     limits ? `めねじ内径 D1: ${fixed(limits.min, 3)}〜${fixed(limits.max, 3)} mm` : '',
     `基準寸法: D2 ${fixed(basics.d2, 3)} / D1 ${fixed(basics.d1, 3)} / d3 ${fixed(basics.d3, 3)} mm、有効断面積 As ${stressAreaText} mm²`,
-    `典拠: JIS B 0205-4:2001 / JIS B 0209-1:2001 / JIS B 1082:2009${recommendation?.basis === 'iso2306' ? ' / ISO 2306:1972' : ''}`,
+    `典拠: ${copyStandards.map((code) => standardLabel(code)).join(' / ')}`,
     '（サクッとJIS）',
   ]
     .filter(Boolean)
@@ -283,7 +286,7 @@ export function TapDrillTool() {
       filename={`tap-drill-${threadName.replace('×', 'x')}`}
       headers={['下穴径 [mm]', 'ひっかかり率 [%]', ...TOLERANCE_GRADES.map((g) => `${g}H`)]}
       rows={candidateExport}
-      note={`○ = その公差域クラスのめねじ内径の範囲に入る。典拠: ${standardLabel('JIS B 0205-4')}（D1）／${standardLabel('JIS B 0209-1')}（T_D1）（サクッとJIS）`}
+      note={`○ = その公差域クラスのめねじ内径の範囲に入る（このサイトの印）。典拠: ${standardLabel('JIS B 0205-4')}（D1）／${standardLabel('JIS B 0209-1')} 表3（T_D1）／${standardLabel('JIS B 1004')} 表1（ひっかかり率の式）（サクッとJIS）`}
     />
   )
 
@@ -319,7 +322,7 @@ export function TapDrillTool() {
             value={String(grade)}
             options={GRADE_OPTIONS}
             onChange={(value) => setInput({ ...input, grade: Number(value) as ToleranceGrade })}
-            hint="迷ったら 6H（一般用・中）。精密は 4H・5H、粗は 7H。M1〜M1.4 は 5H が標準。"
+            hint="迷ったら 6H（一般用・中）。精密は 4H・5H、粗は 7H。M1.4 以下は 5H が標準（JIS B 0209-1）。"
           />
           <NumberField
             label="手持ちのドリル径（任意）"
@@ -409,6 +412,7 @@ export function TapDrillTool() {
             label={`めねじ内径 D1 の範囲（${grade}H）`}
             value={limits ? `${fixed(limits.min, 3)}〜${fixed(limits.max, 3)}` : undefined}
             unit="mm"
+            note={smallSizeGradeNote(d, grade) ?? undefined}
           />
           <ResultItem label="目安の下穴径（呼び径 − ピッチ）" value={trim(d - p)} unit="mm" />
         </Group>
@@ -429,22 +433,29 @@ export function TapDrillTool() {
         </Group>
 
         <div className="mt-3 space-y-1">
-          <Citation code="JIS B 0205-2" suffix="のピッチ" />
-          <Citation code="JIS B 0205-4" suffix="の式で D1・D2・H を計算" />
-          <Citation code="JIS B 0209-1" suffix="のめねじ内径の公差（T_D1）を適用" />
-          <Citation code="JIS B 1082" suffix="の式で d3・有効断面積 As を計算" />
+          <Citation code="JIS B 0205-2" detail="表2 呼び径及びピッチの選択" />
+          <Citation code="JIS B 0205-4" detail="5. 基準寸法の式" suffix="で D1・D2 を計算（表1 と一致）" />
+          <Citation code="JIS B 0209-1" detail="表3 めねじ内径の公差" suffix="を適用" />
+          <Citation code="JIS B 1004" detail="表1 下穴径の系列" suffix="のひっかかり率の式" />
+          <Citation code="JIS B 1082" detail="3.1 式(1)" suffix="で H・d3・有効断面積 As を計算" />
           {recommendation?.basis === 'iso2306' && <Citation code="ISO 2306" suffix="の推奨ドリル径" />}
         </div>
 
         <div className="mt-4">
           <FormulaInfo>
-            <p>めねじ内径（基準寸法）は、基準山形のひっかかりの高さ H1 から求めます。</p>
+            <p>
+              めねじ内径（基準寸法）は、基準山形のひっかかりの高さ H1 から求めます（JIS B 0205-4 の 5. の式。H・H1 は JIS B 0205-1
+              の基準山形）。
+            </p>
             <Formula>D1 = D − 2 × H1 = D − 1.082532 × P</Formula>
-            <p>公差位置 H は下の寸法許容差が 0 なので、許容範囲は次のとおりです。</p>
+            <p>公差位置 H は下の寸法許容差が 0（JIS B 0209-1 表1）なので、許容範囲は次のとおりです。</p>
             <Formula>
               D1 ≦ 下穴径 ≦ D1 + T<sub>D1</sub>（{grade}H）
             </Formula>
-            <p>ひっかかり率は、ねじ山がどれだけかみ合うかの割合です。</p>
+            <p>
+              ひっかかり率は、ねじ山がどれだけかみ合うかの割合で、JIS B 1004 の表1 の式です（JIS B 1004
+              は、ひっかかり率 100〜65 % の8つの系列で下穴径を表にしています）。
+            </p>
             <Formula>ひっかかり率 = (D − 下穴径) ÷ (1.082532 × P) × 100</Formula>
             {recommendedText !== null && (
               <Formula>
@@ -459,7 +470,8 @@ export function TapDrillTool() {
               刻みの径のうち「呼び径 − ピッチ」（ひっかかり率 約92%）に最も近い径です（同じ近さなら大きい方）。ピッチ1mm未満は0.05mm刻みにしています。
             </p>
             <p>
-              ねじの基準寸法は JIS B 0205-4、d3 と有効断面積 As は JIS B 1082 の式です（D2・D1・d3・H は小数3桁に丸めて表示）。
+              ねじの基準寸法 D2・D1 は JIS B 0205-4、H・d3 と有効断面積 As は JIS B 1082 の 3.1 の式です（D2・D1・d3・H
+              は小数3桁に丸めて表示）。JIS B 1082 の表1 に載っているねじの As は、表の値と同じになります。
             </p>
             <Formula>
               H = {H_PER_PITCH} × P　／　D2 = D − {PITCH_DIAMETER_PER_PITCH} × P
@@ -475,8 +487,8 @@ export function TapDrillTool() {
               items={[
                 ['D, d', 'ねじの呼び径 [mm]（めねじ D、おねじ d）'],
                 ['P', 'ピッチ [mm]'],
-                ['H', 'とがり山の高さ = 0.866025 × P'],
-                ['H1', 'ひっかかりの高さ = 5/8 × H'],
+                ['H', 'とがり山の高さ = 0.866025 × P（JIS B 0205-1）'],
+                ['H1', 'ひっかかりの高さ = 5/8 × H（JIS B 0205-1）'],
                 ['D2, d2', '有効径'],
                 ['D1, d1', 'めねじ内径（おねじ谷の径）の基準寸法'],
                 [<>T<sub>D1</sub></>, 'めねじ内径の公差（JIS B 0209-1）'],

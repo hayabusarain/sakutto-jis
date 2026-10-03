@@ -1,6 +1,8 @@
 import { Faq, GuideSection } from '../../components/Guide'
 import { fixed, trim } from '../../lib/format'
 import {
+  B1004_SERIES,
+  b1004SeriesHole,
   chartRow,
   engagementPercent,
   findSize,
@@ -29,6 +31,11 @@ const M12 = coarseRow(12)
 const M12_OK = holeCandidates(12, coarsePitch(12))
   .filter((row) => row.fits[6] === 'ok')
   .map((row) => formatHole(row.hole))
+/** JIS B 1004 の系列の M12 の下穴径（100 % は 10.1、95 % は 10.2、90 % は 10.3） */
+const M12_SERIES_100 = b1004SeriesHole(12, coarsePitch(12), 100)
+const M12_SERIES_95 = b1004SeriesHole(12, coarsePitch(12), 95)
+const M12_SERIES_90 = b1004SeriesHole(12, coarsePitch(12), 90)
+const M12_LIMITS_6H = minorDiameterLimits(12, coarsePitch(12), 6)!
 const FINE_EXAMPLES = [
   [8, 1],
   [10, 1.25],
@@ -73,6 +80,12 @@ export function TapDrillGuide() {
           ))}
           です。
         </p>
+        <p>
+          JIS B 1004（ねじ下穴径）は1つの径に決めず、ひっかかり率ごとの系列で下穴径を表にしています。M12 なら 95 % の系列が{' '}
+          <span className="num">{formatHole(M12_SERIES_95)} mm</span>、90 % が <span className="num">{formatHole(M12_SERIES_90)} mm</span>{' '}
+          です。100 % の <span className="num">{formatHole(M12_SERIES_100)} mm</span> は、0.1 mm に丸めた値のため D1 の最小{' '}
+          <span className="num">{fixed(M12_LIMITS_6H.min, 3)} mm</span> をわずかに下回り、このツールでは「小さすぎ」と判定します。
+        </p>
       </Faq>
 
       <Faq q="よく使うねじ（M3〜M24 並目）の下穴径の一覧は？">
@@ -112,7 +125,8 @@ export function TapDrillGuide() {
       <Faq q="ひっかかり率とは？ 何％にすればよい？">
         <p>
           ひっかかり率は、ねじ山がどれだけかみ合うかの割合で、(D − 下穴径) ÷ ({TWO_H1_PER_PITCH} × P) × 100
-          で求めます。下穴径が D1 ちょうどなら 100% です。
+          で求めます（JIS B 1004 の表1 の式）。下穴径が D1 ちょうどなら 100% です。JIS B 1004 は、ひっかかり率{' '}
+          {B1004_SERIES.join('・')} % の {B1004_SERIES.length} つの系列で下穴径を表にしています。
         </p>
         <p>
           このツールは、率ではなく「めねじ内径 D1 の許容範囲に入るか」で判定しています。たとえば M10（6H）では、範囲の下限{' '}
@@ -123,8 +137,8 @@ export function TapDrillGuide() {
 
       <Faq q="4H・5H・6H・7H の違いは？ どれを選ぶ？">
         <p>
-          めねじの公差域クラス（等級）です。数字が大きいほど内径 D1 の許容範囲が広く、下穴径を選べる幅も広がります。一般用には 6H（中）がよく使われます。M10
-          の例:
+          めねじの公差域クラス（等級）です。数字が大きいほど内径 D1 の許容範囲が広く、下穴径を選べる幅も広がります。JIS B 0209-1
+          の表8 では、一般用（中）は 6H が推奨されています。ただし M1.4 以下は、5H か 4H を選ぶとされています（同 12.）。M10 の例:
         </p>
         <ul className="space-y-0.5">
           {TOLERANCE_GRADES.map((grade) => (
@@ -144,7 +158,7 @@ export function TapDrillGuide() {
       <Faq q="有効断面積 As とは？ M10・M12 の値は？">
         <p>
           ボルトの引張荷重や締付け力の計算に使う断面積で、JIS B 1082 の式 As = π/4 × ((d2 + d3) ÷ 2)² で求めます（d2
-          は有効径、d3 = d1 − H/6）。並目の値（有効数字3桁）:
+          は有効径、d3 = d1 − H/6）。並目の値（有効数字3桁。JIS B 1082 の表1 の値と同じ）:
         </p>
         <ul className="grid grid-cols-2 gap-x-6 gap-y-0.5 sm:grid-cols-3">
           {AS_EXAMPLES.map((row) => (

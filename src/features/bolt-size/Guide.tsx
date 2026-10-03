@@ -13,6 +13,7 @@ import {
   findBolt,
   flangesUsingBolt,
   holeCallout,
+  JA_FUTURE_NOTE,
   sizeRangeLabel,
   FLANGE_TOOL_PATH,
   TAP_DRILL_TOOL_PATH,
@@ -28,6 +29,8 @@ const JIS_KEY_SIZES = BOLT_SIZES.filter((size) => !size.capNonJis)
 const NON_JIS_KEY_SIZES = BOLT_SIZES.filter((size) => size.capNonJis)
 /** JIS外のサイズと六角レンチを共用する例 */
 const SHARED_KEY = NON_JIS_KEY_SIZES[0].capKey
+/** CAP座ぐりの穴径 d1（参考値）が JIS B 1001 のどの等級のボルト穴径とも違うサイズ（M12・M14・M16） */
+const CB_OFF_CLASS = BOLT_SIZES.filter((size) => size.counterbore && !size.holes.includes(size.counterbore.d1))
 
 const th = 'border-b border-zinc-300 bg-zinc-50 px-2 py-1.5 text-left text-xs font-semibold text-zinc-600'
 const td = 'border-b border-zinc-100 px-2 py-1.5 align-top'
@@ -71,7 +74,7 @@ export function BoltSizeGuide() {
           </table>
         </div>
         <p>
-          頭が旧JIS、ナットがJIS本体という組み合わせもあり得るので、これらのサイズでは両方のスパナを持っていくと確実です。
+          頭が旧JIS、ナットがJIS本体という組み合わせもあり得るので、これらのサイズでは両方のスパナを持っていくと確実です。なお、{JA_FUTURE_NOTE}
         </p>
       </Faq>
 
@@ -145,7 +148,10 @@ export function BoltSizeGuide() {
 
       <Faq q="ボルト穴の 1級・2級・3級 はどれを選べばいい？">
         <p>
-          JIS B 1001 のボルト穴径は、1級ほど小さく（ボルトとのすき間が少なく）、そのぶん穴位置の精度が要ります。3級ほど大きく、穴位置のずれに余裕があります。迷ったら 2級（このツールの初期値）にしておくのが無難です。
+          JIS B 1001 のボルト穴径は、1級ほど小さく（ボルトとのすき間が少なく）、そのぶん穴位置の精度が要ります。3級ほど大きく、穴位置のずれに余裕があります。規格はどれを使うかまでは決めていませんが、迷ったら 2級（このツールの初期値）にしておくのが無難です。
+        </p>
+        <p>
+          4級は、規格の注に「主として鋳抜き穴に適用する」とある等級です（M3 以下には無い）。1級・2級・3級は ISO 273 の3つの等級に当たり、4級は ISO に無い JIS だけの等級です。
         </p>
         <div className="overflow-x-auto">
           <table className="num w-full max-w-sm border-collapse text-sm">
@@ -155,7 +161,7 @@ export function BoltSizeGuide() {
                 {HOLE_CLASSES.map((c) => (
                   <th key={c} className={th}>
                     {c}
-                    <Mark show={c === '4級' && isUnverified('hole4', holeExamples[0].d)} />
+                    <Mark show={c === '4級' && holeExamples.some((size) => isUnverified('hole4', size.d))} />
                   </th>
                 ))}
               </tr>
@@ -175,7 +181,8 @@ export function BoltSizeGuide() {
           </table>
         </div>
         <p className="text-xs text-zinc-500">
-          単位 mm。{UNVERIFIED_LEGEND}（4級）。
+          単位 mm。JIS B 1001 の付表（ボルト穴径及びざぐり径の寸法）の値です。
+          {holeExamples.some((size) => isUnverified('hole4', size.d)) && `${UNVERIFIED_LEGEND}（4級）。`}
         </p>
         <p>
           ボルトを通す穴（ボルト穴）と、タップでめねじを切るための下穴は別物です。下穴は{' '}
@@ -186,7 +193,7 @@ export function BoltSizeGuide() {
 
       <Faq q="キャップボルト（六角穴付きボルト）の座ぐり寸法は？">
         <p>
-          頭が面から出ないようにする深座ぐりは、JIS の規格本体には決まった値がなく、設計でよく使われる参考値があります。このツールの値は次のとおりです（穴径 d1・座ぐり径 D・深さ H）。
+          頭が面から出ないようにする深座ぐりは、JIS B 1001（ボルト穴径及びざぐり径）にも JIS B 1176（六角穴付きボルト）にも決まった値がなく、設計でよく使われる参考値があります。このツールの値は次のとおりです（穴径 d1・座ぐり径 D・深さ H）。
         </p>
         <ul className="num space-y-1">
           {counterboreExamples.map((size) => (
@@ -199,6 +206,10 @@ export function BoltSizeGuide() {
         <p>
           たとえば M{m12.d} は頭部径 {trim(m12.capDk)} mm・頭部の高さ {trim(m12.capK)} mm に対して、座ぐり φ{trim(m12.counterbore!.d)}・深さ{' '}
           {trim(m12.counterbore!.h)} mm です。ワッシャーを入れるときは、その外径と厚さの分も見込んでください。
+        </p>
+        <p>
+          穴径 d1 も参考値です。{CB_OFF_CLASS.map((size) => `M${size.d}`).join('・')} の d1（
+          {CB_OFF_CLASS.map((size) => trim(size.counterbore!.d1)).join('・')} mm）は JIS B 1001 のボルト穴径のどの等級とも違います。通し穴を JIS B 1001 の等級に合わせたいときは、ボルト穴径（1級〜4級）の値を使ってください。
         </p>
       </Faq>
 

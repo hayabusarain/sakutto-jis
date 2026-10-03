@@ -6,7 +6,7 @@ import { flangesUsingBolt, screwSummary, stressArea, SUMMARY_SIZES } from './scr
 import { roundSignificant } from '../../features/steel-pipe/calc'
 
 describe('stressArea（JIS B 1082 の有効断面積）', () => {
-  // ISO 898-1・JIS B 1051 の表に載っている並目ねじの有効断面積（有効数字3桁）
+  // JIS B 1082:2009 表1 一般用メートルねじの有効断面積（並目。有効数字3桁。規格票の原文で確認）
   const known: [number, number, number][] = [
     [3, 0.5, 5.03],
     [4, 0.7, 8.78],
