@@ -71,20 +71,23 @@ npm run preview  # ビルド結果の確認
 3. 環境変数（Build variables）に、公開するURLを設定する
    - `VITE_SITE_URL` = `https://（取得したドメイン）`
    - 未設定の場合、canonical・`sitemap.xml`・og:image・構造化データ（JSON-LD）は出力されません（誤ったURLを検索エンジンに伝えないため）
-   - 設定してビルドしたとき、運営者情報が「（仮）」のままだと警告が出ます（ビルドは止まりません）
+   - 設定してビルドしたとき、運営者情報が「（仮）」のままだと警告が出ます
+4. 本番（独自ドメインで公開する Worker）では、さらに `REQUIRE_SITE_CONFIG` = `1` を設定する
+   - 公開URLが無い・運営者情報が「（仮）」のままだと、ビルドを失敗させて公開を止めます（プレビューや手元のビルドは止めません）
 
 `wrangler.jsonc` で、`/tap-drill` → `tap-drill.html`、存在しないURL → `404.html`（ステータス404）になります。main 以外のブランチに push すると、プレビュー用のURLが自動で作られます。
 
 AdSense で収益化する場合は、独自ドメインを取って Cloudflare に追加しておくのがおすすめです。
 
-### Google AdSense・Search Console
+### Google AdSense・Search Console・アクセス解析
 
 | 環境変数 | 内容 |
 | --- | --- |
+| `VITE_GA_ID` | Google アナリティクス 4 の測定ID（`G-…`）。設定すると全ページ（404 以外）に計測タグを入れ、ページ表示（? 以降の条件は含めない）と、結果のコピー・表のコピー・CSV・DXF・共有・印刷を数えます。**GA4 の管理画面で、拡張計測機能の「ブラウザの履歴イベントに基づくページの変更」をオフにしてください**（入力のたびに URL が変わるため、オンだとページビューが水増しされます） |
 | `VITE_ADSENSE_CLIENT` | AdSense のサイト運営者ID（`ca-pub-…`。`pub-…` でも可）。設定すると、審査用の meta タグ、広告のスクリプト（ツール・寸法表などのページだけ。運営者情報・プライバシーポリシー・免責事項・編集方針・404 には出さない）、`dist/ads.txt` を出力する。形式が違う値は警告を出して無視する |
 | `VITE_GSC_VERIFICATION` | Search Console の所有権確認コード（`google-site-verification` の meta タグの content の値） |
 
-- 広告枠の部品 `src/components/ui/AdSlot.tsx` を用意しています（環境変数と枠のIDが無いと何も表示しない）。まだどのページにも置いていません
+- 広告枠の部品 `src/components/ui/AdSlot.tsx` を用意しています（環境変数と枠のIDが無いと何も表示しない）
 - 自動広告を使う場合は、上部に固定される「アンカー広告」をオフにしてください（上部に固定しているツールの切り替えバーと重なるため）
 - EEA・英国向けの同意メッセージは、AdSense の「プライバシーとメッセージ」で設定します
 
@@ -94,11 +97,24 @@ AdSense で収益化する場合は、独自ドメインを取って Cloudflare 
 | --- | --- |
 | `src/site.ts` の `operator` | 運営者名・連絡先（現在は仮の値）。`profile`（経歴・資格・実務年数。運営者情報と編集方針に表示）、`sameAs`（他のサイト・SNS）、`contactUrl`（問い合わせフォーム）、`type`（個人なら Person、会社なら Organization） |
 | `src/site.ts` の `REPORT_URL` | 誤記報告フォーム（Googleフォーム等）のURL。空なら運営者情報の連絡先へ案内 |
+| `src/site.ts` の `REPORT_PAGE_FIELD` | 誤記報告フォームで「ページのURL」を入れる質問の項目ID（`entry.…`）。Googleフォームの「事前入力したURLを取得」で調べる。設定すると、各ページの「この値、違っていませんか？」ボタンから、そのページのURL（入力した条件つき）が入った状態でフォームが開きます |
 | `src/site.ts` の `contentUpdatedAt`・`PAGE_UPDATED_AT`・`SITE_CHANGELOG` | データを直したら更新する（sitemap の lastmod・構造化データ・編集方針のページの更新履歴に使う） |
 | 環境変数 `VITE_SITE_URL` | 公開URL（canonical・sitemap・og:image・構造化データに使用） |
 | 環境変数 `VITE_ADSENSE_CLIENT`・`VITE_GSC_VERIFICATION` | 上の「Google AdSense・Search Console」を参照 |
 
 編集方針のページ（`/editorial-policy`）には「調査とコードの作成に AI（Claude）を使った」旨を書いています。運営者として問題ないか確認してください。
+
+### 緊急停止（Service Worker の解除）
+
+古い版や壊れた版が利用者の端末に残って困るときは、環境変数 `SW_KILL` = `1` でビルドして公開します。端末に入った Service Worker がキャッシュを消して自分を解除し、開いているページを読み直します（オフライン対応はいったん止まります）。行き渡ったら（数日〜1週間）、`SW_KILL` を外して通常のビルドに戻してください。
+
+### 自動チェック（CI）
+
+`.github/workflows/ci.yml` で、GitHub にプッシュするたびに型チェック・コードチェック・テスト・ビルドを行います。失敗すると GitHub の Actions タブと通知メールで分かります。
+
+### 運営の計画
+
+失敗しないための対策・成長計画・運用ルール・撤退の基準は [docs/strategy.md](docs/strategy.md) にまとめています。
 
 ### 共有時のプレビュー画像
 
