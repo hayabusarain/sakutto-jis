@@ -4,13 +4,24 @@ import {
   findFlange,
   flangeBoltLength,
   isRowUnverified,
-  isUnverified,
   pcdFromPitch,
   sameBoltPattern,
   spannerSize,
   type BoltConditions,
 } from './calc'
-import { FLANGES, NUT_HEIGHT, PRESSURE_CLASSES, type PressureClass } from './data'
+import {
+  ALL_FLANGE_TABLES,
+  FLANGE_SEAT_COMBINATION_TABLE,
+  FLANGE_SIZE_TABLE_NO,
+  FLANGE_TABLE_NO,
+  FLANGE_TOLERANCE_TABLE,
+  FLANGES,
+  GASKET_SEAT_TABLE,
+  NUT_HEIGHT,
+  PRESSURE_CLASSES,
+  RAISED_FACE_HEIGHT,
+  type PressureClass,
+} from './data'
 import { IDENTIFY_CARD_ID } from './IdentifyCard'
 import { DEFAULT_INPUT } from './input'
 import { conditionsText, unverifiedSummary } from './labels'
@@ -30,6 +41,8 @@ const DEFAULT_CONDITIONS: BoltConditions = {
 const K10_50A = findFlange('10K', '50A')!
 const K5_50A = findFlange('5K', '50A')!
 const K16_50A = findFlange('16K', '50A')!
+const K16_90A = findFlange('16K', '90A')
+const K20_90A = findFlange('20K', '90A')
 const HEX_EXAMPLE = flangeBoltLength(K10_50A, DEFAULT_CONDITIONS)
 const STUD_EXAMPLE = flangeBoltLength(K10_50A, { ...DEFAULT_CONDITIONS, type: 'stud' })
 
@@ -75,6 +88,17 @@ const SIZE_RANGE = `${FLANGES['10K'][0].size}〜${FLANGES['10K'].at(-1)!.size}`
 
 const HOLE_COUNTS = [...new Set(PRESSURE_CLASSES.flatMap((p) => FLANGES[p].map((row) => row.n)))].sort((a, b) => a - b)
 
+/** 10K にあって 16K に無い呼び径（JIS B 2220 表12 では 175A・225A） */
+const NOT_IN_16K = FLANGES['10K'].filter((row) => !findFlange('16K', row.size)).map((row) => row.size)
+
+/** 10K の表に ※（行全体が未確認）の呼び径があるか */
+const TEN_K_HAS_UNVERIFIED = FLANGES['10K'].some((row) => isRowUnverified('10K', row.size))
+
+/** 座の高さ f の説明（「10A〜25A は 1 mm、32A〜250A は 2 mm、300A は 3 mm」） */
+const FACE_HEIGHTS = RAISED_FACE_HEIGHT.map(
+  (range) => `${range.from === range.to ? range.from : `${range.from}〜${range.to}`} は ${range.f} mm`,
+).join('、')
+
 const cell = 'border-b border-zinc-100 px-2 py-1.5 text-right whitespace-nowrap'
 const head = 'border-b border-zinc-300 bg-zinc-50 px-2 py-1.5 text-right text-xs font-semibold whitespace-nowrap text-zinc-600'
 
@@ -93,6 +117,9 @@ export function FlangeBoltGuide() {
         </p>
         <p>
           ナットの高さは JIS本体（スタイル1）で M16 が {NUT_HEIGHT[16].style1} mm、旧JIS 1種で {NUT_HEIGHT[16].ja1} mm と違うので、使うナットに合わせて選んでください（上の「詳細条件」）。
+        </p>
+        <p>
+          JIS B 2220 の 21.2 では、JIS本体のボルト・ナットで締めるとき（M24 以下）は、平座金（JIS B 1256 並形・部品等級A）の併用が望ましいとしています。座金を使うときは「詳細条件」の平座金を選ぶと、その厚さを足して計算します。
         </p>
       </Faq>
 
@@ -140,7 +167,8 @@ export function FlangeBoltGuide() {
           </table>
         </div>
         <p className="text-xs text-zinc-500">
-          単位 mm。スパナは JIS本体の二面幅。※ の呼び径は、寸法を規格原文で確認できていない行です。
+          単位 mm。寸法は JIS B 2220 {FLANGE_TABLE_NO['10K']}、スパナは JIS本体の二面幅。
+          {TEN_K_HAS_UNVERIFIED && '※ の呼び径は、寸法を規格原文で確認できていない行です。'}
         </p>
       </Faq>
 
@@ -177,9 +205,20 @@ export function FlangeBoltGuide() {
           {SAME_16K_20K.length === COMMON_16K_20K
             ? '16K と 20K は表のすべてのサイズでボルト穴（PCD・穴数・穴径）が同じで、'
             : `16K と 20K は、表の ${COMMON_16K_20K} サイズのうち ${SAME_16K_20K.length} サイズでボルト穴が同じで、`}
-          厚さ t が違う（{THICKNESS_DIFFERS_16K_20K} サイズ）ことで見分けます。ただし 16K の厚さは規格原文で確認できていない値（※）です。
+          厚さ t が違う（{THICKNESS_DIFFERS_16K_20K} サイズ）ことで見分けます。
         </p>
       </Faq>
+
+      {K16_90A && K20_90A && (
+        <Faq q={`16K・20K に 90A はある？ ${NOT_IN_16K.join('・')} は？`}>
+          <p>
+            JIS B 2220 の {FLANGE_SIZE_TABLE_NO}・{FLANGE_TABLE_NO['16K']}・{FLANGE_TABLE_NO['20K']} では、16K・20K にも 90A
+            があります。外径 {K16_90A.D}・PCD {K16_90A.C}・{K16_90A.n}-φ{K16_90A.h}（M{K16_90A.bolt}）は 16K と 20K で同じで、厚さは 16K が{' '}
+            {K16_90A.t} mm、20K が {K20_90A.t} mm です。
+          </p>
+          <p>{NOT_IN_16K.join('・')} は 5K・10K だけにあり、16K・20K にはありません。</p>
+        </Faq>
+      )}
 
       <Faq q="PCD（ボルト穴の中心円の直径）はどう測る？">
         <p>
@@ -238,16 +277,30 @@ export function FlangeBoltGuide() {
         <p className="text-xs text-zinc-500">単位 mm。六角ボルトなら頭側とナット側で2本、スタッドボルトは両側のナットに2本使います。</p>
       </Faq>
 
-      <Faq q="フランジの厚さ t に座（レイズドフェイス）は含まれる？ ※ の値は？">
+      <Faq q="フランジの厚さ t に座（レイズドフェイス）は含まれる？">
         <p>
-          このツールでは、JIS B 2220 の表の厚さ t を座（RF）の高さを含む厚さとして計算しています（メーカーの公差表の記載から判断）。座を含まない厚さの資料と組み合わせるときは、相手側の厚さにその分を足してください。
+          含まれます。JIS B 2220 {GASKET_SEAT_TABLE}の平面座（RF）の図では、厚さ t はフランジの背面から座の面までの寸法で、座の高さ f（
+          {FACE_HEIGHTS}）を含みます。{FLANGE_TOLERANCE_TABLE}でも、RF のフランジの厚さの許容差は「t − f」に対して決められています。
         </p>
         <p>
-          ※ は規格原文で確認できていない値です。いまは {unverifiedSummary().join('、')} に付けています。確認でき次第、※ を外します。
+          そのため、RF どうし・FF どうしのどちらでも、ボルトの締付け長さは 2t ＋ ガスケットの厚さです。座を含まない厚さの資料と組み合わせるときは、相手側の厚さにその分を足してください。
         </p>
-        {isUnverified('5K', '50A', 't') && (
+        <p>
+          なお、5K・10K・16K で RF にできるのは WN・IT 形だけで、スリップオン溶接式（SOP・SOH）や閉止フランジ（BL）などに RF はありません。20K には全面座（FF）がありません（
+          {FLANGE_SEAT_COMBINATION_TABLE}）。
+        </p>
+      </Faq>
+
+      <Faq q="寸法の数値は規格の原文で確認していますか？">
+        {unverifiedSummary().length > 0 ? (
           <p>
-            5K 50A の厚さは資料によって値が分かれるため、ボルトが長めになる {K5_50A.t} mm を採用しています。
+            ※ は規格原文で確認できていない値です。いまは {unverifiedSummary().join('、')} に付けています。確認でき次第、※ を外します。
+          </p>
+        ) : (
+          <p>
+            5K・10K・16K・20K（10A〜300A）の外径・PCD・穴数・穴径・ボルトの呼び・厚さは、JIS B 2220:2012 の原文（
+            {ALL_FLANGE_TABLES}）とすべて照合しています。以前 ※
+            を付けていた 5K 50A の厚さ、5K・10K の 90A・175A・225A、16K の厚さも原文と一致したため、※ を外しました。
           </p>
         )}
       </Faq>

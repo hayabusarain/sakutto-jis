@@ -30,7 +30,7 @@ export const TABLE_BOLT_CONDITIONS = {
 
 /**
  * 規格原文での確認が済んでいない値（ツールと同じ UNVERIFIED で判定する）。
- * row: 行全体（5K・10K の 90A・175A・225A）/ t: 厚さ（16K の全サイズ、5K 50A）
+ * row: 行全体 / t: 厚さ。いまは JIS B 2220:2012 の原文と全値を照合済みで、該当なし
  */
 export function flangeUnverified(pressure: PressureClass, size: string): { row: boolean; t: boolean } {
   return { row: isRowUnverified(pressure, size), t: isUnverified(pressure, size, 't') }

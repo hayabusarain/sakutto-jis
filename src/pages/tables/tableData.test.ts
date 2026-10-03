@@ -38,53 +38,51 @@ describe('flangeTableRows', () => {
 })
 
 describe('flangeUnverified（docs/data-verification.md の △）', () => {
-  it('5K・10K の 90A・175A・225A は行全体', () => {
-    expect(flangeUnverified('5K', '90A')).toEqual({ row: true, t: true })
-    expect(flangeUnverified('10K', '225A')).toEqual({ row: true, t: true })
-    expect(flangeUnverified('10K', '100A')).toEqual({ row: false, t: false })
+  it('JIS B 2220:2012 の原文と全値を照合済みなので、どの行・厚さも未確認ではない', () => {
+    for (const pressure of PRESSURE_CLASSES) {
+      for (const row of flangeTableRows(pressure)) {
+        expect(row.unverified, `${pressure} ${row.size}`).toEqual({ row: false, t: false })
+      }
+    }
   })
 
-  it('16K の厚さ・5K 50A の厚さ', () => {
-    expect(flangeUnverified('16K', '100A')).toEqual({ row: false, t: true })
-    expect(flangeUnverified('5K', '50A')).toEqual({ row: false, t: true })
-    expect(flangeUnverified('20K', '50A')).toEqual({ row: false, t: false })
+  it('以前 ※ だった値（5K・10K の 90A・175A・225A、16K の厚さ、5K 50A の厚さ）にも付けない', () => {
+    expect(flangeUnverified('5K', '90A')).toEqual({ row: false, t: false })
+    expect(flangeUnverified('10K', '225A')).toEqual({ row: false, t: false })
+    expect(flangeUnverified('16K', '100A')).toEqual({ row: false, t: false })
+    expect(flangeUnverified('5K', '50A')).toEqual({ row: false, t: false })
+  })
+
+  it('16K・20K の表に 90A がある（JIS B 2220 表17・表18）', () => {
+    expect(flangeTableRows('16K').find((r) => r.size === '90A')).toMatchObject({ D: 210, C: 170, n: 8, h: 23, bolt: 20, t: 20 })
+    expect(flangeTableRows('20K').find((r) => r.size === '90A')).toMatchObject({ D: 210, C: 170, n: 8, h: 23, bolt: 20, t: 24 })
   })
 })
 
 describe('flangeTableMarks（寸法表の ※）', () => {
-  const marksOf = (pressure: (typeof PRESSURE_CLASSES)[number], size: string) =>
-    flangeTableMarks(flangeTableRows(pressure).find((r) => r.size === size)!)
+  // ※ の仕組みは残している。未確認の範囲は仮の値で確かめる
+  const marks = (unverified: { row: boolean; t: boolean }) => flangeTableMarks({ unverified })
 
-  it('16K: 厚さと、その厚さから計算したボルト長さに付ける', () => {
-    for (const row of flangeTableRows('16K')) {
-      expect(flangeTableMarks(row), row.size).toEqual({ size: false, t: true, lengths: true })
+  it('厚さだけが未確認: 厚さと、その厚さから計算したボルト長さに付ける', () => {
+    expect(marks({ row: false, t: true })).toEqual({ size: false, t: true, lengths: true })
+  })
+
+  it('行全体が未確認: 呼び径の欄だけ', () => {
+    expect(marks({ row: true, t: true })).toEqual({ size: true, t: false, lengths: false })
+  })
+
+  it('確認済みの行は付けない（いまの表はすべて）', () => {
+    expect(marks({ row: false, t: false })).toEqual({ size: false, t: false, lengths: false })
+    for (const pressure of PRESSURE_CLASSES) {
+      expect(flangeTableRows(pressure).some((r) => Object.values(flangeTableMarks(r)).some(Boolean)), pressure).toBe(false)
     }
   })
 
-  it('5K 50A: 厚さとボルト長さ', () => {
-    expect(marksOf('5K', '50A')).toEqual({ size: false, t: true, lengths: true })
-  })
-
-  it('行全体が未確認の行（5K・10K の 90A・175A・225A）は呼び径の欄だけ', () => {
-    expect(marksOf('5K', '90A')).toEqual({ size: true, t: false, lengths: false })
-    expect(marksOf('10K', '225A')).toEqual({ size: true, t: false, lengths: false })
-  })
-
-  it('確認済みの行は付けない（10K 100A・20K 50A）', () => {
-    expect(marksOf('10K', '100A')).toEqual({ size: false, t: false, lengths: false })
-    expect(marksOf('20K', '50A')).toEqual({ size: false, t: false, lengths: false })
-  })
-
   it('CSV の確認状況も ※ と同じ範囲（厚さだけ未確認の行はボルト長さも要確認）', () => {
-    expect(flangeTableStatus(flangeTableRows('16K')[0])).toBe('要確認（厚さ・ボルト長さ）')
-    expect(flangeTableStatus(flangeTableRows('5K').find((r) => r.size === '50A')!)).toBe('要確認（厚さ・ボルト長さ）')
-    expect(flangeTableStatus(flangeTableRows('10K').find((r) => r.size === '90A')!)).toBe('要確認（行全体）')
-    expect(flangeTableStatus(flangeTableRows('10K').find((r) => r.size === '100A')!)).toBe('')
-  })
-
-  it('10K・20K の表には、未確認の厚さから計算したボルト長さは無い', () => {
-    expect(flangeTableRows('10K').some((r) => flangeTableMarks(r).lengths)).toBe(false)
-    expect(flangeTableRows('20K').some((r) => flangeTableMarks(r).lengths)).toBe(false)
+    expect(flangeTableStatus({ unverified: { row: false, t: true } })).toBe('要確認（厚さ・ボルト長さ）')
+    expect(flangeTableStatus({ unverified: { row: true, t: true } })).toBe('要確認（行全体）')
+    expect(flangeTableStatus({ unverified: { row: false, t: false } })).toBe('')
+    expect(flangeTableStatus(flangeTableRows('16K')[0])).toBe('')
   })
 })
 

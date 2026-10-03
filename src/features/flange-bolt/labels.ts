@@ -1,7 +1,7 @@
 import { trim } from '../../lib/format'
 import { findPipeSize } from '../steel-pipe/calc'
 import type { BoltConditions, BoltType, NutKind, Rounding } from './calc'
-import { PRESSURE_CLASSES, UNVERIFIED } from './data'
+import { PRESSURE_CLASSES, UNVERIFIED, type UnverifiedList } from './data'
 
 export const BOLT_TYPE_LABELS: Record<BoltType, string> = { hex: '六角ボルト', stud: 'スタッドボルト' }
 export const NUT_LABELS: Record<NutKind, string> = { style1: 'JIS本体', ja1: '旧JIS 1種' }
@@ -51,11 +51,12 @@ export function detailSummary(input: {
 }
 
 /**
- * ※ を付けている値の一覧（UNVERIFIED から作る。例: 「5K 50A の厚さ」「5K の 90A・175A・225A の全寸法」「16K の厚さ（全サイズ）」）
+ * ※ を付けている値の一覧（UNVERIFIED から作る。例: 「5K 50A の厚さ」「5K の 90A・175A の全寸法」「16K の厚さ（全サイズ）」）。
+ * 未確認の値が無ければ空の配列
  */
-export function unverifiedSummary(): string[] {
+export function unverifiedSummary(list: UnverifiedList = UNVERIFIED): string[] {
   return PRESSURE_CLASSES.flatMap((pressure) => {
-    const spec = UNVERIFIED[pressure]
+    const spec = list[pressure]
     if (!spec) return []
     const items: string[] = []
     if (spec.t === 'all') items.push(`${pressure} の厚さ（全サイズ）`)

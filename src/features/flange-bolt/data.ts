@@ -1,7 +1,11 @@
 /**
- * 鋼製管フランジの主要寸法（JIS B 2220:2012、並形）[mm]。
+ * 鋼製管フランジの主要寸法 [mm]。JIS B 2220:2012 の表14（5K）・表15（10K）・表17（16K）・表18（20K）。
+ * 10K薄形（別の表）は含まない。呼び径は 10A〜300A（どのクラスにあるかは表12・表14〜表18 のとおり）。
  * D: 外径 / C: ボルト穴中心円の径（PCD）/ n: ボルト穴の数 / h: ボルト穴の径 / bolt: ボルトの呼び / t: フランジの厚さ
- * t は座（RF）の高さを含む厚さ（ボルトの締付け長さは RF・FF どちらでも 2t + ガスケット厚さ）。
+ * t は平面座（RF）のフランジでは座の高さ f を含む厚さ（表13 の図。表22 の厚さの許容差も RF は「t−f」に対して決めている）。
+ * ボルトの締付け長さは RF どうし・FF どうしのどちらでも 2t + ガスケット厚さ。
+ * なお表8 では、RF にできるのは 5K・10K・16K の WN・IT と 20K の各形式で、5K・10K・16K の SOP・SOH・SW・TR・BL は RF にしない（FF など）。
+ * 全値を JIS B 2220:2012 の原文（kikakurui の規格票の画像）と照合済み。
  */
 export interface FlangeRow {
   size: string
@@ -71,6 +75,7 @@ export const FLANGES: Record<PressureClass, readonly FlangeRow[]> = {
     ['50A', 155, 120, 8, 19, 16, 16],
     ['65A', 175, 140, 8, 19, 16, 18],
     ['80A', 200, 160, 8, 23, 20, 20],
+    ['90A', 210, 170, 8, 23, 20, 20],
     ['100A', 225, 185, 8, 23, 20, 22],
     ['125A', 270, 225, 8, 25, 22, 22],
     ['150A', 305, 260, 12, 25, 22, 24],
@@ -88,6 +93,7 @@ export const FLANGES: Record<PressureClass, readonly FlangeRow[]> = {
     ['50A', 155, 120, 8, 19, 16, 18],
     ['65A', 175, 140, 8, 19, 16, 20],
     ['80A', 200, 160, 8, 23, 20, 22],
+    ['90A', 210, 170, 8, 23, 20, 24],
     ['100A', 225, 185, 8, 23, 20, 24],
     ['125A', 270, 225, 8, 25, 22, 26],
     ['150A', 305, 260, 12, 25, 22, 28],
@@ -102,24 +108,63 @@ export const PRESSURE_CLASSES = Object.keys(FLANGES) as PressureClass[]
 /**
  * 規格原文で未確認の値（docs/data-verification.md で確度 △ としたもの）。画面・コピー・表の書き出しで ※ を付ける。
  * 原文で確認できたら、ここから消す（docs の表も合わせて直す）。
- * - rows: その呼び径の行の寸法すべて（規格では括弧付きのサイズ。作成者の知識のみ）
+ * - rows: その呼び径の行の寸法すべて
  * - t: フランジの厚さだけ（'all' はそのクラスの全サイズ）
+ *
+ * いまは空。以前の項目（5K 50A の厚さ、5K・10K の 90A・175A・225A の行、16K の厚さ全部）は、
+ * JIS B 2220:2012 の表14・表15・表17 の原文と照合して、すべて一致したため外した。
+ * 仕組み（※ の表示・凡例）は、今後未確認の値を載せるときのために残している。
  */
 export interface UnverifiedSpec {
   rows?: readonly string[]
   t?: 'all' | readonly string[]
 }
 
-export const UNVERIFIED: Readonly<Partial<Record<PressureClass, UnverifiedSpec>>> = {
-  // 5K 50A の厚さは資料により 12 と 14。ボルトが長めになる 14 を採用
-  '5K': { t: ['50A'], rows: ['90A', '175A', '225A'] },
-  '10K': { rows: ['90A', '175A', '225A'] },
-  // 16K の厚さは全サイズ未確認（100A は別資料から 20 以下とも読める）
-  '16K': { t: 'all' },
-}
+export type UnverifiedList = Readonly<Partial<Record<PressureClass, UnverifiedSpec>>>
+
+export const UNVERIFIED: UnverifiedList = {}
 
 /** ※ の凡例（画面・コピー・表の書き出しで同じ文言にする） */
 export const UNVERIFIED_LEGEND = '※ 規格原文で未確認の値'
+
+/** JIS B 2220:2012 で、各呼び圧力のフランジの寸法（D・C・n・h・ボルト・t）を定めている表 */
+export const FLANGE_TABLE_NO: Readonly<Record<PressureClass, string>> = {
+  '5K': '表14',
+  '10K': '表15',
+  '16K': '表17',
+  '20K': '表18',
+}
+
+/** 典拠に添える表番号と表題（例: 「表15 呼び圧力10Kフランジの寸法」） */
+export function flangeTableLabel(pressure: PressureClass): string {
+  return `${FLANGE_TABLE_NO[pressure]} 呼び圧力${pressure}フランジの寸法`
+}
+
+/** 4クラスの表番号をまとめた表記（「表14・表15・表17・表18」） */
+export const ALL_FLANGE_TABLES = PRESSURE_CLASSES.map((p) => FLANGE_TABLE_NO[p]).join('・')
+
+/** 4クラスの表番号と表題（「表14・表15・表17・表18（呼び圧力5K・10K・16K・20Kフランジの寸法）」） */
+export const ALL_FLANGE_TABLES_LABEL = `${ALL_FLANGE_TABLES}（呼び圧力${PRESSURE_CLASSES.join('・')}フランジの寸法）`
+
+/** 呼び径がどのクラスにあるかを定めている表（JIS B 2220:2012） */
+export const FLANGE_SIZE_TABLE_NO = '表12'
+export const FLANGE_SIZE_TABLE = `${FLANGE_SIZE_TABLE_NO} フランジの呼び径及び圧力−温度基準の適用`
+/** 平面座（RF）の図・座の寸法（t が座の高さ f を含むことの典拠） */
+export const GASKET_SEAT_TABLE = '表13 ガスケット座の寸法'
+/**
+ * 平面座（RF）の座の高さ f [mm]（JIS B 2220:2012 表13。5K・10K・16K・20K で同じ）。
+ * 呼び径 from〜to の範囲で f。厚さ t はこの f を含む
+ */
+export const RAISED_FACE_HEIGHT: readonly { from: string; to: string; f: number }[] = [
+  { from: '10A', to: '25A', f: 1 },
+  { from: '32A', to: '250A', f: 2 },
+  { from: '300A', to: '300A', f: 3 },
+]
+
+/** フランジの厚さの許容差 */
+export const FLANGE_TOLERANCE_TABLE = '表22 フランジの寸法許容差'
+/** フランジの種類とガスケット座（FF・RF など）の組合せ */
+export const FLANGE_SEAT_COMBINATION_TABLE = '表8 フランジとガスケット座との組合せ'
 
 /** 六角ナットの高さ [mm]（JIS B 1181）。style1: 本体スタイル1の最大値 / ja1: 附属書JA 1種 */
 export const NUT_HEIGHT: Readonly<Record<number, { style1: number; ja1: number }>> = {

@@ -41,12 +41,17 @@ describe('detailSummary / conditionsText', () => {
 })
 
 describe('unverifiedSummary', () => {
-  it('UNVERIFIED から一覧を作る', () => {
-    expect(unverifiedSummary()).toEqual([
-      '5K 50A の厚さ',
-      '5K の 90A・175A・225A の全寸法',
-      '10K の 90A・175A・225A の全寸法',
-      '16K の厚さ（全サイズ）',
-    ])
+  it('いまの UNVERIFIED は空なので、※ を付ける値は無い', () => {
+    expect(unverifiedSummary()).toEqual([])
+  })
+
+  it('一覧の作り方（仮の一覧で確かめる）', () => {
+    expect(
+      unverifiedSummary({
+        '5K': { t: ['50A'], rows: ['90A', '175A'] },
+        '10K': { rows: ['225A'] },
+        '16K': { t: 'all' },
+      }),
+    ).toEqual(['5K 50A の厚さ', '5K の 90A・175A の全寸法', '10K の 225A の全寸法', '16K の厚さ（全サイズ）'])
   })
 })

@@ -5,7 +5,16 @@ import { Card } from '../../components/ui/Card'
 import { DataTable, type Column } from '../../components/ui/DataTable'
 import { Formula, FormulaInfo, FormulaLegend } from '../../components/ui/FormulaInfo'
 import { TableExport } from '../../components/ui/TableExport'
-import type { PressureClass } from '../../features/flange-bolt/data'
+import { flangeThicknessTolerance, raisedFaceHeight } from '../../features/flange-bolt/calc'
+import {
+  FLANGE_SEAT_COMBINATION_TABLE,
+  FLANGE_SIZE_TABLE_NO,
+  FLANGE_TABLE_NO,
+  FLANGE_TOLERANCE_TABLE,
+  flangeTableLabel,
+  GASKET_SEAT_TABLE,
+  type PressureClass,
+} from '../../features/flange-bolt/data'
 import { trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
 import { Link } from '../../router/Link'
@@ -46,6 +55,9 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
   const unverifiedT = rows.some((row) => row.unverified.t)
   const markedLengths = rows.some((row) => flangeTableMarks(row).lengths)
   const example = rows.find((row) => row.size === '50A') ?? rows[0]
+  const exampleFace = raisedFaceHeight(example.size)
+  const hasStatus = rows.some((row) => flangeTableStatus(row) !== '')
+  const tableNo = FLANGE_TABLE_NO[pressure]
   const bolts = [...new Set(rows.map((row) => row.bolt))].sort((a, b) => a - b)
   const { gasket, threads } = TABLE_BOLT_CONDITIONS
 
@@ -93,7 +105,8 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
     '厚さ t [mm]',
     '六角ボルト長さの目安 [mm]',
     'スタッドボルト長さの目安 [mm]',
-    '確認状況',
+    // ※（規格原文で未確認）の値があるときだけ、確認状況の列を付ける
+    ...(hasStatus ? ['確認状況'] : []),
   ]
   const exportRows = rows.map((r) => [
     r.size,
@@ -105,10 +118,10 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
     r.t,
     r.hex.length,
     r.stud.length,
-    flangeTableStatus(r),
+    ...(hasStatus ? [flangeTableStatus(r)] : []),
   ])
   const exportNote = [
-    `典拠: ${standardLabel('JIS B 2220')}（${pressure}・並形）`,
+    `典拠: ${standardLabel('JIS B 2220')} ${flangeTableLabel(pressure)}`,
     `ボルト長さはガスケット${gasket}mm・座金なし・JIS本体のナット・突き出し${threads}山・5mm刻みで計算した目安`,
     `${SITE.name}${SITE.url ? ` ${SITE.url}${meta.path}` : ''}`,
   ].join('。')
@@ -124,7 +137,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
         lead={
           <>
             <p>
-              JIS B 2220（鋼製管フランジ）の呼び圧力 {pressure}・並形について、{sizes}
+              JIS B 2220（鋼製管フランジ）の呼び圧力 {pressure}（{tableNo}）について、{sizes}
               の外径・ボルト穴中心円の径（PCD）・ボルト穴の数と径・ボルトの呼び・厚さをまとめた一覧表です。
             </p>
             <p>
@@ -145,7 +158,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
       </PageHeader>
 
       <div className="grid grid-cols-1 gap-4 lg:gap-6">
-        <Card title={`JIS ${pressure} フランジ寸法表（並形）`} index="01" icon={Table2} flush>
+        <Card title={`JIS ${pressure} フランジ寸法表`} index="01" icon={Table2} flush>
           <TableNote>
             <p>単位: mm。呼び径をタップすると、そのサイズのボルト長さをツールで計算できます。</p>
             <p>
@@ -162,7 +175,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
           </TableNote>
           <div className="flex justify-end px-4 pt-2">
             <TableExport
-              title={`JIS ${pressure} フランジ寸法表（JIS B 2220・並形）`}
+              title={`JIS ${pressure} フランジ寸法表（JIS B 2220 ${tableNo}）`}
               filename={`JIS_${pressure}_flange`}
               headers={exportHeaders}
               rows={exportRows}
@@ -173,7 +186,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
             <DataTable columns={columns} rows={rows} rowKey={(r) => r.size} caption={`JIS ${pressure} フランジ寸法表`} />
           </div>
           <div className="space-y-1 p-4">
-            <Citation code="JIS B 2220" detail={`${pressure}（並形）`} suffix="のフランジ寸法" />
+            <Citation code="JIS B 2220" detail={flangeTableLabel(pressure)} suffix="のフランジ寸法" />
             <Citation code="JIS B 1181" suffix="のナット高さ（ボルト長さの計算）" />
             <Citation code="JIS B 0205-2" suffix="の並目ピッチ（突き出しの計算）" />
           </div>
@@ -182,8 +195,20 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
         <Card title="表の見方と注意" index="02" icon={Info}>
           <ul className="space-y-2 text-sm leading-relaxed text-zinc-700 [&>li]:ml-5 [&>li]:list-disc">
             <li>呼び径の「A」は管の呼び径です（例: 50A = 2B）。ボルトの本数はボルト穴の数と同じです。</li>
+            {pressure === '10K' && <li>10K薄形フランジ（寸法が別の表）は載せていません。</li>}
             <li>
-              厚さ t は、座（RF）の高さを含む厚さです。座を含まない厚さの資料と組み合わせるときは、その分を足して考えてください。
+              厚さ t は、平面座（RF）のフランジでは座の高さ f を含む厚さです（JIS B 2220 {GASKET_SEAT_TABLE}。例: {example.size} は f ={' '}
+              {exampleFace ?? '—'} mm）。座を含まない厚さの資料と組み合わせるときは、その分を足して考えてください。
+            </li>
+            <li>
+              {pressure === '20K'
+                ? '20K には全面座（FF）がなく、平面座（RF）などです'
+                : `${pressure} で平面座（RF）にできるのは WN・IT 形だけで、スリップオン溶接式（${pressure === '16K' ? 'SOH' : 'SOP・SOH'}）や閉止フランジ（BL）などは全面座（FF）などです`}
+              （JIS B 2220 {FLANGE_SEAT_COMBINATION_TABLE}）。
+            </li>
+            <li>
+              厚さの許容差はプラス側だけです（JIS B 2220 {FLANGE_TOLERANCE_TABLE}。20 mm 以下 +{flangeThicknessTolerance(20)} mm、20 mm を超え 50 mm 以下 +
+              {flangeThicknessTolerance(50)} mm。RF は t − f に対して）。実物は表の厚さより厚いことがあるので、ボルトの突き出しには余裕を見てください。
             </li>
             {unverifiedRows.length > 0 && (
               <li>
@@ -191,21 +216,9 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
                 の行（※）は、規格原文での確認が済んでいません。
               </li>
             )}
-            {pressure === '5K' && (
-              <li>
-                50A の厚さは資料により 12 と 14 があり、ボルトが長めになる 14 を載せています（※）。50A
-                のボルト長さ（※）も、この厚さ 14 で計算しています。
-              </li>
-            )}
-            {pressure === '16K' && (
-              <li>
-                16K の厚さ（※）は規格原文での確認が済んでいません。厚さから計算したボルト長さにも ※
-                を付けています。目安としてご覧ください。
-              </li>
-            )}
             {(pressure === '16K' || pressure === '20K') && (
               <li>
-                {pressure} の表に 175A・225A はありません。90A は規格にあるか確認できていないため載せていません。
+                {pressure} に 175A・225A はありません（JIS B 2220 {FLANGE_SIZE_TABLE_NO}）。90A はあります。
               </li>
             )}
             <li>
@@ -231,7 +244,7 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
               </Formula>
               <FormulaLegend
                 items={[
-                  ['t', 'フランジの厚さ（JIS B 2220。座の高さを含む）'],
+                  ['t', `フランジの厚さ（JIS B 2220 ${tableNo}。RF は座の高さを含む）`],
                   ['G', 'ガスケットの厚さ'],
                   ['m', 'ナットの高さ（JIS B 1181 本体・スタイル1の最大値）'],
                   ['k × P', 'ナットからの突き出し（山数 × 並目ピッチ）'],

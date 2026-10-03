@@ -6,7 +6,7 @@ import { NumberField } from '../../components/ui/NumberField'
 import { SegmentedControl } from '../../components/ui/SegmentedControl'
 import { parseNumber, trim } from '../../lib/format'
 import { identifyFlange, isUnverified, pcdFromPitch, type IdentifyCandidate, type IdentifyGroup } from './calc'
-import type { PressureClass } from './data'
+import { ALL_FLANGE_TABLES_LABEL, type PressureClass } from './data'
 import { Marked, UnverifiedLegend } from './Unverified'
 
 export const IDENTIFY_CARD_ID = 'flange-identify'
@@ -173,7 +173,7 @@ export function IdentifyCard({ index, selected, onSelect, className }: IdentifyC
           />
         </div>
         <p className="-mt-2 text-xs text-zinc-500">
-          厚さは座（RF）を含めて測ります（表の厚さ t は座を含む値）。外径・PCD・穴が同じ候補の見分けに使います。
+          厚さは、座（RF）があれば座を含めて測ります（表の厚さ t は座の高さを含む値）。外径・PCD・穴が同じ候補の見分けに使います。
         </p>
       </div>
 
@@ -253,14 +253,14 @@ export function IdentifyCard({ index, selected, onSelect, className }: IdentifyC
             </ol>
             {anyUnverified && (
               <UnverifiedLegend className="mt-2">
-                。16K の厚さなど、未確認の厚さで見分けるときは注意してください。
+                。未確認の厚さで見分けるときは注意してください。
               </UnverifiedLegend>
             )}
           </>
         )}
       </div>
       <div className="mt-3">
-        <Citation code="JIS B 2220" detail="5K・10K・16K・20K（並形）" suffix="の表から探しています" />
+        <Citation code="JIS B 2220" detail={ALL_FLANGE_TABLES_LABEL} suffix="から探しています" />
       </div>
     </Card>
   )

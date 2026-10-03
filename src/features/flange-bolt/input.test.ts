@@ -45,7 +45,12 @@ describe('normalizeFlangeInput（URL の一部指定）', () => {
 
   it('そのクラスに無い呼び径は最も近い呼び径にする（16K 175A → 200A）', () => {
     expect(fromUrl('?pressure=16K&size=175A')).toEqual({ ...DEFAULT_INPUT, pressure: '16K', size: '200A' })
-    expect(fromUrl('?pressure=20K&size=90A')).toEqual({ ...DEFAULT_INPUT, pressure: '20K', size: '100A' })
+    expect(fromUrl('?pressure=20K&size=225A')).toEqual({ ...DEFAULT_INPUT, pressure: '20K', size: '250A' })
+  })
+
+  it('16K・20K の 90A はそのまま（JIS B 2220 表12・表17・表18 にある）', () => {
+    expect(fromUrl('?pressure=16K&size=90A')).toEqual({ ...DEFAULT_INPUT, pressure: '16K', size: '90A' })
+    expect(fromUrl('?pressure=20K&size=3-1/2B')).toEqual({ ...DEFAULT_INPUT, pressure: '20K', size: '90A' })
   })
 
   it('読めない値は既定値に戻し、山数は 1〜5 に収める', () => {

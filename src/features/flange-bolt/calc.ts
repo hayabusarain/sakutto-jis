@@ -4,11 +4,13 @@ import {
   FLANGES,
   NUT_HEIGHT,
   PRESSURE_CLASSES,
+  RAISED_FACE_HEIGHT,
   STANDARD_BOLT_LENGTHS,
   UNVERIFIED,
   WASHER_THICKNESS,
   type FlangeRow,
   type PressureClass,
+  type UnverifiedList,
 } from './data'
 
 export type BoltType = 'hex' | 'stud'
@@ -89,17 +91,46 @@ export function protrusionThreads(protrusion: number, pitch: number): number {
 
 export type FlangeField = 'D' | 'C' | 'n' | 'h' | 'bolt' | 't'
 
-/** その呼び径の行の寸法すべてが未確認か（5K・10K の 90A・175A・225A） */
-export function isRowUnverified(pressure: PressureClass, size: string): boolean {
-  return UNVERIFIED[pressure]?.rows?.includes(size) ?? false
+/** list の中で、その呼び径の行の寸法すべてが未確認とされているか */
+export function isRowUnverifiedIn(list: UnverifiedList, pressure: PressureClass, size: string): boolean {
+  return list[pressure]?.rows?.includes(size) ?? false
 }
 
-/** その値が規格原文で未確認か */
-export function isUnverified(pressure: PressureClass, size: string, field: FlangeField): boolean {
-  if (isRowUnverified(pressure, size)) return true
+/** list の中で、その値が未確認とされているか（行全体が未確認なら、どの項目も未確認） */
+export function isUnverifiedIn(list: UnverifiedList, pressure: PressureClass, size: string, field: FlangeField): boolean {
+  if (isRowUnverifiedIn(list, pressure, size)) return true
   if (field !== 't') return false
-  const t = UNVERIFIED[pressure]?.t
+  const t = list[pressure]?.t
   return t === 'all' || (t?.includes(size) ?? false)
+}
+
+/** その呼び径の行の寸法すべてが規格原文で未確認か（UNVERIFIED。いまは該当なし） */
+export function isRowUnverified(pressure: PressureClass, size: string): boolean {
+  return isRowUnverifiedIn(UNVERIFIED, pressure, size)
+}
+
+/** その値が規格原文で未確認か（UNVERIFIED。いまは該当なし） */
+export function isUnverified(pressure: PressureClass, size: string, field: FlangeField): boolean {
+  return isUnverifiedIn(UNVERIFIED, pressure, size, field)
+}
+
+/** 平面座（RF）の座の高さ f [mm]（JIS B 2220 表13）。表に無い呼び径は undefined */
+export function raisedFaceHeight(size: string): number | undefined {
+  const n = nominalNumber(size)
+  return RAISED_FACE_HEIGHT.find((range) => n >= nominalNumber(range.from) && n <= nominalNumber(range.to))?.f
+}
+
+// ---------------------------------------------------------------------------
+// フランジの厚さの許容差（JIS B 2220:2012 表22）
+
+/**
+ * フランジの厚さの許容差（プラス側）[mm]。マイナス側は 0。
+ * 厚さ（RF のフランジは t − f）が 20 以下で +1.5、20 を超え 50 以下で +2、50 を超えると +3。
+ */
+export function flangeThicknessTolerance(thickness: number): number {
+  if (thickness <= 20 + 1e-9) return 1.5
+  if (thickness <= 50 + 1e-9) return 2
+  return 3
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +177,7 @@ export function spannerSize(bolt: number, nut: NutKind): number | undefined {
 
 export interface ClassComparison {
   pressure: PressureClass
-  /** その呼び径が無いクラスは undefined（16K・20K の 90A・175A・225A） */
+  /** その呼び径が無いクラスは undefined（16K・20K の 175A・225A。JIS B 2220 表12） */
   row: FlangeRow | undefined
   bolt: BoltLengthResult | undefined
 }

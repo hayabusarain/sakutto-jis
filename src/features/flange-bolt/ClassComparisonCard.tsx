@@ -11,7 +11,7 @@ import {
   type ClassComparison,
   type FlangeField,
 } from './calc'
-import { UNVERIFIED_LEGEND, type FlangeRow, type PressureClass } from './data'
+import { ALL_FLANGE_TABLES_LABEL, FLANGE_SIZE_TABLE_NO, UNVERIFIED_LEGEND, type FlangeRow, type PressureClass } from './data'
 import { conditionsText, markedText } from './labels'
 import { ExportInAside, ExportInBody } from './ExportSlot'
 import { Marked, UnverifiedLegend } from './Unverified'
@@ -117,7 +117,9 @@ export function ClassComparisonCard({ index, pressure, size, conditions, onSelec
       filename={`flange_${size}_classes`}
       headers={['圧力', '外径 D [mm]', 'PCD C [mm]', '穴数', '穴径 h [mm]', 'ボルト', '厚さ t [mm]', 'ボルト長さ [mm]']}
       rows={exportRows}
-      note={`典拠: ${standardLabel('JIS B 2220')}（並形）。ボルト長さは計算値（${conditionNote}）。${UNVERIFIED_LEGEND}`}
+      note={`典拠: ${standardLabel('JIS B 2220')} ${ALL_FLANGE_TABLES_LABEL}。ボルト長さは計算値（${conditionNote}）。${
+        anyUnverified ? UNVERIFIED_LEGEND : ''
+      }`}
     />
   )
 
@@ -217,10 +219,10 @@ export function ClassComparisonCard({ index, pressure, size, conditions, onSelec
       <div className="space-y-1 px-4 pt-2 pb-4">
         <p className="text-xs leading-relaxed text-zinc-500">
           {conditions ? `ボルトの長さは今の条件（${conditionNote}）で計算。` : 'ボルトの長さは、入力エラーのため計算していません。'}
-          {missing.length > 0 && ` ${missing.join('・')} に ${size} はありません。`}
+          {missing.length > 0 && ` ${missing.join('・')} に ${size} はありません（JIS B 2220 ${FLANGE_SIZE_TABLE_NO}）。`}
         </p>
         {anyUnverified && <UnverifiedLegend>（未確認の厚さから計算したボルト長さにも付けています）</UnverifiedLegend>}
-        <Citation code="JIS B 2220" detail="並形" suffix="のフランジ寸法" />
+        <Citation code="JIS B 2220" detail={ALL_FLANGE_TABLES_LABEL} />
       </div>
     </Card>
   )

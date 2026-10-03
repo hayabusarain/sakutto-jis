@@ -22,16 +22,23 @@ import { ClassComparisonCard } from './ClassComparisonCard'
 import {
   findFlange,
   flangeBoltLength,
+  flangeThicknessTolerance,
   isRowUnverified,
   isUnverified,
   nearestSize,
   protrusionThreads,
+  raisedFaceHeight,
   spannerSize,
   type BoltConditions,
 } from './calc'
 import {
   COARSE_PITCH,
+  FLANGE_SEAT_COMBINATION_TABLE,
+  FLANGE_TABLE_NO,
+  FLANGE_TOLERANCE_TABLE,
   FLANGES,
+  flangeTableLabel,
+  GASKET_SEAT_TABLE,
   PIPE_OD,
   PRESSURE_CLASSES,
   UNVERIFIED_LEGEND,
@@ -74,6 +81,9 @@ const DRAWING_OPTIONS = [
 ] as const
 /** 現場でよく使う呼び径 */
 const QUICK_SIZES = ['15A', '20A', '25A', '40A', '50A', '80A', '100A', '150A'] as const
+/** 厚さの許容差の区分の例（JIS B 2220 表22。このツールの厚さ 9〜36 mm は 20 以下か 20 を超え 50 以下） */
+const TOLERANCE_UP_TO_20 = flangeThicknessTolerance(20)
+const TOLERANCE_UP_TO_50 = flangeThicknessTolerance(50)
 
 export function FlangeBoltTool() {
   const [input, setInput] = useToolState('flange-bolt', DEFAULT_INPUT, isFlangeInput, normalizeFlangeInput)
@@ -125,6 +135,7 @@ export function FlangeBoltTool() {
   const otherNut = input.nut === 'style1' ? 'ja1' : 'style1'
   const otherSpanner = spannerSize(row.bolt, otherNut)
   const rowUnverified = isRowUnverified(input.pressure, row.size)
+  const faceHeight = raisedFaceHeight(row.size)
   const tUnverified = isUnverified(input.pressure, row.size, 't')
 
   const citedStandards: StandardCode[] = [
@@ -143,7 +154,7 @@ export function FlangeBoltTool() {
     setInput({ ...input, pressure, size })
   }
   const changePressure = (pressure: PressureClass) => {
-    // 同じ呼び径が無い圧力（16K・20K に 90A・175A・225A は無い）に切り替えたら、最も近い呼び径にする
+    // 同じ呼び径が無い圧力（16K・20K に 175A・225A は無い。JIS B 2220 表12）に切り替えたら、最も近い呼び径にする
     const size = nearestSize(pressure, input.size)
     setSizeNotice(size === input.size ? null : `${pressure} に ${input.size} は無いため、${size} にしました。`)
     setInput({ ...input, pressure, size })
@@ -163,7 +174,9 @@ export function FlangeBoltTool() {
       rowUnverified,
     )} / 厚さ ${markedText(row.t, tUnverified)}`,
     tUnverified ? UNVERIFIED_LEGEND : '',
-    `典拠: ${citedStandards.map(standardLabel).join(' / ')}`,
+    `典拠: ${citedStandards
+      .map((code) => (code === 'JIS B 2220' ? `${standardLabel(code)} ${FLANGE_TABLE_NO[input.pressure]}` : standardLabel(code)))
+      .join(' / ')}`,
     '（サクッとJIS）',
   ]
     .filter(Boolean)
@@ -208,7 +221,7 @@ export function FlangeBoltTool() {
 
   const tableExport = (
     <TableExport
-      title={`JIS ${input.pressure} フランジ寸法表（JIS B 2220 並形）`}
+      title={`JIS ${input.pressure} フランジ寸法表（JIS B 2220 ${FLANGE_TABLE_NO[input.pressure]}）`}
       filename={`flange_JIS${input.pressure}`}
       headers={['呼び径', '外径 D [mm]', 'PCD C [mm]', '穴数', '穴径 h [mm]', '厚さ t [mm]', 'ボルト', 'ボルト長さ [mm]']}
       rows={sizes.map((r) => {
@@ -226,7 +239,9 @@ export function FlangeBoltTool() {
           length === null ? '' : markedText(length, tMark),
         ]
       })}
-      note={`典拠: ${standardLabel('JIS B 2220')}（${input.pressure} 並形）。ボルト長さは計算値（${conditionNote}）。${UNVERIFIED_LEGEND}`}
+      note={`典拠: ${standardLabel('JIS B 2220')} ${flangeTableLabel(input.pressure)}。ボルト長さは計算値（${conditionNote}）。${
+        tableHasUnverified ? UNVERIFIED_LEGEND : ''
+      }`}
     />
   )
 
@@ -316,6 +331,11 @@ export function FlangeBoltTool() {
                 value={String(input.washers) as '0' | '1' | '2'}
                 options={WASHER_OPTIONS}
                 onChange={(value) => setInput({ ...input, washers: Number(value) as 0 | 1 | 2 })}
+                hint={
+                  input.nut === 'style1'
+                    ? 'JIS B 2220（21.2）では、JIS本体のボルト・ナットで締めるとき（M24 以下）は、平座金（JIS B 1256 並形・部品等級A）の併用が望ましいとしています。'
+                    : undefined
+                }
               />
               <SegmentedControl
                 label="ナットからの突き出し"
@@ -433,7 +453,7 @@ export function FlangeBoltTool() {
         )}
 
         <div className="mt-3 space-y-1">
-          <Citation code="JIS B 2220" detail={`${input.pressure}（並形）`} suffix="のフランジ寸法" />
+          <Citation code="JIS B 2220" detail={flangeTableLabel(input.pressure)} suffix="のフランジ寸法" />
           <Citation code="JIS B 1181" suffix="のナット高さ・二面幅" />
           {input.type === 'hex' && input.rounding === 'jis' && (
             <Citation code="JIS B 1180" suffix="のボルト頭の二面幅・呼び長さの系列" />
@@ -467,7 +487,7 @@ export function FlangeBoltTool() {
               </Formula>
               <FormulaLegend
                 items={[
-                  [<>t<sub>1</sub>, t<sub>2</sub></>, 'フランジの厚さ（JIS B 2220。座の高さを含む）'],
+                  [<>t<sub>1</sub>, t<sub>2</sub></>, `フランジの厚さ（JIS B 2220 ${FLANGE_TABLE_NO[input.pressure]}。RF は座の高さを含む）`],
                   ['G', 'ガスケットの厚さ'],
                   ['n × W', '平座金の枚数 × 厚さ'],
                   ['m', 'ナットの高さ'],
@@ -482,8 +502,18 @@ export function FlangeBoltTool() {
                 に切り上げています。市販品の長さはメーカーによって異なるので、在庫の長さも確認してください。
               </p>
               <p>
-                フランジの厚さ t は、JIS B 2220 の表の値（座（RF）の高さを含む厚さ）として計算しています。座を含まない厚さの資料と組み合わせるときは、その分を相手側の厚さに足してください。ナットの高さは、JIS本体はスタイル1の最大値、旧JISは1種の呼び寸法です。
+                フランジの厚さ t は JIS B 2220 {FLANGE_TABLE_NO[input.pressure]} の値です。平面座（RF）のフランジでは、t は座の高さ f
+                {faceHeight !== undefined && `（${row.size} は ${faceHeight} mm）`}を含みます（{GASKET_SEAT_TABLE}）。座を含まない厚さの資料と組み合わせるときは、その分を相手側の厚さに足してください。
               </p>
+              <p>
+                なお、5K・10K・16K で RF にできるのは WN・IT 形だけで、スリップオン溶接式（SOP・SOH）や閉止フランジ（BL）などに RF
+                はありません（JIS B 2220 {FLANGE_SEAT_COMBINATION_TABLE}。20K には全面座（FF）がありません）。
+              </p>
+              <p>
+                フランジの厚さの許容差はプラス側だけです（JIS B 2220 {FLANGE_TOLERANCE_TABLE}。20 mm 以下 +{TOLERANCE_UP_TO_20} mm、20 mm を超え 50 mm 以下 +
+                {TOLERANCE_UP_TO_50} mm。RF は t − f に対して）。実物のフランジは表の t より厚いことがあるので、突き出しには余裕を見てください（目安）。
+              </p>
+              <p>ナットの高さは、JIS本体はスタイル1の最大値、旧JISは1種の呼び寸法です。</p>
               <p>
                 スパナの大きさは六角ナット（六角ボルトの頭も同じ）の二面幅で、JIS本体は本体の値、旧JISは附属書JA の値です。
               </p>
