@@ -209,11 +209,11 @@ export function FlangeTablePage({ pressure }: { pressure: PressureClass }) {
             </li>
             <li>
               {pressure === '20K'
-                ? '20K には全面座（FF）がなく、平面座（RF）などです'
-                : `${pressure} で平面座（RF）にできるのは WN・IT 形だけで、スリップオン溶接式（${pressure === '16K' ? 'SOH' : 'SOP・SOH'}）や閉止フランジ（BL）などは${
-                    pressure === '5K' ? '全面座（FF）だけです' : '全面座（FF）などで、RF はありません'
+                ? '20K には全面座（FF）の欄がなく、平面座（RF）などです'
+                : `${pressure} で平面座（RF）の欄があるのは WN・IT 形だけで、スリップオン溶接式（${pressure === '16K' ? 'SOH' : 'SOP・SOH'}）や閉止フランジ（BL）などは${
+                    pressure === '5K' ? '全面座（FF）だけです' : '全面座（FF）などで、RF の欄は「—」です'
                   }`}
-              （JIS B 2220 {FLANGE_SEAT_COMBINATION_TABLE}）。
+              （JIS B 2220 {FLANGE_SEAT_COMBINATION_TABLE}）。市販品や図面の呼び方と違うことがあるので、現物・図面の表記も確認してください。
             </li>
             <li>
               厚さの許容差はプラス側だけです（JIS B 2220 {FLANGE_TOLERANCE_TABLE}。20 mm 以下 +{flangeThicknessTolerance(20)} mm、20 mm を超え 50 mm 以下 +

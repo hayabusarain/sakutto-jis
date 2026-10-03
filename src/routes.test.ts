@@ -68,7 +68,7 @@ describe('事前レンダリング', () => {
     // ナット高さの典拠: 16K は M22 を使うので JIS B 1181 の表3（第1選択）と表4（第2選択）
     expect(html).toContain('表3・表4 六角ナット・スタイル1')
     // 表8: 16K の SOH・BL などは RF にしない
-    expect(html).toContain('全面座（FF）などで、RF はありません')
+    expect(html).toContain('全面座（FF）などで、RF の欄は「—」です')
   })
 
   it('5K のフランジ寸法表: M22 を使わないのでナット高さは表3 だけ。SOP・SOH・BL などは FF だけ（表8）', () => {

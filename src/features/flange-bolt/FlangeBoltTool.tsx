@@ -519,8 +519,8 @@ export function FlangeBoltTool() {
                 {faceHeight !== undefined && `（${row.size} は ${faceHeight} mm）`}を含みます（{GASKET_SEAT_TABLE}）。座を含まない厚さの資料と組み合わせるときは、その分を相手側の厚さに足してください。
               </p>
               <p>
-                なお、5K・10K・16K で RF にできるのは WN・IT 形だけで、スリップオン溶接式（SOP・SOH）や閉止フランジ（BL）などに RF
-                はありません（JIS B 2220 {FLANGE_SEAT_COMBINATION_TABLE}。20K には全面座（FF）がありません）。
+                なお、JIS B 2220 {FLANGE_SEAT_COMBINATION_TABLE} の組合せでは、5K・10K・16K で平面座（RF）の欄があるのは WN・IT 形だけで、スリップオン溶接式（SOP・SOH）や閉止フランジ（BL）は RF
+                の欄が「—」です。20K には全面座（FF）の欄がありません。市販品や図面の呼び方と違うことがあるので、現物・図面の表記も確認してください。
               </p>
               <p>
                 フランジの厚さの許容差はプラス側だけです（JIS B 2220 {FLANGE_TOLERANCE_TABLE}。20 mm 以下 +{TOLERANCE_UP_TO_20} mm、20 mm を超え 50 mm 以下 +
