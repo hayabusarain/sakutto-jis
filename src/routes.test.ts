@@ -60,7 +60,11 @@ describe('事前レンダリング', () => {
     const { html } = render('/flange-bolt-length/16k')
     expect(html).toContain('/flange-bolt-length?pressure=16K&amp;size=300A')
     expect(html).toContain('JIS 16K フランジ寸法表')
-    expect(html).toContain('規格原文で未確認')
+    // 16K の厚さは JIS B 2220:2012 表17 の原文と一致したので「未確認」の印は出さず、表番号を典拠に添える
+    expect(html).not.toContain('規格原文で未確認')
+    expect(html).toContain('表17 呼び圧力16Kフランジの寸法')
+    // 90A は 16K にもある（表17）
+    expect(html).toContain('/flange-bolt-length?pressure=16K&amp;size=90A')
   })
 
   it('ねじのまとめにツールへのリンクと前後のサイズがある', () => {

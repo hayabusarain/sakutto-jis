@@ -1,7 +1,7 @@
 import { ExternalLink, MessageSquareWarning } from 'lucide-react'
 import { Link } from '../router/Link'
 import { REPORT_URL } from '../site'
-import { JISC_URL, standardLabel, STANDARDS, type StandardCode } from '../standards'
+import { JISC_URL, standardLabel, standardNote, STANDARDS, type StandardCode } from '../standards'
 
 interface SourceNoteProps {
   standards: readonly StandardCode[]
@@ -19,6 +19,9 @@ export function SourceNote({ standards }: SourceNoteProps) {
               <li key={code} className="flex flex-wrap gap-x-2">
                 <span className="num font-semibold text-zinc-800">{standardLabel(code)}</span>
                 <span className="text-zinc-600">{STANDARDS[code].title}</span>
+                {standardNote(code) && (
+                  <span className="basis-full text-xs leading-relaxed text-zinc-500">{standardNote(code)}。</span>
+                )}
               </li>
             ))}
           </ul>

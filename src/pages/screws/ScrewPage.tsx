@@ -16,6 +16,7 @@ import {
   secondChoiceNote,
 } from '../../features/bolt-size/calc'
 import { HOLE4_NOTE, isUnverified } from '../../features/bolt-size/data'
+import { ALL_FLANGE_TABLES } from '../../features/flange-bolt/data'
 import { formatHole, formatSignificant, TWO_H1_PER_PITCH } from '../../features/tap-drill/calc'
 import { fixed, trim } from '../../lib/format'
 import { toolHref } from '../../lib/query'
@@ -358,7 +359,7 @@ export function ScrewPage({ d }: { d: number }) {
               </p>
             )}
             <div className="mt-3 space-y-1">
-              <Citation code="JIS B 2220" suffix="のボルトの呼びと本数" />
+              <Citation code="JIS B 2220" detail={ALL_FLANGE_TABLES} suffix="のボルトの呼びと本数" />
             </div>
           </Card>
         )}

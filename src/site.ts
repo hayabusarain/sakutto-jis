@@ -34,7 +34,7 @@ export const SITE = {
    * 掲載データを最後に見直した日（YYYY-MM-DD）。sitemap.xml の lastmod と構造化データの dateModified に使う。
    * 数値や説明を直したら更新する（ページごとに変えるときは PAGE_UPDATED_AT に書く）。
    */
-  contentUpdatedAt: '2026-10-01',
+  contentUpdatedAt: '2026-10-03',
   /**
    * Google AdSense のサイト運営者ID（環境変数 VITE_ADSENSE_CLIENT、例: ca-pub-1234567890123456）。
    * 設定すると、審査用の meta・広告のスクリプト・ads.txt を出力し、AdSlot が広告枠を表示する。
@@ -51,6 +51,10 @@ export const PAGE_UPDATED_AT: Readonly<Record<string, string>> = {
 
 /** 掲載データの見直しの記録（新しい順）。編集方針のページに表示する */
 export const SITE_CHANGELOG: readonly { date: string; text: string }[] = [
+  {
+    date: '2026-10-03',
+    text: '各ツールの JIS の数値を、規格票の原文とすべて照合しました。一致を確かめたフランジ（JIS B 2220）・ボルト穴径とざぐり径（JIS B 1001）・旧JIS の M3 の二面幅の「※」と、Oリング（JIS B 2401-1・-2）・普通公差（JIS B 0405）の「未照合」の注記を外しました。規格にあるのに載せていなかった 16K・20K の 90A のフランジと、Rc 2½〜6 の有効ねじ部の長さを追加し、数値の近くの典拠に表番号（例: JIS B 2220 表15）を表示しました。JIS B 1176 の年版を 2015（2014年版＋追補1）に改め、鋼管（JIS G 3452・G 3454）には 2026年版が発行されたこと（値は 2019年版と照合）を注記しました。',
+  },
   {
     date: '2026-10-01',
     text: '規格原文で未確認の値の「※」を、クイック検索・寸法表・ねじのまとめページにもそろえて付けました。Oリングの E（溝の振れ）の説明、バックアップリングの目安の表、数値の出どころ（旧 JIS B 2406:1991）の注記、普通公差の確認状況の注記を加え、数値入力のカンマ（1,200 など）の読み方を全ツールでそろえました。',

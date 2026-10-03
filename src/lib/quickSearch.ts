@@ -11,7 +11,13 @@ import {
   type CheckedField,
 } from '../features/bolt-size/data'
 import { boltLength, findFlange, isRowUnverified, isUnverified as isFlangeUnverified } from '../features/flange-bolt/calc'
-import { FLANGES, PRESSURE_CLASSES, UNVERIFIED_LEGEND, type PressureClass } from '../features/flange-bolt/data'
+import {
+  FLANGE_TABLE_NO,
+  FLANGES,
+  PRESSURE_CLASSES,
+  UNVERIFIED_LEGEND,
+  type PressureClass,
+} from '../features/flange-bolt/data'
 import {
   findORing,
   flatGroove,
@@ -19,7 +25,14 @@ import {
   oRingNumbers,
   outerDiameter,
 } from '../features/o-ring/calc'
-import { DYNAMIC_MATERIAL_NOTE, SOURCE_NOTE, type ORingSeries } from '../features/o-ring/data'
+import {
+  D1_TOL_NOTE,
+  DYNAMIC_MATERIAL_NOTE,
+  HOUSING_TABLES,
+  RING_TABLES,
+  SOURCE_NOTE,
+  type ORingSeries,
+} from '../features/o-ring/data'
 import {
   findPipeThread,
   gMinorLimits,
@@ -34,7 +47,7 @@ import {
   type PipeThreadSize,
 } from '../features/pipe-thread/data'
 import { findPipeSize, pipeDimensions, unitMassText } from '../features/steel-pipe/calc'
-import { PIPE_SIZES, PIPE_SPECS, type PipeSize, type PipeSpec } from '../features/steel-pipe/data'
+import { PIPE_SIZES, PIPE_SPECS, PIPE_STANDARD_TABLE, type PipeSize, type PipeSpec } from '../features/steel-pipe/data'
 import {
   availableGrade,
   engagementPercent,
@@ -507,6 +520,8 @@ export interface SummarySection {
   legend?: string
   /** 典拠の規格 */
   standards: StandardCode[]
+  /** 典拠の規格の中の表（「表17」「付表1」など。規格票の原文で確かめた表番号だけ書く） */
+  details?: Partial<Record<StandardCode, string>>
   /** 詳しく見るツール（条件付き） */
   href: string
   linkLabel: string
@@ -566,6 +581,26 @@ function neighbors<T>(items: readonly T[], value: (item: T) => number, target: n
 function metricName(d: number, p: number): string {
   const size = findSize(d)
   return size?.coarse === p ? `M${trim(d)}` : `M${trim(d)}×${trim(p)}`
+}
+
+/** JIS B 1180・B 1181 本体の表番号（M14・M18・M22・M27 は第2選択の表4、ほかは第1選択の表3） */
+function bodyTableNo(bolt: BoltSize): string {
+  return bolt.secondChoice ? '表4' : '表3'
+}
+
+/** 呼び圧力の並びに対応する JIS B 2220 の表番号（「表14・表15・表17・表18」） */
+function flangeTables(pressures: readonly PressureClass[]): string {
+  return unique(pressures.map((p) => FLANGE_TABLE_NO[p])).join('・')
+}
+
+/**
+ * Oリングの材料の記号から、内径 d1 の許容差の倍率（JIS B 2401-1:2012 表5・表6 の注）。
+ * VMQ・ACM は1.5倍、FKM・HNBR は1.2倍、NBR・EPDM などは倍率なし（null）。旧記号の 4種C は VMQ、4種D は FKM
+ */
+function d1TolFactor(material: string): number | null {
+  if (/^(?:4\s*C|VMQ|ACM)/.test(material)) return 1.5
+  if (/^(?:4\s*D|FKM|HNBR)/.test(material)) return 1.2
+  return null
 }
 
 /** ※ の凡例（各ツールと同じ文言）。detail には何が未確認かを書く */
@@ -657,6 +692,7 @@ function tapDrillSection(d: number, p: number, grade: ToleranceGrade): SummarySe
     links,
     note: links.length > 0 ? `M${trim(d)} のほかのピッチの下穴径（目安）` : undefined,
     standards,
+    details: { 'JIS B 0205-4': '表1', 'JIS B 0209-1': '表3' },
     href: toolHref(SEARCH_TOOL_PATHS.tapDrill, params),
     linkLabel: '下穴径の早見表',
   }
@@ -670,7 +706,7 @@ function boltSection(bolt: BoltSize, fine: boolean): SummarySection {
       label: '二面幅（スパナ）',
       value: trim(bolt.sIso),
       unit: 'mm',
-      // 旧JIS の値が未確認のときは「とも同じ」と言い切らない（M3 は資料により 5.5 と 5）
+      // 旧JIS の値が未確認（bolt-size/data の UNVERIFIED）のときは「とも同じ」と言い切らない
       note: jaUnverified
         ? `旧JIS（附属書JA）は ${trim(bolt.sJa)}※ mm（規格原文で未確認）`
         : bolt.sIso === bolt.sJa
@@ -689,14 +725,14 @@ function boltSection(bolt: BoltSize, fine: boolean): SummarySection {
       unit: 'mm',
       note: `1級 ${trim(bolt.holes[0])}・3級 ${trim(bolt.holes[2])}`,
     },
-    { label: "ざぐり径 D'（六角ボルト・ナット用）", value: trim(bolt.spotFace), unit: 'mm', unverified: spotFaceUnverified },
+    { label: "ざぐり径 D'（JIS B 1001）", value: trim(bolt.spotFace), unit: 'mm', unverified: spotFaceUnverified },
   ]
   if (bolt.counterbore) {
     rows.push({
       label: 'CAP用座ぐり 径 × 深さ',
       value: `φ${trim(bolt.counterbore.d)} × ${trim(bolt.counterbore.h)}`,
       unit: 'mm',
-      note: '設計でよく使われる参考値（規格本体の規定ではない）',
+      note: '設計でよく使われる参考値（JIS B 1001・B 1176 の規定ではない）',
     })
   }
   return {
@@ -709,6 +745,12 @@ function boltSection(bolt: BoltSize, fine: boolean): SummarySection {
       { field: 'spotFace', d: bolt.d },
     ]),
     standards: ['JIS B 1180', 'JIS B 1181', 'JIS B 1176', 'JIS B 1001'],
+    details: {
+      'JIS B 1180': `${bodyTableNo(bolt)}・表JA.8`,
+      'JIS B 1181': `${bodyTableNo(bolt)}・表JA.9`,
+      ...(bolt.capNonJis ? {} : { 'JIS B 1176': '表3' }),
+      'JIS B 1001': '付表',
+    },
     href: toolHref(SEARCH_TOOL_PATHS.boltSize, { d: bolt.d }),
     linkLabel: '二面幅・座ぐり',
   }
@@ -785,7 +827,7 @@ function buildMetric(i: Extract<Interpretation, { type: 'metric' }>): Built {
 
   const flanges = coarse ? flangesUsingBolt(d) : []
   if (flanges.length > 0) {
-    // 寸法すべてが未確認の行（5K・10K の 90A など）を含む範囲には ※ を付ける
+    // 寸法すべてが未確認の行（flange-bolt/data の UNVERIFIED）を含む範囲には ※ を付ける
     const unverifiedSizes = flanges.map((f) =>
       FLANGES[f.pressure].filter((row) => row.bolt === d && isRowUnverified(f.pressure, row.size)).map((row) => row.size),
     )
@@ -807,6 +849,7 @@ function buildMetric(i: Extract<Interpretation, { type: 'metric' }>): Built {
           ? `${UNVERIFIED_LEGEND}を含む（${unverifiedList.join('・')} は寸法すべて）`
           : undefined,
       standards: ['JIS B 2220'],
+      details: { 'JIS B 2220': flangeTables(flanges.map((f) => f.pressure)) },
       href: toolHref(SEARCH_TOOL_PATHS.flange, {
         pressure: flanges.find((f) => f.pressure === '10K')?.pressure ?? flanges[0].pressure,
         size: flanges.find((f) => f.pressure === '10K')?.first ?? flanges[0].first,
@@ -894,8 +937,9 @@ function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
             : { cells: [PIPE_SPECS[key].label, '—', '—', '—'] }
         }),
       },
-      note: '厚さ・内径は mm、質量は 1m あたり（めっき無しの値）。Sch40・Sch80 は STPG370（JIS G 3454）。',
+      note: '厚さ・内径は mm、質量は 1m あたり（黒管の値。SGP はソケットを含まない）。Sch40・Sch80 は STPG370・STPG410 共通（JIS G 3454）。値は 2019年版で照合（2026年版が 2026年5月に発行）。',
       standards: ['JIS G 3452', 'JIS G 3454'],
+      details: { 'JIS G 3452': PIPE_STANDARD_TABLE['JIS G 3452'].no, 'JIS G 3454': PIPE_STANDARD_TABLE['JIS G 3454'].no },
       href: toolHref(SEARCH_TOOL_PATHS.steelPipe, { spec, a }),
       linkLabel: '鋼管の重量計算',
     },
@@ -920,6 +964,7 @@ function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
         href: toolHref(SEARCH_TOOL_PATHS.pipeThread, { size: thread.size, kind }),
       })),
       standards: ['JIS B 0203', 'JIS B 0202'],
+      details: { 'JIS B 0203': '付表1', 'JIS B 0202': '付表1・付表2' },
       href: toolHref(SEARCH_TOOL_PATHS.pipeThread, { size: thread.size, kind: 'R' }),
       linkLabel: '管用ねじ寸法',
     })
@@ -931,7 +976,7 @@ function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
   })
   if (flangeRows.length > 0) {
     const main = flangeRows.find((f) => f.pressure === '10K') ?? flangeRows[0]
-    // 寸法すべてが未確認の行（5K・10K の 90A・175A・225A）は、フランジのツールと同じく ※ を付ける
+    // 寸法すべてが未確認の行（flange-bolt/data の UNVERIFIED）は、フランジのツールと同じく ※ を付ける
     const unverifiedPressures = flangeRows.filter(({ pressure }) => isRowUnverified(pressure, a)).map((f) => f.pressure)
     sections.push({
       title: `フランジ（${a}）`,
@@ -954,6 +999,7 @@ function buildPipe(i: Extract<Interpretation, { type: 'pipe' }>): Built {
           ? legendOf(`${unverifiedPressures.join('・')} の ${a} は寸法すべて`)
           : undefined,
       standards: ['JIS B 2220'],
+      details: { 'JIS B 2220': flangeTables(flangeRows.map((f) => f.pressure)) },
       href: toolHref(SEARCH_TOOL_PATHS.flange, { pressure: main.pressure, size: a }),
       linkLabel: 'フランジ・ボルト長さ',
     })
@@ -1042,7 +1088,7 @@ function buildFlange(i: Extract<Interpretation, { type: 'flange' }>): Built {
         { label: 'ボルト穴中心円の径（PCD）', value: trim(row.C), unit: 'mm', unverified: rowUnverified },
         { label: 'ボルト穴（数-径）', value: `${row.n}-φ${trim(row.h)}`, unit: 'mm', unverified: rowUnverified },
         { label: 'ボルト', value: `M${row.bolt} × ${row.n}本`, unverified: rowUnverified },
-        { label: '厚さ t', value: trim(row.t), unit: 'mm', note: '座（RF）の高さを含む', unverified: tUnverified },
+        { label: '厚さ t', value: trim(row.t), unit: 'mm', note: 'RF は座の高さを含む', unverified: tUnverified },
       ],
       legend: rowUnverified
         ? legendOf(`${pressure} ${a} は寸法すべて`)
@@ -1050,6 +1096,7 @@ function buildFlange(i: Extract<Interpretation, { type: 'flange' }>): Built {
           ? legendOf(`${pressure} ${a} のフランジ厚さ t`)
           : undefined,
       standards: ['JIS B 2220'],
+      details: { 'JIS B 2220': FLANGE_TABLE_NO[pressure] },
       href: toolHref(SEARCH_TOOL_PATHS.flange, { pressure, size: a }),
       linkLabel: 'フランジ寸法・図面',
     },
@@ -1076,6 +1123,8 @@ function buildFlange(i: Extract<Interpretation, { type: 'flange' }>): Built {
         ? `※ ${pressure} ${a} のフランジ厚さ t は規格原文で未確認のため、長さも確認してください。`
         : undefined,
       standards: ['JIS B 1180', 'JIS B 1181'],
+      // ナット高さはスタイル1（第1選択の表3、M22 は第2選択の表4）
+      details: { 'JIS B 1181': BOLT_SIZES.find((b) => b.d === row.bolt)?.secondChoice ? '表4' : '表3' },
       href: toolHref(SEARCH_TOOL_PATHS.flange, linkParams('hex')),
       linkLabel: 'ボルト長さを計算',
     },
@@ -1140,12 +1189,13 @@ function buildORing(i: Extract<Interpretation, { type: 'oring' }>): Built {
           label: '内径 d1 × 太さ d2',
           value: `${trim(ring.d1)} × ${trim(group.d2)}`,
           unit: 'mm',
-          note: `許容差 内径 ±${trim(ring.d1Tol)}・太さ ±${trim(group.d2Tol)}（1種〜3種）`,
+          note: `許容差 内径 ±${trim(ring.d1Tol)}・太さ ±${trim(group.d2Tol)}（NBR・EPDM の値）`,
           primary: true,
         },
         { label: '外径（参考）', value: trim(outerDiameter(ring)), unit: 'mm' },
       ],
       standards: ['JIS B 2401-1'],
+      details: { 'JIS B 2401-1': RING_TABLES[ring.series].no },
       href: toolHref(SEARCH_TOOL_PATHS.oRing, base),
       linkLabel: 'Oリング・溝',
     },
@@ -1163,6 +1213,7 @@ function buildORing(i: Extract<Interpretation, { type: 'oring' }>): Built {
         { label: '溝の深さ', value: trim(grooveDepth(ring)), unit: 'mm' },
       ],
       standards: ['JIS B 2401-2'],
+      details: { 'JIS B 2401-2': HOUSING_TABLES.cylinder.no },
       href: toolHref(SEARCH_TOOL_PATHS.oRing, { ...base, groove: 'cylinder' }),
       linkLabel: '円筒面の溝',
     },
@@ -1178,6 +1229,7 @@ function buildORing(i: Extract<Interpretation, { type: 'oring' }>): Built {
         { label: '外圧用', href: toolHref(SEARCH_TOOL_PATHS.oRing, { ...base, groove: 'flat-external' }) },
       ],
       standards: ['JIS B 2401-2'],
+      details: { 'JIS B 2401-2': HOUSING_TABLES.flat.no },
       href: toolHref(SEARCH_TOOL_PATHS.oRing, { ...base, groove: 'flat-internal' }),
       linkLabel: '平面の溝',
     },
@@ -1186,12 +1238,15 @@ function buildORing(i: Extract<Interpretation, { type: 'oring' }>): Built {
   const notes: string[] = []
   if (i.material) {
     notes.push(`「${i.material}」は材料の種類の記号として外し、${ring.no} の寸法を表示しています。`)
-    // 4種C（シリコーンゴム VMQ）・4種D（ふっ素ゴム FKM）は内径の許容差が 1種〜3種 と違う（倍率はOリングのツールに記載）。
-    // 新しい材料記号（FKM-70・VMQ-70 など）で書かれていても同じ材料なので、同じ注意を出す
-    if (/^(?:4|FKM|VMQ)/.test(i.material)) {
+    // 内径 d1 の許容差は、表の値（NBR の値）に対して VMQ・ACM は1.5倍、FKM・HNBR は1.2倍（JIS B 2401-1:2012 表5・表6 の注）。
+    // 旧識別記号の 4種C は VMQ、4種D は FKM（表2 の参考）。倍率の分からない「4」だけの記号には倍率の一覧を出す
+    const factor = d1TolFactor(i.material)
+    if (factor !== null) {
       notes.push(
-        '4種C（シリコーンゴム・VMQ）・4種D（ふっ素ゴム・FKM）は、内径の許容差が 1種〜3種 と違います。許容差はツールで確認してください。',
+        `「${i.material}」の材料は、内径の許容差が下の値（NBR・EPDM の値）の${factor}倍です（JIS B 2401-1 ${RING_TABLES[ring.series].no} の注）。`,
       )
+    } else if (/^4/.test(i.material)) {
+      notes.push(D1_TOL_NOTE)
     }
   }
   if (ring.series === 'G') notes.push('G は固定用です。往復運動などの運動用には P を使います。')
@@ -1272,9 +1327,10 @@ function buildPipeThread(i: Extract<Interpretation, { type: 'pipeThread' }>): Bu
   }
   if (i.kinds.includes('R')) {
     work.push({
-      label: 'R 有効ねじ部の最小長さ（管端から）',
+      label: 'R 有効ねじ部の最小長さ a + f（管端から・計算値）',
       value: fixed(thread.usefulExternal, 1),
       unit: 'mm',
+      note: `a が基準寸法 ${fixed(thread.gaugeLength, 2)} mm のとき。f = ${fixed(thread.usefulExternalFromGauge, 1)} mm（JIS B 0203 付表1）`,
     })
   }
 
@@ -1289,6 +1345,7 @@ function buildPipeThread(i: Extract<Interpretation, { type: 'pipeThread' }>): Bu
         href: toolHref(SEARCH_TOOL_PATHS.pipeThread, { size, kind }),
       })),
       standards: kindStandards,
+      details: { 'JIS B 0203': '付表1', 'JIS B 0202': '付表1' },
       href: toolHref(SEARCH_TOOL_PATHS.pipeThread, { size, kind: main }),
       linkLabel: '管用ねじ寸法',
     },
@@ -1299,6 +1356,8 @@ function buildPipeThread(i: Extract<Interpretation, { type: 'pipeThread' }>): Bu
       rows: work,
       note: i.kinds.includes('Rp') ? 'Rp の下穴径はタップメーカーの推奨値を確認してください。' : undefined,
       standards: kindStandards,
+      // G の下穴径はめねじ内径の許容差（JIS B 0202 付表2）から計算
+      details: { 'JIS B 0203': '付表1', 'JIS B 0202': '付表1・付表2' },
       href: toolHref(SEARCH_TOOL_PATHS.pipeThread, { size, kind: main }),
       linkLabel: `${main}${size} を詳しく`,
     })
@@ -1334,6 +1393,14 @@ function acrossFlatsLabel(
     return { standard: 'JIS本体（ISO）', other: `旧JIS は ${trim(bolt.sJa)}`, standardMark: false, otherMark: ja }
   }
   return { standard: '旧JIS（附属書JA）', other: `JIS本体は ${trim(bolt.sIso)}`, standardMark: ja, otherMark: false }
+}
+
+/** 二面幅 s の六角ボルト・ナットが載っている表（本体は表3・表4、附属書JA は ボルト 表JA.8・ナット 表JA.9） */
+function acrossFlatsTables(matches: readonly BoltSize[], s: number): Partial<Record<StandardCode, string>> {
+  const body = unique(matches.filter((bolt) => bolt.sIso === s).map(bodyTableNo)).sort()
+  const ja = matches.some((bolt) => bolt.sJa === s)
+  const join = (jaTable: string) => [...body, ...(ja ? [jaTable] : [])].join('・')
+  return { 'JIS B 1180': join('表JA.8'), 'JIS B 1181': join('表JA.9') }
 }
 
 function buildAcrossFlats(s: number): Built {
@@ -1377,6 +1444,7 @@ function buildAcrossFlats(s: number): Built {
           },
           legend: boltLegend(matches.map((bolt) => ({ field: 'sJa' as const, d: bolt.d }))),
           standards: ['JIS B 1180', 'JIS B 1181'],
+          details: acrossFlatsTables(matches, s),
           href: toolHref(SEARCH_TOOL_PATHS.boltSize, { d: matches[0].d }),
           linkLabel: '二面幅・座ぐり',
         },
@@ -1423,6 +1491,7 @@ function buildHexKey(s: number): Built {
             ? 'JIS B 1176 に無いサイズの寸法は DIN 912 などの値です。'
             : undefined,
           standards: ['JIS B 1176'],
+          details: matches.some((bolt) => !bolt.capNonJis) ? { 'JIS B 1176': '表3' } : undefined,
           href: toolHref(SEARCH_TOOL_PATHS.boltSize, { d: matches[0].d }),
           linkLabel: '二面幅・座ぐり',
         },
@@ -1488,6 +1557,7 @@ function buildDrill(drill: number): Built {
             matches.length > shown.length ? `ほかに ${matches.length - shown.length} 件あります。` : ''
           }`,
           standards: ['JIS B 0209-1'],
+          details: { 'JIS B 0209-1': '表3' },
           href: toolHref(SEARCH_TOOL_PATHS.tapDrill, { d: first.d, p: first.p, drill: drillText }),
           linkLabel: 'ねじ下穴径ツールで見る',
         },

@@ -157,8 +157,10 @@ function SectionView({ section }: { section: SummarySection }) {
             <span className="sr-only">典拠: </span>
             {section.standards.map((code, index) => (
               <span key={code} title={STANDARDS[code].title}>
-                {index > 0 && '・'}
+                {/* 表番号の「表3・表JA.8」と見分けるため、表番号があるときは規格の間を「、」で区切る */}
+                {index > 0 && (section.details ? '、' : '・')}
                 <span className="num whitespace-nowrap">{standardLabel(code)}</span>
+                {section.details?.[code] && <span className="whitespace-nowrap"> {section.details[code]}</span>}
               </span>
             ))}
           </span>

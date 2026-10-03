@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOLT_SIZES,
-  isUnverified as isBoltUnverified,
   UNVERIFIED as BOLT_UNVERIFIED,
   UNVERIFIED_LEGEND as BOLT_UNVERIFIED_LEGEND,
 } from '../features/bolt-size/data'
@@ -582,10 +581,15 @@ describe('quickSearch: 鋼管・フランジ', () => {
   })
 
   it('無いサイズ・呼び圧力は理由と候補を出す', () => {
-    const noSize = quickSearch('16K 90A')
+    // 16K・20K に 175A・225A は無い（JIS B 2220:2012 表12・表17・表18）
+    const noSize = quickSearch('16K 175A')
     expect(noSize.status).toBe('invalid')
     expect(noSize.messages[0]).toContain('5K・10K')
-    expect(noSize.suggestions).toEqual(['16K 80A', '16K 100A', '5K 90A', '10K 90A'])
+    expect(noSize.suggestions).toEqual(['16K 150A', '16K 200A', '5K 175A', '10K 175A'])
+    expect(quickSearch('20K 225A').suggestions).toEqual(['20K 200A', '20K 250A', '5K 225A', '10K 225A'])
+    // 16K・20K の 90A は規格にある（表17・表18）
+    expect(quickSearch('16K 90A').status).toBe('found')
+    expect(quickSearch('20K 90A').status).toBe('found')
     expect(quickSearch('30K 50A')).toMatchObject({ status: 'invalid' })
     expect(quickSearch('10K')).toMatchObject({ status: 'invalid', suggestions: ['10K 50A', '10K 100A'] })
     expect(quickSearch('12A')).toMatchObject({ status: 'invalid', suggestions: ['10A', '15A'] })
@@ -650,15 +654,26 @@ describe('quickSearch: Oリング', () => {
     expect(card('1A-P20').notes[0]).toContain('「1A」は材料の種類の記号')
     const g = card('4D-G50')
     expect(g.title).toBe('G50')
-    expect(g.notes.join('')).toContain('内径の許容差が 1種〜3種 と違います')
-    // 新しい材料記号の FKM（ふっ素ゴム）・VMQ（シリコーンゴム）も 4種D・4種C と同じ注意を出す
-    for (const text of ['FKM-70 G50', 'VMQ-70 P20']) {
-      expect(card(text).notes.join(''), text).toContain('内径の許容差が 1種〜3種 と違います')
+    // 内径の許容差の倍率（JIS B 2401-1:2012 表5・表6 の注）: VMQ・ACM は1.5倍、FKM・HNBR は1.2倍。旧記号 4C = VMQ、4D = FKM
+    expect(g.notes.join('')).toContain('内径の許容差が下の値（NBR・EPDM の値）の1.2倍です（JIS B 2401-1 表6 の注）')
+    for (const [text, factor] of [
+      ['FKM-70 G50', '1.2'],
+      ['HNBR-70 G50', '1.2'],
+      ['VMQ-70 P20', '1.5'],
+      ['ACM-70 P20', '1.5'],
+      ['4C-P10A', '1.5'],
+    ]) {
+      expect(card(text).notes.join(''), text).toContain(`内径の許容差が下の値（NBR・EPDM の値）の${factor}倍です`)
     }
-    // 1種〜3種（NBR など）には出さない
-    for (const text of ['1A-P20', 'NBR-70 P20']) {
+    // NBR・EPDM（倍率なし）には出さない
+    for (const text of ['1A-P20', 'NBR-70 P20', 'EPDM-70 P20']) {
       expect(card(text).notes.join(''), text).not.toContain('許容差')
     }
+    // 表の許容差は NBR・EPDM の値と書く（旧 1種〜3種 の言い方はしない）
+    expect(row(section(card('P20'), 'Oリング'), '内径 d1 × 太さ d2').note).toBe('許容差 内径 ±0.22・太さ ±0.09（NBR・EPDM の値）')
+    expect(section(card('P20'), 'Oリング').details).toEqual({ 'JIS B 2401-1': '表5' })
+    expect(section(card('G50'), '溝（円筒面）').details).toEqual({ 'JIS B 2401-2': '表3' })
+    expect(section(card('G50'), '溝（平面').details).toEqual({ 'JIS B 2401-2': '表4' })
     expect(card('P-22A').title).toBe('P22A')
     expect(card('4C-P10A').title).toBe('P10A')
   })
@@ -685,6 +700,21 @@ describe('quickSearch: 管用ねじ', () => {
     const c = card('Rc1/2')
     expect(c.title).toBe('Rc1/2')
     expect(row(section(c, 'ねじ加工'), 'Rc 奥端').value).toBe('17.84')
+  })
+
+  it('Rc2 1/2〜Rc6 も奥端のめねじ内径を出す（JIS B 0203 付表1 の l から計算）', () => {
+    expect(row(section(card('Rc2 1/2'), 'ねじ加工'), 'Rc 奥端').value).toBe('70.56')
+    // 110.072 − 35.8 ÷ 16 = 107.8345
+    expect(row(section(card('Rc4'), 'ねじ加工'), 'Rc 奥端').value).toBe('107.83')
+    expect(row(section(card('Rc6'), 'ねじ加工'), 'Rc 奥端').value).toBe('158.37')
+  })
+
+  it('R の有効ねじ部の長さは a + f の計算値と分かるようにする', () => {
+    const r = row(section(card('R1/2'), 'ねじ加工'), 'R 有効ねじ部')
+    expect(r.label).toBe('R 有効ねじ部の最小長さ a + f（管端から・計算値）')
+    expect(r.value).toBe('13.2')
+    expect(r.note).toBe('a が基準寸法 8.16 mm のとき。f = 5.0 mm（JIS B 0203 付表1）')
+    expect(section(card('R1/2'), '基準寸法').details?.['JIS B 0203']).toBe('付表1')
   })
 
   it('PF3/8・G1/4: G の推奨下穴径', () => {
@@ -809,16 +839,17 @@ describe('quickSearch: 二面幅・六角レンチ', () => {
     expect(both.messages[0]).toContain('両方')
   })
 
-  it('二面幅 5.5（M3）は旧JIS の値が未確認なので ※ を付ける', () => {
+  it('二面幅 5.5（M3）は旧JIS も 5.5（JIS B 1180 表JA.8・B 1181 表JA.9 で確認済み）なので ※ を付けない', () => {
     const s = section(card('二面幅5.5'), '六角ボルト・ナット')
     expect(s.table?.rows[0].cells).toEqual(['M3', 'JIS本体・旧JIS', '—'])
-    expect(s.table?.rows[0].unverified).toEqual([false, true, false])
-    expect(s.legend).toContain('規格原文で未確認')
-    expect(s.legend).toContain('M3')
-    // 確認済みの二面幅には付けない
+    expect(s.table?.rows[0].unverified).toEqual([false, false, false])
+    expect(s.legend).toBeUndefined()
+    expect(s.details).toEqual({ 'JIS B 1180': '表3・表JA.8', 'JIS B 1181': '表3・表JA.9' })
     const ok = section(card('二面幅17'), '六角ボルト・ナット')
     expect(ok.table?.rows.every((r) => !r.unverified?.some(Boolean))).toBe(true)
     expect(ok.legend).toBeUndefined()
+    // 17 は M10 の旧JIS（附属書JA）だけの二面幅なので、典拠の表も附属書JA の表だけ
+    expect(ok.details).toEqual({ 'JIS B 1180': '表JA.8', 'JIS B 1181': '表JA.9' })
   })
 
   it('全サイズの二面幅・六角レンチでカードを作れる', () => {
@@ -844,33 +875,43 @@ describe('quickSearch: 規格原文で未確認の値（※）', () => {
     expect(UNVERIFIED_LEGEND).toBe(BOLT_UNVERIFIED_LEGEND)
   })
 
-  it('16K 50A: 厚さ t と、t から計算したボルト長さに ※。外径などには付けない', () => {
+  // 以前 ※ を付けていた 16K の厚さ・5K 50A の厚さ・5K/10K の 90A・175A・225A は、
+  // JIS B 2220:2012 の表14・表15・表17・表18 の原文と照合して一致したので、※ も凡例も出さない
+  it('16K 50A・16K 100A・5K 50A・5K 90A（以前の未確認の値）は、原文と一致したので ※ を付けない', () => {
+    for (const text of ['16K 50A', '16K 100A', '5K 50A', '5K 90A', '10K 175A', '5K 225A']) {
+      const c = card(text)
+      expect(hasMark(c), text).toBe(false)
+      expect(
+        c.sections.every((s) => s.legend === undefined),
+        text,
+      ).toBe(true)
+    }
     const c = card('16K 50A')
-    const dims = section(c, 'フランジ寸法')
-    expect(row(dims, '厚さ t')).toMatchObject({ value: '16', unverified: true })
-    expect(row(dims, '外径 D').unverified).toBe(false)
-    expect(dims.legend).toBe(`${UNVERIFIED_LEGEND}（16K 50A のフランジ厚さ t）`)
-    const lengths = section(c, 'ボルト長さ')
-    expect(row(lengths, '六角ボルト')).toMatchObject({ value: 'M16×60', unverified: true })
-    expect(row(lengths, 'スタッドボルト')).toMatchObject({ value: 'M16×80', unverified: true })
-    expect(lengths.legend).toContain('長さも確認してください')
+    expect(row(section(c, 'フランジ寸法'), '厚さ t')).toMatchObject({ value: '16', unverified: false })
+    expect(row(section(c, 'ボルト長さ'), '六角ボルト')).toMatchObject({ value: 'M16×60', unverified: false })
+    expect(row(section(c, 'ボルト長さ'), 'スタッドボルト')).toMatchObject({ value: 'M16×80', unverified: false })
+    expect(row(section(card('16K 100A'), 'フランジ寸法'), '厚さ t').value).toBe('22')
+    expect(row(section(card('5K 50A'), 'フランジ寸法'), '厚さ t').value).toBe('14')
   })
 
-  it('16K 100A・5K 50A（厚さが未確認）にも ※', () => {
-    const c = card('16K 100A')
-    expect(row(section(c, 'フランジ寸法'), '厚さ t')).toMatchObject({ value: '22', unverified: true })
-    expect(row(section(c, 'ボルト長さ'), '六角ボルト')).toMatchObject({ value: 'M20×75', unverified: true })
-    const five = card('5K 50A')
-    expect(row(section(five, 'フランジ寸法'), '厚さ t')).toMatchObject({ value: '14', unverified: true })
-    expect(row(section(five, 'ボルト長さ'), '六角ボルト').unverified).toBe(true)
+  it('フランジのカードに表番号（JIS B 2220:2012 の表14・表15・表17・表18）を添える', () => {
+    expect(section(card('5K 50A'), 'フランジ寸法').details).toEqual({ 'JIS B 2220': '表14' })
+    expect(section(card('10K 50A'), 'フランジ寸法').details).toEqual({ 'JIS B 2220': '表15' })
+    expect(section(card('16K 90A'), 'フランジ寸法').details).toEqual({ 'JIS B 2220': '表17' })
+    expect(section(card('20K 90A'), 'フランジ寸法').details).toEqual({ 'JIS B 2220': '表18' })
+    // ナット高さはスタイル1 の表（M22 は第2選択の表4）
+    expect(section(card('10K 250A'), 'ボルト長さ').details).toEqual({ 'JIS B 1181': '表4' })
+    expect(section(card('10K 50A'), 'ボルト長さ').details).toEqual({ 'JIS B 1181': '表3' })
   })
 
-  it('5K 90A（寸法すべてが未確認）は全部の値に ※', () => {
-    const c = card('5K 90A')
-    const dims = section(c, 'フランジ寸法')
-    expect(dims.rows.every((r) => r.unverified)).toBe(true)
-    expect(dims.legend).toBe(`${UNVERIFIED_LEGEND}（5K 90A は寸法すべて）`)
-    expect(section(c, 'ボルト長さ').rows.every((r) => r.unverified)).toBe(true)
+  it('16K・20K の 90A: 表17・表18 の値（D 210・C 170・8-φ23・M20、t 16K 20・20K 24）', () => {
+    for (const [text, t] of [
+      ['16K 90A', '20'],
+      ['20K 90A', '24'],
+    ]) {
+      const dims = section(card(text), 'フランジ寸法')
+      expect(dims.rows.map((r) => r.value), text).toEqual(['210', '170', '8-φ23', 'M20 × 8本', t])
+    }
   })
 
   it('10K 50A（確認済み）には ※ も凡例も出さない', () => {
@@ -895,54 +936,77 @@ describe('quickSearch: 規格原文で未確認の値（※）', () => {
     }
   })
 
-  it('90A の管のカード: フランジ表の 5K・10K の行に ※', () => {
-    const flange = section(card('90A'), 'フランジ')
-    expect(flange.table?.rows.map((r) => [r.cells[0], r.unverified])).toEqual([
-      ['5K', [false, true, true, true, true]],
-      ['10K', [false, true, true, true, true]],
+  it('90A の管のカード: フランジ表は 5K・10K・16K・20K の4行で、※ は付けない', () => {
+    const c = card('90A')
+    expect(hasMark(c)).toBe(false)
+    const flange = section(c, 'フランジ')
+    expect(flange.table?.rows.map((r) => r.cells)).toEqual([
+      ['5K', '190', '155', '4-φ19', 'M16'],
+      ['10K', '195', '160', '8-φ19', 'M16'],
+      ['16K', '210', '170', '8-φ23', 'M20'],
+      ['20K', '210', '170', '8-φ23', 'M20'],
     ])
-    expect(flange.legend).toBe(`${UNVERIFIED_LEGEND}（5K・10K の 90A は寸法すべて）`)
-    // 確認済みのサイズには付けない
-    const ok = section(card('50A'), 'フランジ')
-    expect(ok.table?.rows.every((r) => !r.unverified?.some(Boolean))).toBe(true)
-    expect(ok.legend).toBeUndefined()
+    expect(flange.legend).toBeUndefined()
+    expect(flange.details).toEqual({ 'JIS B 2220': '表14・表15・表17・表18' })
+    // 175A は 5K・10K だけ（16K・20K に 175A は無い）
+    expect(section(card('175A'), 'フランジ').table?.rows.map((r) => r.cells[0])).toEqual(['5K', '10K'])
   })
 
-  it('M16 のボルトを使うフランジ: 未確認の 90A を含む範囲に ※', () => {
+  it('M16・M20 のボルトを使うフランジ: ※ も凡例も出さない（16K・20K の 90A は M20）', () => {
     const s = section(card('M16'), 'M16 のボルトを使うフランジ')
     expect(s.table?.rows.map((r) => [r.cells[0], r.unverified?.[1]])).toEqual([
-      ['5K', true],
-      ['10K', true],
+      ['5K', false],
+      ['10K', false],
       ['16K', false],
       ['20K', false],
     ])
-    expect(s.legend).toBe(`${UNVERIFIED_LEGEND}を含む（5K 90A・10K 90A は寸法すべて）`)
-    expect(section(card('M12'), 'M12 のボルトを使うフランジ').legend).toBeUndefined()
+    expect(s.legend).toBeUndefined()
+    expect(hasMark(card('M16'))).toBe(false)
+    const m20 = section(card('M20'), 'M20 のボルトを使うフランジ')
+    expect(m20.table?.rows.map((r) => r.cells)).toEqual([
+      ['5K', '175A〜300A'],
+      ['10K', '125A〜225A'],
+      ['16K', '80A〜100A'],
+      ['20K', '80A〜100A'],
+    ])
+    expect(m20.legend).toBeUndefined()
   })
 
-  it('ざぐり径はすべてのサイズで ※（JIS B 1001 で未確認）', () => {
+  it('ざぐり径（JIS B 1001 付表で確認済み）には、どのサイズでも ※ を付けない', () => {
     for (const bolt of BOLT_SIZES) {
       const s = section(card(`M${bolt.d}`), 'ボルト・ナット')
-      expect(row(s, 'ざぐり径').unverified, `M${bolt.d}`).toBe(isBoltUnverified('spotFace', bolt.d))
-      expect(s.legend, `M${bolt.d}`).toContain("ざぐり径 D'")
-      // 確認済みの値には付けない
+      expect(row(s, "ざぐり径 D'（JIS B 1001）").unverified, `M${bolt.d}`).toBe(false)
+      expect(s.legend, `M${bolt.d}`).toBeUndefined()
       expect(row(s, '二面幅').unverified).toBeUndefined()
       expect(row(s, 'ボルト穴径').unverified).toBeUndefined()
+      expect(s.details?.['JIS B 1001'], `M${bolt.d}`).toBe('付表')
     }
   })
 
-  it('M3 の旧JIS の二面幅は「とも同じ」と言い切らず ※ を付ける', () => {
+  it('M3 の旧JIS の二面幅は 5.5（表JA.8・表JA.9 で確認済み）なので「とも同じ」', () => {
     const s = section(card('M3'), 'ボルト・ナット')
     const flats = row(s, '二面幅')
     expect(flats.value).toBe('5.5')
-    expect(flats.note).not.toContain('とも同じ')
-    expect(flats.note).toBe('旧JIS（附属書JA）は 5.5※ mm（規格原文で未確認）')
-    expect(s.legend).toContain('M3 ナットの二面幅')
-    // 凡例は二面幅・座ぐりツールと同じ「※ 規格原文で未確認の値：…」の形（項目の説明の括弧を、さらに括弧で包まない）
-    const note = (field: string) => BOLT_UNVERIFIED.find((entry) => entry.field === field)!.note
-    expect(s.legend).toBe(`${BOLT_UNVERIFIED_LEGEND}：${note('sJa')}、${note('spotFace')}`)
-    // M6 は確認済みなので「とも同じ」のまま
+    expect(flats.note).toBe('JIS本体・旧JIS とも同じ')
+    expect(s.legend).toBeUndefined()
     expect(row(section(card('M6'), 'ボルト・ナット'), '二面幅').note).toBe('JIS本体・旧JIS とも同じ')
+  })
+
+  it('ボルト・ナットの典拠の表: 第1選択は表3、第2選択（M14 など）は表4。JIS B 1176 に無いサイズには表を書かない', () => {
+    expect(section(card('M12'), 'ボルト・ナット').details).toEqual({
+      'JIS B 1180': '表3・表JA.8',
+      'JIS B 1181': '表3・表JA.9',
+      'JIS B 1176': '表3',
+      'JIS B 1001': '付表',
+    })
+    expect(section(card('M14'), 'ボルト・ナット').details?.['JIS B 1180']).toBe('表4・表JA.8')
+    expect(section(card('M18'), 'ボルト・ナット').details?.['JIS B 1176']).toBeUndefined()
+  })
+
+  it("ざぐり径の表記と CAP 用座ぐりの注記（JIS B 1001・B 1176 の規定ではない）", () => {
+    const s = section(card('M10'), 'ボルト・ナット')
+    expect(row(s, "ざぐり径 D'（JIS B 1001）").value).toBe('24')
+    expect(row(s, 'CAP用座ぐり').note).toBe('設計でよく使われる参考値（JIS B 1001・B 1176 の規定ではない）')
   })
 
   it('bolt-size の UNVERIFIED（画面に出す項目）はすべてクイック検索でも ※ になる', () => {

@@ -94,16 +94,22 @@ describe('flangesUsingBolt', () => {
     expect(tenK.sizes.find((row) => row.size === '50A')?.n).toBe(4)
   })
 
-  it('未確認の行（5K・10K の 90A など）に印を付ける。16K の厚さだけの未確認は付けない', () => {
-    const uses = flangesUsingBolt(16)
-    const unverified = (pressure: string) =>
-      uses.find((use) => use.pressure === pressure)!.sizes.filter((row) => row.unverified).map((row) => row.size)
-    expect(unverified('5K')).toEqual(['90A'])
-    expect(unverified('10K')).toEqual(['90A'])
-    expect(unverified('16K')).toEqual([])
-    expect(unverified('20K')).toEqual([])
-    // 5K 50A は厚さだけ未確認（ボルトの呼び・本数は確認済み）
-    expect(flangesUsingBolt(12).find((use) => use.pressure === '5K')!.sizes.find((row) => row.size === '50A')?.unverified).toBe(false)
+  it('どの行も規格原文（JIS B 2220:2012 表14・表15・表17・表18）で確認済みなので、未確認の印は付かない', () => {
+    for (const d of [10, 12, 16, 20, 22, 24]) {
+      for (const use of flangesUsingBolt(d)) {
+        expect(
+          use.sizes.filter((row) => row.unverified).map((row) => row.size),
+          `M${d} ${use.pressure}`,
+        ).toEqual([])
+      }
+    }
+  })
+
+  it('M20 を使うフランジに 16K・20K の 90A（表17・表18）も入る', () => {
+    const uses = flangesUsingBolt(20)
+    for (const pressure of ['16K', '20K']) {
+      expect(uses.find((use) => use.pressure === pressure)!.sizes.map((row) => row.size)).toEqual(['80A', '90A', '100A'])
+    }
   })
 
   it('フランジに使われないサイズは空', () => {

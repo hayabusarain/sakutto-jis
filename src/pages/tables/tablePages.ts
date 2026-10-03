@@ -3,10 +3,10 @@
  * ツールの画面は既定の条件の表しか静的HTMLに入らないため、表ごとに検索から直接たどれるページを作る。
  */
 import { oRingNumbers } from '../../features/o-ring/calc'
-import type { ORingSeries } from '../../features/o-ring/data'
-import { FLANGES, PRESSURE_CLASSES, type PressureClass } from '../../features/flange-bolt/data'
+import { HOUSING_TABLES, RING_TABLES, type ORingSeries } from '../../features/o-ring/data'
+import { FLANGE_TABLE_NO, FLANGES, PRESSURE_CLASSES, type PressureClass } from '../../features/flange-bolt/data'
 import { sizesOf } from '../../features/steel-pipe/calc'
-import { PIPE_SPECS, type PipeSpec } from '../../features/steel-pipe/data'
+import { PIPE_SPECS, PIPE_STANDARD_TABLE, type PipeSpec } from '../../features/steel-pipe/data'
 import type { Crumb } from '../../lib/structuredData'
 import type { StandardCode } from '../../standards'
 import { CATEGORY_LABELS, TOOLS } from '../../tools/registry'
@@ -60,7 +60,7 @@ export const FLANGE_TABLE_PAGES: readonly FlangeTablePageMeta[] = PRESSURE_CLASS
     path,
     title: `JIS ${pressure} フランジ寸法表（外径・PCD・ボルト穴・厚さ・ボルト長さ）`,
     h1: `JIS ${pressure} フランジ寸法表`,
-    description: `JIS B 2220 鋼製管フランジ ${pressure}（並形）の${sizes}について、外径・PCD（ボルト穴中心円の径）・ボルト穴の数と径・ボルトの呼び・厚さを一覧にしました。六角ボルト・スタッドボルトの長さの目安も載せています。`,
+    description: `JIS B 2220 鋼製管フランジ ${pressure}（${FLANGE_TABLE_NO[pressure]}）の${sizes}について、外径・PCD（ボルト穴中心円の径）・ボルト穴の数と径・ボルトの呼び・厚さを一覧にしました。六角ボルト・スタッドボルトの長さの目安も載せています。`,
     label,
     category: toolCategory(FLANGE_TOOL_PATH),
     breadcrumb: [HOME_CRUMB, toolCrumb(FLANGE_TOOL_PATH), { label, path }],
@@ -101,7 +101,7 @@ export const PIPE_TABLE_PAGES: readonly PipeTablePageMeta[] = (Object.keys(PIPE_
       path,
       title: text.title,
       h1: text.h1,
-      description: `${PIPE_SPECS[spec].standard} ${text.kind}の${range(sizes)}（${sizes.length}サイズ）について、外径・厚さ・内径・単位質量（kg/m）・内容積を一覧にしました。A呼び・B呼び（インチ）の両方で探せます。`,
+      description: `${PIPE_SPECS[spec].standard}（${PIPE_STANDARD_TABLE[PIPE_SPECS[spec].standard].no}）${text.kind}の${range(sizes)}（${sizes.length}サイズ）について、外径・厚さ・内径・単位質量（kg/m）・内容積を一覧にしました。A呼び・B呼び（インチ）の両方で探せます。`,
       label,
       category: toolCategory(PIPE_TOOL_PATH),
       breadcrumb: [HOME_CRUMB, toolCrumb(PIPE_TOOL_PATH), { label, path }],
@@ -125,7 +125,7 @@ export const ORING_TABLE_PAGES: readonly ORingTablePageMeta[] = (['P', 'G'] as c
     path,
     title: `Oリング ${series} 寸法表と溝寸法（JIS B 2401・${range(numbers)}）`,
     h1: `Oリング ${series} 系列の寸法表と溝寸法`,
-    description: `JIS B 2401 のOリング ${series} 系列（${ORING_USE[series]}）${range(numbers)}の${numbers.length}サイズについて、内径・太さと、円筒面の溝（d・D・溝幅）・平面の溝の寸法を一覧にしました。`,
+    description: `JIS B 2401-1（${RING_TABLES[series].no}）のOリング ${series} 系列（${ORING_USE[series]}）${range(numbers)}の${numbers.length}サイズについて、内径・太さと、JIS B 2401-2（${HOUSING_TABLES.cylinder.no}・${HOUSING_TABLES.flat.no}）の円筒面の溝（d・D・溝幅）・平面の溝の寸法を一覧にしました。`,
     label,
     category: toolCategory(ORING_TOOL_PATH),
     breadcrumb: [HOME_CRUMB, toolCrumb(ORING_TOOL_PATH), { label, path }],

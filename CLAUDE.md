@@ -26,11 +26,11 @@ npm run build    # 型チェック → ビルド → 全ページを静的HTML�
   - `CopyButton`（結果の文章＋URL をコピー）、`ShareButton`
   - `FormulaInfo`・`Formula`・`FormulaLegend`（「計算ロジック」の開閉欄）
   - `StickyResult`（スマホで結果カードが画面外のとき、画面下に答えを出すバー。`targetId` に結果カードの id）
-- `src/components/` … `Citation`（数値の近くに典拠のJISを表示）、`SourceNote`、`RelatedLinks`（条件付きで関連ツールへ）、`Guide`（`GuideSection`・`Faq`）
+- `src/components/` … `Citation`（数値の近くに典拠のJISを表示。`detail` に規格票の原文で確かめた表番号「表15 呼び圧力10Kフランジの寸法」など）、`SourceNote`、`RelatedLinks`（条件付きで関連ツールへ）、`Guide`（`GuideSection`・`Faq`）
 - `src/hooks/useToolState.ts` … ツールの入力。localStorage に保存し、URL のクエリと同期する（既定値と違う項目だけ。ただし開き直して同じ条件に戻るよう、既定の条件でも空にはせず最小限の項目を書く）。`normalize` で URL の一部指定を整える。別のタブでの変更には追従しない（表示設定だけ `usePersistentState` の `{ crossTab: true }`）
 - 数値の入力は `src/lib/format.ts` の `parseNumber` で読む（全角数字・「1,200」の3桁区切り・「12,5」の小数点カンマに対応）
 - `src/lib/query.ts` の `toolHref(path, params)` … 条件付きリンク。キー名は各ツールの `DEFAULT_INPUT` と同じ
-- `src/standards.ts` … 表示する規格の番号・年版・名称
+- `src/standards.ts` … 表示する規格の番号・年版・名称（年版は数値を照合した版。新しい版が出ていれば `note` に書き、参照規格の欄に出る）
 - ルーターは自作（`src/router`）。サイト内リンクは `Link` を使う
 
 ## 守ること

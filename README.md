@@ -106,7 +106,7 @@ AdSense で収益化する場合は、独自ドメインを取って Cloudflare 
 
 ## データの確認状況
 
-規格の数値の出どころと確認状況は [docs/data-verification.md](docs/data-verification.md) にまとめています。公開前に、そこに挙げた項目を規格原文（[JISC の JIS 検索](https://www.jisc.go.jp/)）で確認してください。
+規格の数値の出どころと確認状況は [docs/data-verification.md](docs/data-verification.md) にまとめています。2026年10月に、各ツールの JIS の数値を規格票の原文とすべて照合しました（いま ※ を付けている値はありません）。残っている確認事項（JIS G 3452・G 3454 の 2026年版との照合など）は同じ文書の「要確認」に挙げています。規格原文は [JISC の JIS 検索](https://www.jisc.go.jp/) で閲覧できます。
 
 ## ディレクトリ構成
 
@@ -146,4 +146,4 @@ public/                      ファビコン・アプリアイコン・manifest.
 
 - CADデータ: フランジの 3D（STEP）
 - はめあい（JIS B 0401）の公差
-- 規格原文での確認が済んだ値から、※ 印を外していく（`docs/data-verification.md`）
+- JIS G 3452・G 3454 の 2026年版（2026年5月20日発行）の原文と照合し、年版と値を更新する（`docs/data-verification.md`）
