@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   availableGrade,
+  B1004_SERIES,
+  b1004SeriesHole,
   basicMinorDiameter,
   chartRow,
   drawingCallout,
@@ -14,6 +16,7 @@ import {
   minorDiameterLimits,
   pitchesOf,
   recommendHole,
+  smallSizeGradeNote,
   stressArea,
   suggestDrillFix,
   threadBasics,
@@ -156,6 +159,20 @@ describe('データの整合性', () => {
     }
   })
 
+  it('T_D1 は JIS B 0209-1 表3 の値（規格票の原文で確認した例）', () => {
+    expect(TD1_UM['0.25']).toEqual({ 4: 45, 5: 56, 6: null, 7: null })
+    expect(TD1_UM['1.75']).toEqual({ 4: 212, 5: 265, 6: 335, 7: 425 })
+    expect(TD1_UM['4.5']).toEqual({ 4: 425, 5: 530, 6: 670, 7: 850 })
+  })
+
+  it('呼び径とピッチは JIS B 0205-2 表2（例: M14 は第2選択、M30 の細目 3 は括弧付き）', () => {
+    expect(findSize(14)).toMatchObject({ choice: 2, coarse: 2, fine: [1.5, 1.25, 1] })
+    expect(findSize(30)).toMatchObject({ choice: 1, coarse: 3.5, fine: [3, 2, 1.5, 1] })
+    expect(
+      METRIC_SIZES.filter((size) => size.choice === 3).map((size) => size.d),
+    ).toEqual([5.5, 9, 11, 15, 17, 25, 26, 28, 32, 35, 38, 40, 50, 55, 58, 62, 65])
+  })
+
   it('全サイズのピッチに公差データがある', () => {
     for (const size of METRIC_SIZES) {
       for (const p of pitchesOf(size)) {
@@ -205,6 +222,11 @@ describe('threadBasics（JIS B 0205-4 の基準寸法・JIS B 1082 の d3）', (
     expect(threadBasics(d, p)).toMatchObject({ d, d2, d1, d3, h })
   })
 
+  it('JIS B 0205-4 表1 の値（規格票の原文で確認）: M12×1.75・M56×5.5', () => {
+    expect(threadBasics(12, 1.75)).toMatchObject({ d2: 10.863, d1: 10.106 })
+    expect(threadBasics(56, 5.5)).toMatchObject({ d2: 52.428, d1: 50.046 })
+  })
+
   it('D1 は basicMinorDiameter と同じ値', () => {
     for (const size of METRIC_SIZES) {
       for (const p of pitchesOf(size)) {
@@ -215,8 +237,16 @@ describe('threadBasics（JIS B 0205-4 の基準寸法・JIS B 1082 の d3）', (
 })
 
 describe('stressArea（有効断面積 As、JIS B 1082）', () => {
-  // 規格の表（ISO 898-1 と同じ値。有効数字3桁）
+  // JIS B 1082:2009 表1 一般用メートルねじの有効断面積（有効数字3桁。規格票の原文で確認）
   it.each([
+    [1, 0.25, '0.460'],
+    [42, 4.5, '1120'],
+    [64, 6, '2680'],
+    [36, 3, '865'],
+    [64, 4, '2850'],
+    // 表9 注c)
+    [2.2, 0.45, '2.48'],
+    [4.5, 0.75, '11.3'],
     [3, 0.5, '5.03'],
     [4, 0.7, '8.78'],
     [5, 0.8, '14.2'],
@@ -333,8 +363,66 @@ describe('drillChart（全サイズの早見表）', () => {
     expect(chartRow(12, 2, 6)).toBeNull()
   })
 
-  it('注記のあるピッチは note を持つ', () => {
+  it('注記のあるピッチは note を持つ（JIS B 0205-2 表2 の注(1)(2)、5.1 の括弧付きピッチ）', () => {
     expect(chartRow(14, 1.25, 6)?.note).toBe('内燃機関用点火プラグ専用')
+    // 注(2) は「転がり軸受を固定するねじに限って用いることができる」（ナットに限らない）
+    expect(chartRow(35, 1.5, 6)?.note).toBe('転がり軸受を固定するねじ専用')
+    expect(chartRow(30, 3, 6)?.note).toBe('なるべく避ける')
+    expect(chartRow(33, 3, 6)?.note).toBe('なるべく避ける')
+  })
+})
+
+describe('JIS B 1004:2009 の下穴径の系列（表1 の式）', () => {
+  it('M12×1.75（表2）: 100〜65 % の系列は 10.1〜10.8（0.1 mm に丸める）', () => {
+    expect(B1004_SERIES.map((percent) => b1004SeriesHole(12, 1.75, percent))).toEqual([
+      10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8,
+    ])
+  })
+
+  it('M10×1.25・M12×1.25（表3）: 0.01 mm に丸める', () => {
+    expect(B1004_SERIES.map((percent) => b1004SeriesHole(10, 1.25, percent))).toEqual([
+      8.65, 8.71, 8.78, 8.85, 8.92, 8.99, 9.05, 9.12,
+    ])
+    expect(B1004_SERIES.map((percent) => b1004SeriesHole(12, 1.25, percent))).toEqual([
+      10.65, 10.71, 10.78, 10.85, 10.92, 10.99, 11.05, 11.12,
+    ])
+    expect(b1004SeriesHole(68, 1.5, 100)).toBe(66.38)
+  })
+
+  it('系列の径のひっかかり率は、丸めの分だけ系列の値からずれる', () => {
+    // (12 − 10.2) ÷ (1.082532 × 1.75) × 100 = 95.015…
+    expect(engagementPercent(12, 1.75, b1004SeriesHole(12, 1.75, 95))).toBeCloseTo(95.02, 2)
+  })
+
+  it('100 % の系列は丸めのため D1 の最小をわずかに下回ることがある（M12 の 10.1 < 10.106）', () => {
+    const limits = minorDiameterLimits(12, 1.75, 6)!
+    expect(judgeHole(b1004SeriesHole(12, 1.75, 100), limits)).toBe('small')
+    expect(judgeHole(b1004SeriesHole(12, 1.75, 95), limits)).toBe('ok')
+    expect(judgeHole(b1004SeriesHole(12, 1.75, 90), limits)).toBe('ok')
+  })
+
+  it('JIS B 1004 表2・表3 のめねじ内径（参考）と同じ範囲（M12 の 5H・6H・7H、M10×1.25）', () => {
+    expect([5, 6, 7].map((g) => minorDiameterLimits(12, 1.75, g as 5 | 6 | 7)?.max)).toEqual([10.371, 10.441, 10.531])
+    expect(minorDiameterLimits(12, 1.75, 6)?.min).toBe(10.106)
+    expect([5, 6, 7].map((g) => minorDiameterLimits(10, 1.25, g as 5 | 6 | 7)?.max)).toEqual([8.859, 8.912, 8.982])
+    expect(minorDiameterLimits(10, 1.25, 6)?.min).toBe(8.647)
+  })
+})
+
+describe('smallSizeGradeNote（M1.4 以下は 5H・4H。JIS B 0209-1 の 12.）', () => {
+  it('M1.4 以下で 6H・7H を選んでいるときだけ注意を出す', () => {
+    expect(smallSizeGradeNote(1.4, 6)).toContain('5H か 4H')
+    expect(smallSizeGradeNote(1, 7)).not.toBeNull()
+    expect(smallSizeGradeNote(1.4, 5)).toBeNull()
+    expect(smallSizeGradeNote(1.4, 4)).toBeNull()
+    expect(smallSizeGradeNote(1.6, 6)).toBeNull()
+  })
+
+  it('M1.4 並目の 6H の範囲は規格にあるので、早見表は 6H のまま（推奨 1.1 は 5H の範囲にも入る）', () => {
+    const row = chartRow(1.4, 0.3, 6)!
+    expect(row.grade).toBe(6)
+    expect(row.hole).toBe(1.1)
+    expect(judgeHole(row.hole, minorDiameterLimits(1.4, 0.3, 5)!)).toBe('ok')
   })
 })
 

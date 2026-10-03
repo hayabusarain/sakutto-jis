@@ -479,12 +479,16 @@ export function ThreadIdTool() {
         {best && <RelatedLinks links={relatedLinksFor(best)} />}
 
         <div className="mt-4 space-y-1">
-          <Citation code="JIS B 0205-2" suffix="の呼び径とピッチ（メートルねじ）" />
+          <Citation code="JIS B 0205-2" detail="表2 呼び径及びピッチの選択" suffix="（メートルねじ）" />
           {!external && (
-            <Citation code="JIS B 0209-1" suffix={`のめねじ内径の公差（${INTERNAL_GRADE}H）から計算`} />
+            <Citation code="JIS B 0209-1" detail="表3 めねじ内径の公差" suffix={`（${INTERNAL_GRADE}H）から計算`} />
           )}
-          <Citation code="JIS B 0203" suffix="の基準寸法・基準の長さ・有効ねじ部の長さから計算（R・Rc・Rp）" />
-          <Citation code="JIS B 0202" suffix="の基準寸法（G）" />
+          <Citation code="JIS B 0203" detail="付表1" suffix="の基準寸法・基準の長さ・有効ねじ部の長さから計算（R・Rc・Rp）" />
+          {external ? (
+            <Citation code="JIS B 0202" detail="付表1" suffix="の基準寸法（G）" />
+          ) : (
+            <Citation code="JIS B 0202" detail="付表1・付表2" suffix="の基準寸法とめねじ内径の許容差（G）" />
+          )}
         </div>
 
         <div className="mt-4">
